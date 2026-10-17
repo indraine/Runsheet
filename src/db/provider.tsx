@@ -14,9 +14,19 @@ const DbContext = createContext<Resource<RunsheetDatabase>>()
 const RepositoryContext =
     createContext<Accessor<SessionRepository | undefined>>()
 
+/** Dev builds fill an empty database once, before any screen reads it. */
+async function openDatabase(): Promise<RunsheetDatabase> {
+    const opened = await openRunsheetDb()
+    if (import.meta.env.DEV) {
+        const { seedDevDay } = await import("~/db/seed")
+        await seedDevDay(opened)
+    }
+    return opened
+}
+
 /** Opens IndexedDB once. Screens read it with `useDb` and writes go through `useSessionRepository`. */
 export function DatabaseProvider(props: ParentProps) {
-    const [database] = createResource(() => openRunsheetDb())
+    const [database] = createResource(openDatabase)
     const repository = createMemo(() => {
         const opened = database()
         return opened ? new SessionRepository(opened) : undefined
