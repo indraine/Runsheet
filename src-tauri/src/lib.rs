@@ -28,8 +28,8 @@ pub fn run() {
                 loop {
                     if let Ok(Some(data)) = acc.read_shared_memory() {
                         println!(
-                            "Speed: {:.2} km/h, RPM: {}",
-                            data.physics.speed_kmh, data.physics.rpm
+                            "data: {:?}",
+                            data
                         );
                     }
 
