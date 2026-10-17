@@ -1,9 +1,9 @@
-import { createSignal } from "solid-js";
+import { createSignal } from "solid-js"
 
-export const LOCALES = ["ru", "en"] as const;
+export const LOCALES = ["ru", "en"] as const
 
-export type Locale = (typeof LOCALES)[number];
+export type Locale = (typeof LOCALES)[number]
 
-const DEFAULT_LOCALE: Locale = "ru";
+const DEFAULT_LOCALE: Locale = "ru"
 
-export const [locale, setLocale] = createSignal<Locale>(DEFAULT_LOCALE);
+export const [locale, setLocale] = createSignal<Locale>(DEFAULT_LOCALE)

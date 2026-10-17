@@ -1,3 +1,3 @@
 export function TimelinePage() {
-  return null;
+    return null
 }

@@ -11,56 +11,58 @@
   Screens keep using bg-surface, text-muted, border-line, text-gain, text-loss.
 */
 :root {
-  color-scheme: light;
+    color-scheme: light;
 
-  --canvas: #f8fafc;
-  --surface: #ffffff;
-  --inset: #f1f5f9;
-  --line: #e2e8f0;
+    --canvas: #f8fafc;
+    --surface: #ffffff;
+    --inset: #f1f5f9;
+    --line: #e2e8f0;
 
-  --ink: #0f172a;
-  --secondary: #475569;
-  --muted: #94a3b8;
+    --ink: #0f172a;
+    --secondary: #475569;
+    --muted: #94a3b8;
 
-  --accent: #2a6fc9;
-  --on-accent: #ffffff;
-  --reference: #6366f1;
+    --accent: #2a6fc9;
+    --on-accent: #ffffff;
+    --reference: #6366f1;
 
-  --gain: #059669;
-  --loss: #dc2626;
-  --caution: #d97706;
+    --gain: #059669;
+    --loss: #dc2626;
+    --caution: #d97706;
 }
 
 @theme inline {
-  --color-canvas: var(--canvas);
-  --color-surface: var(--surface);
-  --color-inset: var(--inset);
-  --color-line: var(--line);
+    --color-canvas: var(--canvas);
+    --color-surface: var(--surface);
+    --color-inset: var(--inset);
+    --color-line: var(--line);
 
-  --color-ink: var(--ink);
-  --color-secondary: var(--secondary);
-  --color-muted: var(--muted);
+    --color-ink: var(--ink);
+    --color-secondary: var(--secondary);
+    --color-muted: var(--muted);
 
-  --color-accent: var(--accent);
-  --color-on-accent: var(--on-accent);
-  --color-reference: var(--reference);
+    --color-accent: var(--accent);
+    --color-on-accent: var(--on-accent);
+    --color-reference: var(--reference);
 
-  --color-gain: var(--gain);
-  --color-loss: var(--loss);
-  --color-caution: var(--caution);
+    --color-gain: var(--gain);
+    --color-loss: var(--loss);
+    --color-caution: var(--caution);
 }
 
 @theme {
-  /* Hanken Grotesk has no basic Cyrillic; Russian prose falls through to the system sans. */
-  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+    /* Hanken Grotesk has no basic Cyrillic; Russian prose falls through to the system sans. */
+    --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
 @layer base {
-  html {
-    background-color: var(--canvas);
-    color: var(--ink);
-    font-family: var(--font-mono);
-    font-feature-settings: "tnum" 1, "zero" 1;
-  }
+    html {
+        background-color: var(--canvas);
+        color: var(--ink);
+        font-family: var(--font-mono);
+        font-feature-settings:
+            "tnum" 1,
+            "zero" 1;
+    }
 }

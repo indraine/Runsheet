@@ -1,3 +1,3 @@
 export default function AnalysisPage() {
-  return null;
+    return null
 }
