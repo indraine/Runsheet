@@ -6,9 +6,8 @@
 @import "tailwindcss";
 
 /*
-  Light palette. Utilities read these variables, so a dark theme is a second
-  block on html[data-theme="dark"] with the same names — and color-scheme: dark.
-  Screens keep using bg-surface, text-muted, border-line, text-gain, text-loss.
+  Светлая палитра на :root. Тёмная — те же имена на html[data-theme="dark"].
+  Экраны остаются на bg-surface, text-muted, border-line, text-gain, text-loss.
 */
 :root {
     color-scheme: light;
@@ -29,6 +28,27 @@
     --gain: #059669;
     --loss: #dc2626;
     --caution: #d97706;
+}
+
+html[data-theme="dark"] {
+    color-scheme: dark;
+
+    --canvas: #0b1220;
+    --surface: #111827;
+    --inset: #0f172a;
+    --line: #1f2937;
+
+    --ink: #f8fafc;
+    --secondary: #cbd5e1;
+    --muted: #64748b;
+
+    --accent: #7eb0ef;
+    --on-accent: #ffffff;
+    --reference: #a5b4fc;
+
+    --gain: #34d399;
+    --loss: #f87171;
+    --caution: #fbbf24;
 }
 
 @theme inline {

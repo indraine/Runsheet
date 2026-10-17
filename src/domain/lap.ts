@@ -20,3 +20,15 @@ export type Lap = {
     /** Fuel left, litres, from `physics.fuel`. */
     fuel: number
 }
+
+/** Fastest lap that counts and has a closed time. */
+export function fastestValidLap(laps: readonly Lap[]): Lap | undefined {
+    let best: Lap | undefined
+    for (const lap of laps) {
+        if (!lap.valid || lap.timeMs === null) continue
+        if (!best || best.timeMs === null || lap.timeMs < best.timeMs) {
+            best = lap
+        }
+    }
+    return best
+}

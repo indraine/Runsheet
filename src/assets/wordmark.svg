@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 252" width="1000" height="252">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 252" width="1000" height="252" aria-hidden="true">
   <defs>
     <linearGradient id="primaryHGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#0284c7"/>
@@ -38,7 +38,7 @@
           font-size="168"
           font-weight="800"
           letter-spacing="-3"
-          fill="#0f172a">
+          fill="currentColor">
       UN<tspan fill="#0284c7">SHEET</tspan>
     </text>
   </g>

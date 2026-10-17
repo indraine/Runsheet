@@ -4,6 +4,29 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#f8fafc" />
+        <script>
+            ;(function () {
+                var preference = "light"
+                try {
+                    var stored = localStorage.getItem("runsheet.theme")
+                    if (
+                        stored === "light" ||
+                        stored === "dark" ||
+                        stored === "system"
+                    ) {
+                        preference = stored
+                    }
+                } catch (e) {}
+                var dark =
+                    preference === "dark" ||
+                    (preference === "system" &&
+                        matchMedia("(prefers-color-scheme: dark)").matches)
+                document.documentElement.dataset.theme = dark ? "dark" : "light"
+                document.documentElement.style.colorScheme = dark
+                    ? "dark"
+                    : "light"
+            })()
+        </script>
         <link rel="icon" type="image/svg+xml" href="/src/assets/icon.svg" />
         <title>Runsheet</title>
     </head>

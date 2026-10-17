@@ -1,6 +1,6 @@
 import { Navigate, useNavigate } from "@solidjs/router"
-import wordmark from "~/assets/wordmark.svg"
 import { hasStarted, markStarted } from "~/app/started"
+import { Wordmark } from "~/app/wordmark"
 import { t } from "~/i18n"
 import { Button } from "~/ui/button"
 
@@ -17,11 +17,7 @@ export function WelcomePage() {
     return (
         <div class="flex min-h-dvh items-center justify-center bg-canvas px-6 text-ink">
             <div class="flex w-full max-w-xl flex-col items-center text-center">
-                <img
-                    src={wordmark}
-                    alt={t("app.wordmark")}
-                    class="h-32 w-auto max-w-full"
-                />
+                <Wordmark class="h-32 max-w-full" />
                 <p class="mt-10 font-mono text-xl leading-7 text-ink">
                     {t("app.welcomeSlogan")}
                 </p>

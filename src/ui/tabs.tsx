@@ -19,7 +19,7 @@ const listVariants = cva(
     "relative inline-flex items-center gap-0.5 rounded border border-line bg-inset p-0.5 data-[orientation=vertical]:flex-col"
 )
 const triggerVariants = cva([
-    "inline-flex h-7 items-center justify-center rounded border border-transparent px-2",
+    "inline-flex h-7 cursor-pointer items-center justify-center rounded border border-transparent px-2",
     "font-mono text-[11px] font-medium tracking-wide text-secondary uppercase",
     "transition-colors",
     "outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20",

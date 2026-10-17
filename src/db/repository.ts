@@ -1,5 +1,6 @@
 import { createSignal, type Accessor, type Setter } from "solid-js"
 import {
+    fastestValidLap,
     groupDay,
     type DayItem,
     type Lap,
@@ -127,16 +128,6 @@ function pickReference(
         if (chosen) return chosen
     }
     return fastestValidLap(laps)
-}
-
-function fastestValidLap(laps: readonly Lap[]): Lap | undefined {
-    let best: Lap | undefined
-    for (const lap of laps) {
-        if (!lap.valid || lap.timeMs === null) continue
-        if (!best || best.timeMs === null || lap.timeMs < best.timeMs)
-            best = lap
-    }
-    return best
 }
 
 function sameLocalDay(left: number, right: number): boolean {

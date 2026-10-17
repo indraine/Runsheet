@@ -1,8 +1,9 @@
 import { A, useMatch } from "@solidjs/router"
 import { ArrowLeft } from "lucide-solid"
 import { Show } from "solid-js"
-import wordmark from "~/assets/wordmark.svg"
 import { accLink, analysisHeading } from "~/app/status"
+import { ThemeToggle } from "~/app/theme-toggle"
+import { Wordmark } from "~/app/wordmark"
 import { t } from "~/i18n"
 
 export function Header() {
@@ -15,11 +16,7 @@ export function Header() {
                     href="/"
                     class="shrink-0 rounded outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20"
                 >
-                    <img
-                        src={wordmark}
-                        alt={t("app.wordmark")}
-                        class="h-10 w-auto"
-                    />
+                    <Wordmark class="h-10" />
                 </A>
                 <span class="h-4 w-px shrink-0 bg-line" aria-hidden="true" />
                 <Show when={analysis()} fallback={<AccStatus />}>
@@ -41,9 +38,12 @@ export function Header() {
                     </span>
                 </Show>
             </div>
-            <Show when={analysis()}>
-                <AccStatus />
-            </Show>
+            <div class="flex shrink-0 items-center gap-3">
+                <Show when={analysis()}>
+                    <AccStatus />
+                </Show>
+                <ThemeToggle />
+            </div>
         </header>
     )
 }
