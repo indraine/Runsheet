@@ -8,18 +8,35 @@
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
+    "test": "vitest run",
     "tauri": "tauri"
   },
   "license": "MIT",
   "dependencies": {
-    "solid-js": "^1.9.3",
+    "@ark-ui/solid": "^5.39.3",
+    "@fontsource/hanken-grotesk": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@solid-primitives/i18n": "^2.2.1",
+    "@solidjs/router": "^1.0.0",
     "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-opener": "^2"
+    "@tauri-apps/plugin-opener": "^2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "idb": "^8.0.4",
+    "lucide-solid": "^1.59.0",
+    "pixi.js": "^8.22.0",
+    "solid-js": "^1.9.3",
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2",
+    "@types/node": "^26.6.5",
+    "fake-indexeddb": "^6.2.6",
+    "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "vite": "^8.0.16",
     "vite-plugin-solid": "^2.11.12",
-    "@tauri-apps/cli": "^2"
+    "vitest": "^5.0.5"
   }
 }

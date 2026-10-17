@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f1f5f9"/>
+    </linearGradient>
+    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0f172a" flood-opacity="0.08"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0284c7" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect x="32" y="32" width="448" height="448" rx="104" fill="url(#bgGrad)" stroke="#cbd5e1" stroke-width="3" filter="url(#shadow)"/>
+
+  <g stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4,6">
+    <line x1="100" y1="90" x2="100" y2="422" />
+    <line x1="180" y1="90" x2="180" y2="422" />
+    <line x1="260" y1="90" x2="260" y2="422" />
+    <line x1="340" y1="90" x2="340" y2="422" />
+    <line x1="420" y1="90" x2="420" y2="422" />
+    <line x1="80" y1="170" x2="432" y2="170" />
+    <line x1="80" y1="256" x2="432" y2="256" />
+    <line x1="80" y1="342" x2="432" y2="342" />
+  </g>
+
+  <path d="M 124 374 C 124 374, 150 180, 240 150 C 330 120, 396 170, 396 230 C 396 295, 310 305, 230 305 L 390 400"
+        fill="none" stroke="#e0f2fe" stroke-width="48" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M 128 370 C 135 240, 185 165, 240 156 C 305 145, 380 185, 380 230 C 380 280, 315 296, 245 296 L 382 396"
+        fill="none" stroke="#94a3b8" stroke-width="8" stroke-dasharray="8,8" stroke-linecap="round"/>
+
+  <path d="M 148 396 L 148 138 C 148 122, 160 110, 176 110 L 264 110 C 340 110, 390 150, 390 216 C 390 274, 344 308, 274 314 L 384 396"
+        fill="none" stroke="url(#primaryGrad)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M 152 314 L 256 314" stroke="url(#primaryGrad)" stroke-width="20" stroke-linecap="round"/>
+
+  <circle cx="390" cy="216" r="14" fill="#ffffff" stroke="#0284c7" stroke-width="5"/>
+  <circle cx="390" cy="216" r="6" fill="#10b981"/>
+
+  <circle cx="274" cy="314" r="10" fill="#ffffff" stroke="#1d4ed8" stroke-width="4"/>
+  <circle cx="274" cy="314" r="4" fill="#38bdf8"/>
+</svg>

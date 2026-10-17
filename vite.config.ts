@@ -1,12 +1,23 @@
-import { defineConfig } from "vite";
+import { fileURLToPath, URL } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "vitest/config";
 import solid from "vite-plugin-solid";
-// @ts-expect-error type error without @types/node package
-import process from "node:process";
+
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
-  plugins: [solid()],
+  plugins: [tailwindcss(), solid()],
+  resolve: {
+    alias: {
+      "~": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.ts"],
+    passWithNoTests: true,
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

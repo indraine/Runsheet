@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 200" width="760" height="200">
+  <defs>
+    <linearGradient id="primaryHGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(16, 20)">
+    <rect x="0" y="0" width="160" height="160" rx="36" fill="#f0f9ff" stroke="#bae6fd" stroke-width="2"/>
+
+    <line x1="28" y1="14" x2="28" y2="146" stroke="#e0f2fe" stroke-width="1.2" stroke-dasharray="3,3"/>
+    <line x1="64" y1="14" x2="64" y2="146" stroke="#e0f2fe" stroke-width="1.2" stroke-dasharray="3,3"/>
+    <line x1="102" y1="14" x2="102" y2="146" stroke="#e0f2fe" stroke-width="1.2" stroke-dasharray="3,3"/>
+    <line x1="132" y1="14" x2="132" y2="146" stroke="#e0f2fe" stroke-width="1.2" stroke-dasharray="3,3"/>
+    <line x1="14" y1="48" x2="146" y2="48" stroke="#e0f2fe" stroke-width="1.2" stroke-dasharray="3,3"/>
+    <line x1="14" y1="80" x2="146" y2="80" stroke="#e0f2fe" stroke-width="1.2" stroke-dasharray="3,3"/>
+    <line x1="14" y1="112" x2="146" y2="112" stroke="#e0f2fe" stroke-width="1.2" stroke-dasharray="3,3"/>
+
+    <path d="M 36 128 C 42 84, 62 58, 82 55 C 104 52, 128 66, 128 84 C 128 102, 106 108, 82 108 L 128 138"
+          fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-dasharray="3,3" stroke-linecap="round"/>
+
+    <path d="M 44 138 L 44 36 C 44 30, 48 24, 56 24 L 86 24 C 114 24, 132 40, 132 64 C 132 86, 114 98, 88 102 L 128 138"
+          fill="none" stroke="url(#primaryHGrad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M 44 102 L 86 102" stroke="url(#primaryHGrad)" stroke-width="12" stroke-linecap="round"/>
+
+    <circle cx="132" cy="64" r="5" fill="#ffffff" stroke="#0284c7" stroke-width="2"/>
+    <circle cx="132" cy="64" r="2" fill="#10b981"/>
+
+    <circle cx="88" cy="102" r="4" fill="#ffffff" stroke="#1d4ed8" stroke-width="1.5"/>
+    <circle cx="88" cy="102" r="1.5" fill="#38bdf8"/>
+  </g>
+
+  <g transform="translate(210, 0)">
+    <text x="0" y="130"
+          font-family="'JetBrains Mono', Consolas, monospace"
+          font-size="80"
+          font-weight="800"
+          letter-spacing="-1.5"
+          fill="#0f172a">
+      RUN<tspan fill="#0284c7">SHEET</tspan>
+    </text>
+  </g>
+</svg>
