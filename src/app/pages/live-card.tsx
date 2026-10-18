@@ -1,6 +1,6 @@
 import { A, useNavigate } from "@solidjs/router"
 import { Check } from "lucide-solid"
-import { For, Show } from "solid-js"
+import { Index, Show } from "solid-js"
 import { TrackLine } from "~/app/track-line"
 import type { LiveCard as LiveCardModel, LiveLapRow } from "~/domain"
 import { carName, fmt, t, trackName } from "~/i18n"
@@ -8,7 +8,7 @@ import { locale } from "~/i18n/locale"
 import { cn } from "~/ui"
 
 /**
- * Верх таймлайна: трасса, сводка, таблица кругов и линия последнего трейса.
+ * Верх таймлайна: трасса, сводка, таблица кругов и карта проезда.
  */
 export const LiveCard = (props: { card: LiveCardModel }) => {
     const card = () => props.card
@@ -74,19 +74,18 @@ export const LiveCard = (props: { card: LiveCardModel }) => {
                 />
                 <div class="relative min-h-72 overflow-hidden border-t border-line lg:border-t-0 lg:border-l">
                     <Show
-                        when={card().line}
+                        when={card().road || card().line}
                         fallback={
                             <p class="flex h-full min-h-72 items-center justify-center font-mono text-[11px] text-muted">
                                 {t("app.empty")}
                             </p>
                         }
                     >
-                        {trace => (
-                            <TrackLine
-                                class="absolute inset-0 min-h-0"
-                                trace={trace()}
-                            />
-                        )}
+                        <TrackLine
+                            class="absolute inset-0 min-h-0"
+                            road={card().road}
+                            line={card().line}
+                        />
                     </Show>
                 </div>
             </div>
@@ -156,15 +155,15 @@ const LapTable = (props: {
                 </tr>
             </thead>
             <tbody>
-                <For each={props.rows}>
+                <Index each={props.rows}>
                     {row => (
                         <LapRow
                             sessionId={props.sessionId}
-                            row={row}
+                            row={row()}
                             best={props.best}
                         />
                     )}
-                </For>
+                </Index>
             </tbody>
         </table>
     </div>
@@ -211,22 +210,12 @@ const LapRow = (props: {
                     </span>
                 </A>
             </th>
-            <td
-                class={cn(
-                    "px-3 font-mono text-[13px]",
-                    timeClass(props.row)
-                )}
-            >
+            <td class={cn("px-3 font-mono text-[13px]", timeClass(props.row))}>
                 {props.row.lap.timeMs === null
                     ? t("app.empty")
                     : fmt.lap(props.row.lap.timeMs)}
             </td>
-            <td
-                class={cn(
-                    "px-3 font-mono text-[13px]",
-                    deltaClass(props.row)
-                )}
-            >
+            <td class={cn("px-3 font-mono text-[13px]", deltaClass(props.row))}>
                 {deltaText(props.row)}
             </td>
             <SectorCell

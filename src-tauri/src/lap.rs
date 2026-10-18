@@ -3,8 +3,10 @@
 //! На вход подаётся снимок полей, не shared memory. Пока круг открыт, точка
 //! трейса кладётся не чаще 20 Гц. Дистанция круга — `distance_traveled` минус
 //! значение на старте. Смена сектора запоминает `last_sector_time` и эту
-//! дистанцию. Рост `completed_lap` закрывает круг: время из `last_time`,
-//! третий сектор — остаток, зачёт — с последнего тика перед линией.
+//! дистанцию. Круг закрывается, когда вырастает `completed_lap` или машина
+//! пересекла линию: часы круга сбросились, либо `normalized_car_position`
+//! перешёл через старт. Время берётся из `last_time`, третий сектор — остаток,
+//! зачёт — с последнего тика перед линией.
 
 // Пачку забирает доставка во фронт. На не-Windows поток сборщик не крутит,
 // поэтому без `test` сборка эти типы не вызывает.
@@ -14,6 +16,12 @@ use uuid::Uuid;
 
 /// Минимальный зазор между точками трейса. 20 Гц — это 50 мс.
 const TRACE_GAP_MS: u64 = 50;
+
+/// Короче этого текущий круг ещё не считается: сброс часов на старте не закрывает его.
+const LAP_CLOCK_GUARD_MS: i32 = 3_000;
+
+/// Насколько часы должны упасть, чтобы это была линия, а не дрожание пакета.
+const CLOCK_DROP_MS: i32 = 1_500;
 
 /// Сколько каналов в плоскости. Порядок совпадает с `TRACE_CHANNELS` на фронте.
 const CHANNEL_COUNT: usize = 16;
@@ -57,6 +65,8 @@ pub(crate) struct Sample {
     pub speed: f32,
     /// `graphics.current_time`, миллисекунды текущего круга.
     pub lap_time_ms: i32,
+    /// `graphics.normalized_car_position`, 0..1 по длине трассы.
+    pub progress: f32,
     /// `physics.g_force.z`, продольная.
     pub g_long: f32,
     /// `physics.g_force.x`, боковая.
@@ -77,6 +87,8 @@ pub(crate) struct Sample {
 #[derive(Debug, Default)]
 pub(crate) struct Collector {
     open: Option<OpenLap>,
+    /// `completed_lap`, уже отданный закрытому кругу. Следующий тик его не повторяет.
+    carry_completed: Option<i32>,
 }
 
 impl Collector {
@@ -89,6 +101,7 @@ impl Collector {
     /// Без точек пачки нет: в базу нечего класть.
     /// С точками круг уходит незачётным и без времени — линии он не пересёк.
     pub(crate) fn abandon(&mut self) -> Option<Vec<u8>> {
+        self.carry_completed = None;
         let open = self.open.take()?;
         if open.points.is_empty() {
             return None;
@@ -131,26 +144,34 @@ impl Collector {
             .is_some_and(|open| open.session_id != sample.session_id)
         {
             self.open = None;
+            self.carry_completed = None;
         }
 
         let closed = self.take_closed(sample);
         if self.open.is_none() {
-            self.open = Some(OpenLap::begin(sample));
+            let completed_at_open = self.carry_completed.take().unwrap_or(sample.completed_lap);
+            self.open = Some(OpenLap::begin(sample, completed_at_open));
         }
         self.observe(sample);
         closed
     }
 
-    /// Рост `completed_lap` закрывает круг снимком, который был до этого тика.
+    /// Линия закрывает круг снимком, который был до этого тика.
+    /// `completed_lap` иногда догоняет только следующим пакетом: новый круг
+    /// запоминает это значение, чтобы тот же переход не закрыл его сразу.
     fn take_closed(&mut self, boundary: &Sample) -> Option<Vec<u8>> {
-        let grown = self
-            .open
-            .as_ref()
-            .is_some_and(|open| boundary.completed_lap > open.completed_at_open);
-        if !grown {
+        let Some(open) = self.open.as_ref() else {
+            return None;
+        };
+        let grown = boundary.completed_lap > open.completed_at_open;
+        if !grown && !line_crossed(open, boundary) {
             return None;
         }
+        let consumed = boundary
+            .completed_lap
+            .max(open.completed_at_open.saturating_add(1));
         let open = self.open.take()?;
+        self.carry_completed = Some(consumed);
         Some(pack(&open.finish(boundary)))
     }
 
@@ -166,6 +187,8 @@ impl Collector {
             Some(seen) => seen.max(sample.speed),
             None => sample.speed,
         });
+        open.last_lap_time_ms = Some(sample.lap_time_ms);
+        open.last_progress = Some(sample.progress);
         if !open.due(sample.mono_ms) {
             return;
         }
@@ -190,16 +213,18 @@ struct OpenLap {
     fuel: f32,
     max_speed: Option<f32>,
     last_trace_ms: Option<u64>,
+    last_lap_time_ms: Option<i32>,
+    last_progress: Option<f32>,
     points: Vec<Point>,
 }
 
 impl OpenLap {
-    fn begin(sample: &Sample) -> Self {
+    fn begin(sample: &Sample, completed_at_open: i32) -> Self {
         Self {
             id: Uuid::new_v4(),
             session_id: sample.session_id,
-            number: sample.completed_lap.saturating_add(1),
-            completed_at_open: sample.completed_lap,
+            number: completed_at_open.saturating_add(1),
+            completed_at_open,
             origin_m: sample.distance_m,
             sector: sample.sector_index,
             s1_ms: None,
@@ -210,6 +235,8 @@ impl OpenLap {
             fuel: 0.0,
             max_speed: None,
             last_trace_ms: None,
+            last_lap_time_ms: None,
+            last_progress: None,
             points: Vec::new(),
         }
     }
@@ -357,6 +384,25 @@ struct Finished {
     points: Vec<Point>,
 }
 
+fn line_crossed(open: &OpenLap, sample: &Sample) -> bool {
+    let Some(previous_time) = open.last_lap_time_ms else {
+        return false;
+    };
+    if previous_time < LAP_CLOCK_GUARD_MS {
+        return false;
+    }
+    if sample.lap_time_ms >= 0 && sample.lap_time_ms.saturating_add(CLOCK_DROP_MS) < previous_time {
+        return true;
+    }
+    let Some(previous) = open.last_progress else {
+        return false;
+    };
+    sample.progress >= 0.0
+        && sample.progress < 0.15
+        && previous > 0.85
+        && previous - sample.progress > 0.5
+}
+
 /// Заголовок и плоскость сэмплов.
 ///
 /// Little-endian. Сначала заголовок: `lap_id` и `session_id` по 16 байт,
@@ -452,6 +498,7 @@ mod tests {
             steer: 1.0,
             speed: 200.0,
             lap_time_ms: 10_000,
+            progress: 0.0,
             g_long: -0.2,
             g_lat: 0.1,
             x: 1.0,
@@ -509,5 +556,31 @@ mod tests {
         assert_ne!(laps.open_id(), open);
         assert_eq!(read_i32(&closed, 40), 91_234);
         assert_eq!(read_u32(&closed, 36), 2);
+    }
+
+    #[test]
+    fn line_cross_opens_the_next_lap_before_completed_lap_catches_up() {
+        let mut laps = Collector::default();
+        let mut running = at(0, 0, 2, 100.0);
+        running.lap_time_ms = 80_000;
+        running.progress = 0.97;
+        assert!(laps.push(&running).is_none());
+        assert_eq!(laps.open_number(), Some(1));
+
+        let mut line = at(TRACE_GAP_MS, 0, 0, 4_100.0);
+        line.lap_time_ms = 80;
+        line.progress = 0.01;
+        line.last_time_ms = 81_500;
+        let closed = laps.push(&line).expect("финиш по линии");
+        assert_eq!(read_i32(&closed, 32), 1);
+        assert_eq!(read_i32(&closed, 40), 81_500);
+        assert_eq!(laps.open_number(), Some(2));
+
+        let mut follow = at(TRACE_GAP_MS + 10, 1, 0, 4_140.0);
+        follow.lap_time_ms = 160;
+        follow.progress = 0.02;
+        assert!(laps.push(&follow).is_none());
+        assert_eq!(laps.open_number(), Some(2));
+        assert_eq!(laps.open_points(), 1);
     }
 }

@@ -4,21 +4,19 @@ import {
     Match,
     Show,
     Switch,
-    createResource,
+    createEffect,
     createSignal,
+    onCleanup,
+    untrack,
 } from "solid-js"
 import { accLink } from "~/app/status"
-import { useSessionRepository, type SessionRepository } from "~/db"
+import { useSessionRepository } from "~/db"
 import {
     SESSION_FILTERS,
     closedSheet,
-    fastestValidLap,
     groupByDay,
     isSessionFilter,
-    liveCard,
-    shownLive,
     type Lap,
-    type LiveCard as LiveCardModel,
     type Session,
     type SessionFilter,
     type SessionType,
@@ -27,55 +25,94 @@ import { carName, fmt, t, trackName } from "~/i18n"
 import { locale } from "~/i18n/locale"
 import { Tabs, cn } from "~/ui"
 import { DayNav, activeDayStart } from "~/app/pages/day-nav"
+import {
+    applyDayWrite,
+    projectDay,
+    readStableDay,
+    type DayMemory,
+    type DaySession,
+} from "~/app/pages/day-memory"
 import { LiveCard } from "~/app/pages/live-card"
-
-type DaySession = {
-    session: Session
-    bestLap: Lap | undefined
-}
-
-type DaySheet = {
-    past: DaySession[]
-    live: LiveCardModel | undefined
-}
 
 const rowClass = "flex items-baseline gap-6 px-2 py-3"
 
 export function TimelinePage() {
     const repository = useSessionRepository()
-    const [sheet] = createResource(
-        () => {
-            const repo = repository()
-            if (!repo) return undefined
-            return repo.revision()
-        },
-        async () => {
-            const repo = repository()
-            if (!repo) return { past: [], live: undefined }
-            return readDaySheet(repo, accLink().sessionId)
-        }
-    )
+    const [memory, setMemory] = createSignal<DayMemory>()
+    const [failed, setFailed] = createSignal<unknown>()
+    let appliedRevision = -1
+
+    createEffect(() => {
+        const repo = repository()
+        if (!repo) return
+        let stopped = false
+        onCleanup(() => {
+            stopped = true
+        })
+        void readStableDay(
+            repo,
+            untrack(() => accLink().sessionId)
+        )
+            .then(loaded => {
+                if (stopped) return
+                const sessionId = untrack(() => accLink().sessionId)
+                let next = loaded.memory
+                let revision = loaded.revision
+                const pending = repo.lastWrite()
+                if (pending && repo.revision() !== loaded.revision) {
+                    next = applyDayWrite(next, pending, sessionId)
+                    revision = repo.revision()
+                }
+                appliedRevision = revision
+                setFailed(undefined)
+                setMemory(next)
+            })
+            .catch(error => {
+                if (!stopped) setFailed(error)
+            })
+    })
+
+    createEffect(() => {
+        const repo = repository()
+        if (!repo) return
+        const revision = repo.revision()
+        const write = repo.lastWrite()
+        if (!write || revision === appliedRevision) return
+        const current = memory()
+        if (!current) return
+        appliedRevision = revision
+        setMemory(
+            applyDayWrite(
+                current,
+                write,
+                untrack(() => accLink().sessionId)
+            )
+        )
+    })
 
     return (
         <div>
             <Switch>
-                <Match when={sheet.error}>
-                    <SheetMessage text={errorText(sheet.error)} />
+                <Match when={failed()}>
+                    {error => <SheetMessage text={errorText(error())} />}
                 </Match>
-                <Match when={sheet()}>
-                    {loaded => (
-                        <Show
-                            when={loaded().past.length > 0 || loaded().live}
-                            fallback={<SheetMessage text={emptyText()} />}
-                        >
-                            <Show when={loaded().live}>
-                                {card => <LiveCard card={card()} />}
+                <Match when={memory()}>
+                    {loaded => {
+                        const sheet = () => projectDay(loaded())
+                        return (
+                            <Show
+                                when={sheet().past.length > 0 || sheet().live}
+                                fallback={<SheetMessage text={emptyText()} />}
+                            >
+                                <Show when={sheet().live}>
+                                    {card => <LiveCard card={card()} />}
+                                </Show>
+                                <Show when={sheet().past.length > 0}>
+                                    <PastSheet sessions={sheet().past} />
+                                </Show>
                             </Show>
-                            <Show when={loaded().past.length > 0}>
-                                <PastSheet sessions={loaded().past} />
-                            </Show>
-                        </Show>
-                    )}
+                        )
+                    }}
                 </Match>
             </Switch>
         </div>
@@ -249,36 +286,6 @@ function SheetMessage(props: { text: string }) {
             {props.text}
         </p>
     )
-}
-
-async function readDaySheet(
-    repo: SessionRepository,
-    sessionId: string | null
-): Promise<DaySheet> {
-    const sessions = await repo.readSessions()
-    const liveSession = shownLive(sessions, sessionId)
-    const closed = sessions.filter(session => session.status === "closed")
-
-    const [past, live] = await Promise.all([
-        Promise.all(
-            closed.map(async session => ({
-                session,
-                bestLap: fastestValidLap(await repo.readLaps(session.id)),
-            }))
-        ),
-        liveSession ? readLiveCard(repo, liveSession) : undefined,
-    ])
-
-    return { past, live }
-}
-
-async function readLiveCard(
-    repo: SessionRepository,
-    session: Session
-): Promise<LiveCardModel> {
-    const laps = await repo.readLaps(session.id)
-    const traces = await repo.readTraces(laps.map(lap => lap.id))
-    return liveCard(session, laps, [...traces.values()])
 }
 
 function bestLapText(lap: (Lap & { timeMs: number }) | undefined): string {

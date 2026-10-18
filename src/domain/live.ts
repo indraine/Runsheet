@@ -27,7 +27,15 @@ export type LiveCard = {
     /** Среднее четырёх давлений на последнем сэмпле, psi. */
     pressurePsi: number | undefined
     rows: LiveLapRow[]
-    /** Последний круг, у которого есть земля `x`/`z`. */
+    /**
+     * Дорога: закрытый круг с наибольшим размахом дистанции.
+     * Пока такого круга нет, это земля открытого — карта растёт вместе с ним.
+     */
+    road: Trace | undefined
+    /**
+     * Траектория только открытого круга.
+     * Следующий круг приходит своим трейсом, предыдущая линия на карте не остаётся.
+     */
     line: Trace | undefined
 }
 
@@ -71,7 +79,11 @@ export const liveCard = (
     const byLap = new Map(traces.map(trace => [trace.lapId, trace]))
     const bestLap = fastestValidLap(ordered)
     const currentLap = findLast(ordered, lap => lap.timeMs === null)
-    const line = lastTrace(ordered, byLap, hasGround)
+    const openTrace = currentLap ? byLap.get(currentLap.id) : undefined
+    const road =
+        fullestClosed(ordered, byLap) ??
+        (openTrace && hasGround(openTrace) ? openTrace : undefined)
+    const line = openTrace && hasPoint(openTrace) ? openTrace : undefined
     const pressureTrace = pressureSource(currentLap, ordered, byLap)
 
     return {
@@ -86,6 +98,7 @@ export const liveCard = (
             deltaMs: deltaToBest(lap, bestLap),
             best: bestLap?.id === lap.id,
         })),
+        road,
         line,
     }
 }
@@ -172,6 +185,29 @@ const averagePressure = (trace: Trace): number | undefined => {
 
 const hasGround = (trace: Trace): boolean =>
     Math.min(trace.x.length, trace.z.length) >= 2
+
+const hasPoint = (trace: Trace): boolean =>
+    Math.min(trace.x.length, trace.z.length) >= 1
+
+/** Закрытый круг, который лучше всего покрывает трассу. */
+const fullestClosed = (
+    laps: readonly Lap[],
+    byLap: ReadonlyMap<string, Trace>
+): Trace | undefined => {
+    let best: Trace | undefined
+    let bestSpan = -1
+    for (const lap of laps) {
+        if (lap.timeMs === null) continue
+        const trace = byLap.get(lap.id)
+        if (!trace || !hasGround(trace)) continue
+        const span = spanOf(trace.distance) ?? 0
+        if (span > bestSpan) {
+            best = trace
+            bestSpan = span
+        }
+    }
+    return best
+}
 
 const hasPressure = (trace: Trace): boolean =>
     Math.min(

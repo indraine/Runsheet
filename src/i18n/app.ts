@@ -82,7 +82,7 @@ const en = {
     launchBody: "The game is not running. Runsheet found it and can start it.",
     launchRemember: "Remember my choice",
     launchNow: "Launch",
-    launchLater: "Not now",
+    launchLater: "I'll launch it",
     resetStored: "Reset saved choices",
 }
 
@@ -168,7 +168,7 @@ const ru: typeof en = {
     launchBody: "Игра не запущена. Runsheet нашёл её и может открыть.",
     launchRemember: "Запомнить мой выбор",
     launchNow: "Запустить",
-    launchLater: "Не сейчас",
+    launchLater: "Запущу сам",
     resetStored: "Сбросить сохранённое",
 }
 

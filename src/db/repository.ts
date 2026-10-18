@@ -1,4 +1,4 @@
-import { createSignal, type Accessor, type Setter } from "solid-js"
+import { batch, createSignal, type Accessor, type Setter } from "solid-js"
 import {
     fastestValidLap,
     groupDay,
@@ -26,20 +26,27 @@ export type LapWithReference = {
 
 /**
  * Hides IndexedDB behind the day sheet, a lap with its reference, and upsert.
- * `revision` starts at 0 and grows after each committed write, so a screen can
- * refetch without reading the database itself.
+ * `revision` starts at 0 and grows after each committed write.
+ * `lastWrite` is that write. The sheet applies it in place instead of reading
+ * the database again: a refetch under Suspense blanks the page on every lap.
  */
 export class SessionRepository {
     readonly revision: Accessor<number>
+    /** Последняя зафиксированная запись. Лист накладывает её сам. */
+    readonly lastWrite: Accessor<SessionWrite | undefined>
 
     private readonly database: RunsheetDatabase
     private readonly setRevision: Setter<number>
+    private readonly setLastWrite: Setter<SessionWrite | undefined>
 
     constructor(database: RunsheetDatabase) {
         this.database = database
         const [revision, setRevision] = createSignal(0)
+        const [lastWrite, setLastWrite] = createSignal<SessionWrite>()
         this.revision = revision
+        this.lastWrite = lastWrite
         this.setRevision = setRevision
+        this.setLastWrite = setLastWrite
     }
 
     /** Все сессии, без отбора по дате. */
@@ -122,7 +129,10 @@ export class SessionRepository {
         if (write.lap) writes.push(tx.objectStore("laps").put(write.lap))
         if (write.trace) writes.push(tx.objectStore("traces").put(write.trace))
         await Promise.all([...writes, tx.done])
-        this.setRevision(current => current + 1)
+        batch(() => {
+            this.setLastWrite(write)
+            this.setRevision(current => current + 1)
+        })
     }
 }
 
