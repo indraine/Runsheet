@@ -5,7 +5,6 @@
 //! открытому кругу и сбрасывается, когда выезд закрывается или сессия сменилась.
 //! Полный `ACCMap` в лог и во фронт не копируется.
 
-#[cfg(windows)]
 use std::time::Duration;
 
 #[cfg(windows)]
@@ -19,8 +18,12 @@ use acc_shared_memory_rs::maps::ACCMap;
 
 #[cfg(any(windows, test))]
 use crate::lap::{Collector, Sample};
+#[cfg(windows)]
+use crate::session::Frame;
 #[cfg(any(windows, test))]
-use crate::session::{Event, Frame, GameStatus, Machine, SessionKind, Sight, Tick};
+use crate::session::{Event, GameStatus, Machine, SessionKind, Sight, Tick};
+
+use crate::ipc::{self, Capture, LinkState, Relay, Status};
 
 /// Пауза между попытками открыть память, пока ACC не запущена.
 #[cfg(windows)]
@@ -28,7 +31,7 @@ const RETRY_AFTER: Duration = Duration::from_millis(500);
 
 /// Пауза между снимками. 20 Гц — и статус сессии, и вход сборщика.
 #[cfg(windows)]
-const SNAPSHOT_EVERY: Duration = Duration::from_millis(50);
+const SNAPSHOT_EVERY: Duration = Duration::from_millis(ipc::STATUS_GAP_MS);
 
 /// Что сказать в лог при смене связи. Повтор того же состояния молчит.
 #[derive(Debug, PartialEq, Eq)]
@@ -53,7 +56,7 @@ impl LinkNotice {
 /// Край связи. Пока состояние не меняется, новых строк нет.
 #[derive(Debug, Default)]
 struct Link {
-    up: bool,
+    phase: LinkState,
     told_down: bool,
 }
 
@@ -61,17 +64,17 @@ impl Link {
     /// На этой системе память не открывается, поэтому переход есть только в тесте и на Windows.
     #[cfg_attr(not(any(windows, test)), allow(dead_code))]
     fn note_up(&mut self) -> Option<LinkNotice> {
-        if self.up {
+        if self.phase == LinkState::Linked {
             return None;
         }
-        self.up = true;
+        self.phase = LinkState::Linked;
         self.told_down = false;
         Some(LinkNotice::Linked)
     }
 
     fn note_down(&mut self) -> Option<LinkNotice> {
-        if self.up {
-            self.up = false;
+        if self.phase == LinkState::Linked {
+            self.phase = LinkState::Lost;
             self.told_down = true;
             return Some(LinkNotice::Lost);
         }
@@ -81,6 +84,10 @@ impl Link {
         self.told_down = true;
         Some(LinkNotice::Unavailable)
     }
+
+    fn state(&self) -> LinkState {
+        self.phase
+    }
 }
 
 fn report(notice: Option<LinkNotice>) {
@@ -89,37 +96,67 @@ fn report(notice: Option<LinkNotice>) {
     }
 }
 
-pub(crate) fn run() {
+pub(crate) fn run(outbox: ipc::Outbox) {
     #[cfg(windows)]
-    poll();
+    poll(outbox);
 
     // Имя памяти ACC существует только на Windows. Ждать её здесь нечего.
     #[cfg(not(windows))]
-    wait_without_acc();
+    wait_without_acc(outbox);
 }
 
+/// Памяти нет, поэтому круг не пишется. Статус «недоступна» всё равно уходит,
+/// не чаще 20 Гц: страница может подписаться уже после старта потока.
 #[cfg(not(windows))]
-fn wait_without_acc() -> ! {
+fn wait_without_acc(outbox: ipc::Outbox) -> ! {
     let mut link = Link::default();
     report(link.note_down());
+    let mut relay = Relay::default();
+    let start = std::time::Instant::now();
     loop {
-        std::thread::park();
+        let now_ms = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
+        let decision = relay.decide(now_ms, false, false, None);
+        if decision.emit_status {
+            outbox.emit_status(&Status::capture(Capture {
+                link: link.state(),
+                packet_id: None,
+                outing_id: None,
+                session: None,
+                lap_number: None,
+                sector: None,
+                speed: None,
+                air_temp: None,
+                road_temp: None,
+                events: &[],
+            }));
+        }
+        outbox.drain();
+        std::thread::sleep(Duration::from_millis(ipc::STATUS_GAP_MS));
     }
 }
 
 #[cfg(windows)]
-fn poll() -> ! {
+fn poll(outbox: ipc::Outbox) -> ! {
     let mut link = Link::default();
     let mut machine = Machine::default();
     let mut laps = Collector::default();
+    let mut relay = Relay::default();
     let clock = Clock::start();
 
     loop {
         let mut acc = match ACCSharedMemory::new() {
             Ok(acc) => acc,
             Err(_) => {
-                settle(ingest_absent(&mut machine, &mut laps, &clock));
                 report(link.note_down());
+                deliver(
+                    &outbox,
+                    &mut relay,
+                    &clock,
+                    link.state(),
+                    &mut machine,
+                    &mut laps,
+                    None,
+                );
                 std::thread::sleep(RETRY_AFTER);
                 continue;
             }
@@ -130,7 +167,15 @@ fn poll() -> ! {
         loop {
             match acc.read_shared_memory() {
                 Ok(Some(map)) => {
-                    settle(ingest_map(&mut machine, &mut laps, &clock, &map));
+                    deliver(
+                        &outbox,
+                        &mut relay,
+                        &clock,
+                        link.state(),
+                        &mut machine,
+                        &mut laps,
+                        Some(&map),
+                    );
                     std::thread::sleep(SNAPSHOT_EVERY);
                 }
                 Ok(None) => {
@@ -138,13 +183,29 @@ fn poll() -> ! {
                     // Сбрасываем защёлку пакета, чтобы следующий снимок её показал.
                     acc.reset();
                     if let Ok(Some(map)) = acc.read_shared_memory() {
-                        settle(ingest_map(&mut machine, &mut laps, &clock, &map));
+                        deliver(
+                            &outbox,
+                            &mut relay,
+                            &clock,
+                            link.state(),
+                            &mut machine,
+                            &mut laps,
+                            Some(&map),
+                        );
                     }
                     std::thread::sleep(SNAPSHOT_EVERY);
                 }
                 Err(_) => {
-                    settle(ingest_absent(&mut machine, &mut laps, &clock));
                     report(link.note_down());
+                    deliver(
+                        &outbox,
+                        &mut relay,
+                        &clock,
+                        link.state(),
+                        &mut machine,
+                        &mut laps,
+                        None,
+                    );
                     break;
                 }
             }
@@ -152,11 +213,58 @@ fn poll() -> ! {
     }
 }
 
-/// События и пачка живут один тик. Доставка во фронт заберёт их следующим шагом.
+/// Статус и пачка этого снимка. Промежуточная пачка открытого круга — не чаще раза в секунду.
 #[cfg(windows)]
-fn settle(shot: Shot) {
-    let Shot { events, lap } = shot;
-    let _ = (events, lap);
+fn deliver(
+    outbox: &ipc::Outbox,
+    relay: &mut Relay,
+    clock: &Clock,
+    link: LinkState,
+    machine: &mut Machine,
+    laps: &mut Collector,
+    map: Option<&ACCMap>,
+) {
+    let packet_id = map.map(|map| map.physics.packet_id);
+    let motion = map.map(motion_from);
+    let tick = clock.stamp(match map {
+        Some(map) => sight_from(map),
+        None => Sight::Absent,
+    });
+    let shot = ingest(machine, laps, &tick, motion.as_ref());
+    let frame = match &tick.sight {
+        Sight::Frame(frame) => Some(frame),
+        Sight::Absent => None,
+    };
+    let decision = relay.decide(
+        tick.mono_ms,
+        !shot.events.is_empty(),
+        shot.lap.is_some(),
+        laps.open_id(),
+    );
+    if decision.emit_status {
+        outbox.emit_status(&Status::capture(Capture {
+            link,
+            packet_id,
+            outing_id: machine.outing_id(),
+            session: machine.session(),
+            lap_number: laps.open_number(),
+            sector: motion.as_ref().map(|item| item.sector_index),
+            speed: motion.as_ref().map(|item| item.speed),
+            air_temp: frame.map(|item| item.air_c),
+            road_temp: frame.map(|item| item.road_c),
+            events: &shot.events,
+        }));
+    }
+    let bytes = match decision.lap {
+        ipc::LapSend::Closed => shot.lap,
+        ipc::LapSend::Preview => laps.preview(),
+        ipc::LapSend::None => None,
+    };
+    if let Some(bytes) = bytes {
+        outbox.send_lap(bytes);
+    } else {
+        outbox.drain();
+    }
 }
 
 #[cfg(windows)]
@@ -399,4 +507,29 @@ fn record_live(
     let session_id = machine.session()?.id;
     let motion = motion?;
     laps.push(&motion.sample(tick.mono_ms, session_id))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn link_remembers_a_drop_after_it_was_up() {
+        let mut link = Link::default();
+        assert_eq!(link.state(), LinkState::Unavailable);
+        assert_eq!(link.note_down(), Some(LinkNotice::Unavailable));
+        assert_eq!(link.note_down(), None);
+        assert_eq!(link.state(), LinkState::Unavailable);
+
+        assert_eq!(link.note_up(), Some(LinkNotice::Linked));
+        assert_eq!(link.note_up(), None);
+        assert_eq!(link.state(), LinkState::Linked);
+
+        assert_eq!(link.note_down(), Some(LinkNotice::Lost));
+        assert_eq!(link.note_down(), None);
+        assert_eq!(link.state(), LinkState::Lost);
+
+        assert_eq!(link.note_up(), Some(LinkNotice::Linked));
+        assert_eq!(link.state(), LinkState::Linked);
+    }
 }

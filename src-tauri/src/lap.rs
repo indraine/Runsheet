@@ -91,6 +91,22 @@ impl Collector {
         self.open = None;
     }
 
+    /// Идентификатор открытого круга. Тот же уйдёт в пачку на финише.
+    pub(crate) fn open_id(&self) -> Option<Uuid> {
+        self.open.as_ref().map(|open| open.id)
+    }
+
+    /// Номер открытого круга, с единицы.
+    pub(crate) fn open_number(&self) -> Option<i32> {
+        self.open.as_ref().map(|open| open.number)
+    }
+
+    /// Пачка открытого круга, круг при этом не закрывается.
+    /// Времени круга ещё нет: в заголовке `-1`, третий сектор пуст.
+    pub(crate) fn preview(&self) -> Option<Vec<u8>> {
+        self.open.as_ref().map(|open| pack(&open.partial()))
+    }
+
     /// Сколько точек сейчас в открытом круге.
     #[cfg(test)]
     pub(crate) fn open_points(&self) -> usize {
@@ -219,6 +235,25 @@ impl OpenLap {
         }
     }
 
+    /// Точки клонируются: буфер ещё нужен открытому кругу.
+    fn partial(&self) -> Finished {
+        Finished {
+            id: self.id,
+            session_id: self.session_id,
+            number: self.number,
+            time_ms: None,
+            s1_ms: self.s1_ms,
+            s2_ms: self.s2_ms,
+            s3_ms: None,
+            s1_end_m: self.s1_end_m,
+            s2_end_m: self.s2_end_m,
+            valid: self.valid,
+            fuel: self.fuel,
+            max_speed: self.max_speed.unwrap_or(0.0),
+            points: self.points.clone(),
+        }
+    }
+
     fn note_sector(&mut self, sector_index: i32, sector_ms: i32, along_m: f32) {
         if sector_index == self.sector {
             return;
@@ -239,7 +274,7 @@ impl OpenLap {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Point {
     distance: f32,
     time: f32,
@@ -365,4 +400,90 @@ fn write_u32(out: &mut Vec<u8>, value: u32) {
 
 fn write_f32(out: &mut Vec<u8>, value: f32) {
     out.extend_from_slice(&value.to_le_bytes());
+}
+
+#[cfg(test)]
+fn packet_lap_id(bytes: &[u8]) -> Option<Uuid> {
+    let raw: [u8; 16] = bytes.get(..16)?.try_into().ok()?;
+    Some(Uuid::from_bytes(raw))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn at(mono_ms: u64, completed: i32, sector: i32, distance_m: f32) -> Sample {
+        Sample {
+            mono_ms,
+            session_id: Uuid::nil(),
+            completed_lap: completed,
+            last_time_ms: 90_000,
+            last_sector_time_ms: 30_000,
+            sector_index: sector,
+            valid: true,
+            distance_m,
+            fuel: 40.0,
+            throttle: 0.5,
+            brake: 0.0,
+            steer: 1.0,
+            speed: 200.0,
+            lap_time_ms: 10_000,
+            g_long: -0.2,
+            g_lat: 0.1,
+            x: 1.0,
+            z: 2.0,
+            pressure_fl: 27.0,
+            pressure_fr: 27.0,
+            pressure_rl: 27.0,
+            pressure_rr: 27.0,
+            brake_temp_fl: 300.0,
+            brake_temp_fr: 300.0,
+        }
+    }
+
+    fn read_i32(bytes: &[u8], at: usize) -> i32 {
+        let raw: [u8; 4] = bytes[at..at + 4].try_into().unwrap();
+        i32::from_le_bytes(raw)
+    }
+
+    fn read_u32(bytes: &[u8], at: usize) -> u32 {
+        let raw: [u8; 4] = bytes[at..at + 4].try_into().unwrap();
+        u32::from_le_bytes(raw)
+    }
+
+    fn read_f32(bytes: &[u8], at: usize) -> f32 {
+        let raw: [u8; 4] = bytes[at..at + 4].try_into().unwrap();
+        f32::from_le_bytes(raw)
+    }
+
+    #[test]
+    fn preview_keeps_the_lap_id_and_grows_until_the_close() {
+        let mut laps = Collector::default();
+        assert!(laps.preview().is_none());
+
+        assert!(laps.push(&at(0, 0, 0, 100.0)).is_none());
+        assert_eq!(laps.open_number(), Some(1));
+        let first = laps.preview().expect("открытый круг");
+        assert_eq!(packet_lap_id(&first), laps.open_id());
+        assert_eq!(first.len(), HEADER_LEN + CHANNEL_COUNT * 4);
+        assert_eq!(read_u32(&first, 36), 1);
+        assert_eq!(read_i32(&first, 40), MISSING_MS);
+
+        assert!(laps.push(&at(TRACE_GAP_MS, 0, 1, 250.0)).is_none());
+        let second = laps.preview().expect("круг всё ещё открыт");
+        assert_eq!(packet_lap_id(&second), packet_lap_id(&first));
+        assert_eq!(read_u32(&second, 36), 2);
+        assert_eq!(read_i32(&second, 44), 30_000);
+        assert_eq!(read_f32(&second, 56), 150.0);
+        assert_eq!(read_i32(&second, 52), MISSING_MS);
+
+        let open = laps.open_id();
+        let mut boundary = at(TRACE_GAP_MS * 2, 1, 0, 400.0);
+        boundary.last_time_ms = 91_234;
+        let closed = laps.push(&boundary).expect("финиш");
+        assert_eq!(packet_lap_id(&closed), open);
+        assert_ne!(laps.open_id(), open);
+        assert_eq!(read_i32(&closed, 40), 91_234);
+        assert_eq!(read_u32(&closed, 36), 2);
+    }
 }

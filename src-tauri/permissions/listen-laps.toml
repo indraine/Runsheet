@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-listen-laps"
+description = "Подписка на сырые пачки круга."
+commands.allow = ["listen_laps"]
