@@ -6,6 +6,7 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "allow-listen-laps"
+    "allow-listen-laps",
+    "allow-acc-launch"
   ]
 }

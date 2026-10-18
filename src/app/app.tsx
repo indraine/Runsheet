@@ -2,6 +2,7 @@ import { Navigate, useLocation, type RouteSectionProps } from "@solidjs/router"
 import { createEffect, Show, Suspense } from "solid-js"
 import { Footer } from "~/app/footer"
 import { Header } from "~/app/header"
+import { LaunchAcc } from "~/app/launch-acc"
 import { hasStarted } from "~/app/started"
 import { locale } from "~/i18n/locale"
 
@@ -25,6 +26,7 @@ export function App(props: RouteSectionProps) {
             >
                 <div class="flex min-h-dvh flex-col bg-canvas text-ink">
                     <Header />
+                    <LaunchAcc />
                     <main class="flex-1">
                         <Suspense>{props.children}</Suspense>
                     </main>

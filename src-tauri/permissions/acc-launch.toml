@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-acc-launch"
+description = "Поиск установки ACC и её запуск."
+commands.allow = ["acc_install", "launch_acc"]

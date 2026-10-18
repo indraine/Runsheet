@@ -3,7 +3,8 @@ import type { Locale } from "~/i18n/locale"
 const en = {
     wordmark: "Runsheet",
     accOffline: "Assetto Corsa Competizione is not running",
-    accOnline: "Assetto Corsa Competizione is running",
+    accMenu: "Assetto Corsa Competizione is in the main menu",
+    accOnline: "Assetto Corsa Competizione is in a session",
     backToTimeline: "To timeline",
     welcomeSlogan: "Drove! Recorded! Reviewed!",
     welcomeBody:
@@ -15,6 +16,8 @@ const en = {
     empty: "—",
     emptySheet:
         "While the game is off, the sheet is empty and ACC is not running.",
+    emptyMenu:
+        "The game is open in the main menu. The sheet stays empty until a session starts.",
     previousDay: "Previous day",
     nextDay: "Next day",
     openCalendar: "Choose a day",
@@ -75,12 +78,19 @@ const en = {
     themeOneDark: "One Dark",
     themeSolarizedDark: "Solarized Dark",
     themeSolarizedLight: "Solarized Light",
+    launchTitle: "Launch Assetto Corsa Competizione?",
+    launchBody: "The game is not running. Runsheet found it and can start it.",
+    launchRemember: "Remember my choice",
+    launchNow: "Launch",
+    launchLater: "Not now",
+    resetStored: "Reset saved choices",
 }
 
 const ru: typeof en = {
     wordmark: "Runsheet",
     accOffline: "Assetto Corsa Competizione не запущена",
-    accOnline: "Assetto Corsa Competizione запущена",
+    accMenu: "Assetto Corsa Competizione в главном меню",
+    accOnline: "Assetto Corsa Competizione в заезде",
     backToTimeline: "К таймлайну",
     welcomeSlogan: "Проехал! Записал! Разобрал!",
     welcomeBody:
@@ -92,6 +102,8 @@ const ru: typeof en = {
     empty: "—",
     emptySheet:
         "Пока игра выключена, на листе пусто и видно, что ACC не запущена.",
+    emptyMenu:
+        "Игра открыта в главном меню. На листе пусто, пока не начался заезд.",
     previousDay: "Предыдущий день",
     nextDay: "Следующий день",
     openCalendar: "Выбрать день",
@@ -152,6 +164,12 @@ const ru: typeof en = {
     themeOneDark: "One Dark",
     themeSolarizedDark: "Solarized Dark",
     themeSolarizedLight: "Solarized Light",
+    launchTitle: "Запустить Assetto Corsa Competizione?",
+    launchBody: "Игра не запущена. Runsheet нашёл её и может открыть.",
+    launchRemember: "Запомнить мой выбор",
+    launchNow: "Запустить",
+    launchLater: "Не сейчас",
+    resetStored: "Сбросить сохранённое",
 }
 
 export const appDict: Record<Locale, typeof en> = { en, ru }

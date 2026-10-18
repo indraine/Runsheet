@@ -23,9 +23,16 @@ export type AccStatusEvent =
           endedAt: number
       }
 
+/**
+ * Где игрок относительно заезда.
+ * `off` — процесса нет. `menu` — игра открыта, заезда нет. `session` — сессия идёт.
+ */
+export type AccPresence = "off" | "menu" | "session"
+
 /** Снимок `acc-status` после разбора. Сессия уже в типах листа. */
 export type AccStatus = {
     link: AccLinkState
+    presence: AccPresence
     packetId: number | null
     session: Session | null
     lapNumber: number | null
@@ -54,6 +61,7 @@ export const parseAccStatus = (payload: unknown): AccStatus | undefined => {
 
     return {
         link: payload.link,
+        presence: parsePresence(payload.presence, payload.link),
         packetId: optionalInt(payload.packetId),
         session:
             payload.session == null
@@ -186,6 +194,16 @@ const parseEvent = (value: unknown): AccStatusEvent | undefined => {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null
+
+const PRESENCE = new Set<AccPresence>(["off", "menu", "session"])
+
+/** Нет поля — по связи: память открыта считается заездом, иначе игра выключена. */
+const parsePresence = (value: unknown, link: AccLinkState): AccPresence => {
+    if (typeof value === "string" && PRESENCE.has(value as AccPresence)) {
+        return value as AccPresence
+    }
+    return link === "linked" ? "session" : "off"
+}
 
 const isLinkState = (value: unknown): value is AccLinkState =>
     typeof value === "string" && LINK_STATES.has(value as AccLinkState)

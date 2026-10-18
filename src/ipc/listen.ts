@@ -85,6 +85,7 @@ export const startAccFeed = (): AccFeed => {
         const current = accLink()
         if (
             current.linked === next.linked &&
+            current.presence === next.presence &&
             current.hz === next.hz &&
             current.packetId === next.packetId &&
             current.sessionId === next.sessionId
@@ -99,6 +100,8 @@ export const startAccFeed = (): AccFeed => {
             mark = undefined
             return {
                 linked: false,
+                presence:
+                    status.presence === "session" ? "menu" : status.presence,
                 hz: null,
                 packetId: null,
                 sessionId: null,
@@ -116,6 +119,7 @@ export const startAccFeed = (): AccFeed => {
         }
         return {
             linked: true,
+            presence: status.presence,
             hz,
             packetId,
             sessionId: status.session?.id ?? null,

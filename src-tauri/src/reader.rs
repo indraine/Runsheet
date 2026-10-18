@@ -23,6 +23,7 @@ use crate::session::Frame;
 #[cfg(any(windows, test))]
 use crate::session::{Event, GameStatus, Machine, SessionKind, Sight, Tick};
 
+use crate::game;
 use crate::ipc::{self, Capture, LinkState, Relay, Status};
 
 /// Пауза между попытками открыть память, пока ACC не запущена.
@@ -119,6 +120,7 @@ fn wait_without_acc(outbox: ipc::Outbox) -> ! {
         if decision.emit_status {
             outbox.emit_status(&Status::capture(Capture {
                 link: link.state(),
+                presence: game::Presence::Off,
                 packet_id: None,
                 outing_id: None,
                 session: None,
@@ -142,6 +144,7 @@ fn poll(outbox: ipc::Outbox) -> ! {
     let mut laps = Collector::default();
     let mut relay = Relay::default();
     let clock = Clock::start();
+    let mut process = ProcessProbe::default();
 
     loop {
         let mut acc = match ACCSharedMemory::new() {
@@ -153,6 +156,7 @@ fn poll(outbox: ipc::Outbox) -> ! {
                     &mut relay,
                     &clock,
                     link.state(),
+                    process.get(),
                     &mut machine,
                     &mut laps,
                     None,
@@ -172,6 +176,7 @@ fn poll(outbox: ipc::Outbox) -> ! {
                         &mut relay,
                         &clock,
                         link.state(),
+                        process.get(),
                         &mut machine,
                         &mut laps,
                         Some(&map),
@@ -188,6 +193,7 @@ fn poll(outbox: ipc::Outbox) -> ! {
                             &mut relay,
                             &clock,
                             link.state(),
+                            process.get(),
                             &mut machine,
                             &mut laps,
                             Some(&map),
@@ -202,6 +208,7 @@ fn poll(outbox: ipc::Outbox) -> ! {
                         &mut relay,
                         &clock,
                         link.state(),
+                        process.get(),
                         &mut machine,
                         &mut laps,
                         None,
@@ -213,6 +220,35 @@ fn poll(outbox: ipc::Outbox) -> ! {
     }
 }
 
+/// Процесс ACC проверяется не на каждом снимке: `tasklist` тяжелее чтения памяти.
+#[cfg(windows)]
+#[derive(Default)]
+struct ProcessProbe {
+    running: bool,
+    checked: Option<std::time::Instant>,
+}
+
+#[cfg(windows)]
+impl ProcessProbe {
+    fn get(&mut self) -> bool {
+        let fresh = self
+            .checked
+            .is_some_and(|at| at.elapsed() < Duration::from_secs(1));
+        if fresh {
+            return self.running;
+        }
+        self.running = game::process_running();
+        self.checked = Some(std::time::Instant::now());
+        self.running
+    }
+}
+
+/// `Off` — главное меню или экран вне заезда. Пауза и повтор остаются сессией.
+#[cfg(windows)]
+fn in_session(map: Option<&ACCMap>) -> bool {
+    map.is_some_and(|map| map.graphics.status != AccStatus::Off)
+}
+
 /// Статус и пачка этого снимка. Промежуточная пачка открытого круга — не чаще раза в секунду.
 #[cfg(windows)]
 fn deliver(
@@ -220,6 +256,7 @@ fn deliver(
     relay: &mut Relay,
     clock: &Clock,
     link: LinkState,
+    process_running: bool,
     machine: &mut Machine,
     laps: &mut Collector,
     map: Option<&ACCMap>,
@@ -244,6 +281,7 @@ fn deliver(
     if decision.emit_status {
         outbox.emit_status(&Status::capture(Capture {
             link,
+            presence: game::presence(link == LinkState::Linked, in_session(map), process_running),
             packet_id,
             outing_id: machine.outing_id(),
             session: machine.session(),

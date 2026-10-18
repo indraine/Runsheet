@@ -1,11 +1,12 @@
 import { A, useMatch } from "@solidjs/router"
 import { ArrowLeft } from "lucide-solid"
 import { Show } from "solid-js"
+import { clearStored } from "~/app/stored"
 import { accLink, analysisHeading } from "~/app/status"
 import { ThemeToggle } from "~/app/theme-toggle"
 import { Wordmark } from "~/app/wordmark"
 import { t } from "~/i18n"
-import { cn } from "~/ui"
+import { Button, cn } from "~/ui"
 
 export function Header() {
     const analysis = useMatch(() => "/sessions/:sessionId/laps/:lapId")
@@ -43,6 +44,9 @@ export function Header() {
                 <Show when={analysis()}>
                     <AccStatus />
                 </Show>
+                <Button variant="ghost" size="sm" onClick={clearStored}>
+                    {t("app.resetStored")}
+                </Button>
                 <ThemeToggle />
             </div>
         </header>
@@ -50,18 +54,32 @@ export function Header() {
 }
 
 function AccStatus() {
-    const linked = () => accLink().linked
+    const presence = () => accLink().presence
 
     return (
         <p class="inline-flex shrink-0 items-center gap-2 font-mono text-[11px] font-medium tracking-wide text-secondary uppercase">
             <span
-                class={cn(
-                    "size-1.5 rounded-full",
-                    linked() ? "bg-gain" : "bg-muted"
-                )}
+                class={cn("size-1.5 rounded-full", presenceDot(presence()))}
                 aria-hidden="true"
             />
-            {linked() ? t("app.accOnline") : t("app.accOffline")}
+            {presenceLabel(presence())}
         </p>
     )
+}
+
+const presenceLabel = (
+    presence: ReturnType<typeof accLink>["presence"]
+): string => {
+    if (presence === "menu") return t("app.accMenu")
+    if (presence === "session") return t("app.accOnline")
+    if (presence === "off") return t("app.accOffline")
+    return t("app.empty")
+}
+
+const presenceDot = (
+    presence: ReturnType<typeof accLink>["presence"]
+): string => {
+    if (presence === "session") return "bg-gain"
+    if (presence === "menu") return "bg-accent"
+    return "bg-muted"
 }

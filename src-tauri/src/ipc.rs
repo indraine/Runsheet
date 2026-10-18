@@ -12,6 +12,7 @@ use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
+use crate::game::Presence;
 use crate::session::{Event, Session, SessionKind};
 
 /// Имя события Tauri со снимком связи и открытой сессии.
@@ -43,6 +44,7 @@ pub(crate) enum LinkState {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Status {
     pub link: LinkState,
+    pub presence: Presence,
     pub packet_id: Option<i32>,
     pub outing_id: Option<String>,
     pub session: Option<SessionBody>,
@@ -102,6 +104,7 @@ pub(crate) enum StatusEvent {
 /// Поля одного тика, из которых собирается статус.
 pub(crate) struct Capture<'a> {
     pub link: LinkState,
+    pub presence: Presence,
     pub packet_id: Option<i32>,
     pub outing_id: Option<Uuid>,
     pub session: Option<&'a Session>,
@@ -117,6 +120,7 @@ impl Status {
     pub(crate) fn capture(input: Capture<'_>) -> Self {
         Self {
             link: input.link,
+            presence: input.presence,
             packet_id: input.packet_id,
             outing_id: input.outing_id.map(|id| id.to_string()),
             session: input.session.map(SessionBody::from_session),

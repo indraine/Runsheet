@@ -66,9 +66,7 @@ export function TimelinePage() {
                     {loaded => (
                         <Show
                             when={loaded().past.length > 0 || loaded().live}
-                            fallback={
-                                <SheetMessage text={t("app.emptySheet")} />
-                            }
+                            fallback={<SheetMessage text={emptyText()} />}
                         >
                             <Show when={loaded().live}>
                                 {card => <LiveCard card={card()} />}
@@ -241,6 +239,9 @@ function Separator() {
         </span>
     )
 }
+
+const emptyText = (): string =>
+    accLink().presence === "menu" ? t("app.emptyMenu") : t("app.emptySheet")
 
 function SheetMessage(props: { text: string }) {
     return (
