@@ -25,7 +25,7 @@ export function App(props: RouteSectionProps) {
             >
                 <div class="flex min-h-dvh flex-col bg-canvas text-ink">
                     <Header />
-                    <main class="min-h-0 flex-1">
+                    <main class="flex-1">
                         <Suspense>{props.children}</Suspense>
                     </main>
                     <Footer />

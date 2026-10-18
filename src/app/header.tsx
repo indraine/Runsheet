@@ -10,7 +10,7 @@ export function Header() {
     const analysis = useMatch(() => "/sessions/:sessionId/laps/:lapId")
 
     return (
-        <header class="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6">
+        <header class="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6">
             <div class="flex min-w-0 items-center gap-4">
                 <A
                     href="/"

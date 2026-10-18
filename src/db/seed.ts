@@ -13,9 +13,14 @@ const TRACK_SPA = "spa"
 
 const OUTING_MONZA = "seed-outing-monza"
 const OUTING_SPA = "seed-outing-spa"
+const OUTING_NEXT = "seed-outing-next"
 const SESSION_MONZA = "seed-monza-practice"
 const SESSION_SPA_PRACTICE = "seed-spa-practice"
 const SESSION_SPA_QUALIFYING = "seed-spa-qualifying"
+
+/** Меняется, когда посев нужно дописать в уже заполненную базу. */
+const SEED_VERSION = "2"
+const SEED_VERSION_KEY = "runsheet.seed"
 
 /** Spa length used by the distance channel. The polyline is not the circuit. */
 const LAP_METRES = 7004
@@ -146,14 +151,20 @@ type SeedOptions = {
 }
 
 /**
- * Today's demo sheet.
+ * Today's demo sheet, plus four closed sessions on the next local day.
  * Outing A is a closed solo Monza practice. After a menu exit, outing B is
  * Spa online: a closed practice, then a live qualifying with laps L1–L7.
+ * The next day is one outing: two practices, qualifying, and a race.
  */
 export function devDay(now: number): DevDay {
     const monzaStart = localTime(now, 21, 4)
     const practiceStart = localTime(now, 21, 41)
     const qualifyingStart = localTime(now, 22, 2)
+    const next = shiftDays(now, 1)
+    const nextPractice = localTime(next, 10, 15)
+    const nextPracticeLater = localTime(next, 11, 40)
+    const nextQualifying = localTime(next, 15, 5)
+    const nextRace = localTime(next, 16, 48)
 
     const sessions: Session[] = [
         {
@@ -198,6 +209,62 @@ export function devDay(now: number): DevDay {
             airTemp: 21,
             roadTemp: 28.4,
         },
+        {
+            id: "seed-next-practice",
+            outingId: OUTING_NEXT,
+            startedAt: nextPractice,
+            endedAt: localTime(next, 11, 2),
+            online: false,
+            track: TRACK_MONZA,
+            car: CAR_BMW_M4,
+            type: "practice",
+            carCount: 1,
+            status: "closed",
+            airTemp: 18.2,
+            roadTemp: 24.6,
+        },
+        {
+            id: "seed-next-practice-2",
+            outingId: OUTING_NEXT,
+            startedAt: nextPracticeLater,
+            endedAt: localTime(next, 12, 28),
+            online: true,
+            track: TRACK_SPA,
+            car: CAR_BMW_M4,
+            type: "practice",
+            carCount: 20,
+            status: "closed",
+            airTemp: 19.1,
+            roadTemp: 26.4,
+        },
+        {
+            id: "seed-next-qualifying",
+            outingId: OUTING_NEXT,
+            startedAt: nextQualifying,
+            endedAt: localTime(next, 15, 32),
+            online: true,
+            track: TRACK_SPA,
+            car: CAR_BMW_M4,
+            type: "qualifying",
+            carCount: 22,
+            status: "closed",
+            airTemp: 21.4,
+            roadTemp: 29.8,
+        },
+        {
+            id: "seed-next-race",
+            outingId: OUTING_NEXT,
+            startedAt: nextRace,
+            endedAt: localTime(next, 17, 26),
+            online: true,
+            track: TRACK_SPA,
+            car: CAR_BMW_M4,
+            type: "race",
+            carCount: 22,
+            status: "closed",
+            airTemp: 20.8,
+            roadTemp: 30.2,
+        },
     ]
 
     const laps: Lap[] = [
@@ -219,6 +286,42 @@ export function devDay(now: number): DevDay {
             S1_END_M,
             S2_END_M
         ),
+        closedLap(
+            "seed-next-practice",
+            "seed-next-practice-1",
+            "1:47.902",
+            286,
+            36,
+            2100,
+            3900
+        ),
+        closedLap(
+            "seed-next-practice-2",
+            "seed-next-practice-2-1",
+            "2:19.110",
+            268,
+            48.4,
+            S1_END_M,
+            S2_END_M
+        ),
+        closedLap(
+            "seed-next-qualifying",
+            "seed-next-qualifying-1",
+            "2:17.640",
+            274,
+            44.1,
+            S1_END_M,
+            S2_END_M
+        ),
+        closedLap(
+            "seed-next-race",
+            "seed-next-race-1",
+            "2:18.774",
+            270,
+            22.6,
+            S1_END_M,
+            S2_END_M
+        ),
         ...QUALIFYING_LAPS.map(row => qualifyingLap(row)),
     ]
 
@@ -232,7 +335,7 @@ export function devDay(now: number): DevDay {
 }
 
 /**
- * Writes `devDay` once when `dev` is set and `sessions` is empty.
+ * Writes `devDay` in dev when the database is empty or the seed version changed.
  * Returns whether this call wrote the sheet.
  */
 export async function seedDevDay(
@@ -241,7 +344,8 @@ export async function seedDevDay(
 ): Promise<boolean> {
     const dev = options.dev ?? import.meta.env.DEV
     if (!dev) return false
-    if ((await database.count("sessions")) > 0) return false
+    const empty = (await database.count("sessions")) === 0
+    if (!empty && readSeedVersion() === SEED_VERSION) return false
 
     const day = devDay(options.now ?? Date.now())
     const tx = database.transaction(["sessions", "laps", "traces"], "readwrite")
@@ -254,7 +358,24 @@ export async function seedDevDay(
         ...day.traces.map(trace => traces.put(trace)),
         tx.done,
     ])
+    writeSeedVersion()
     return true
+}
+
+const readSeedVersion = (): string | null => {
+    try {
+        return localStorage.getItem(SEED_VERSION_KEY)
+    } catch {
+        return null
+    }
+}
+
+const writeSeedVersion = (): void => {
+    try {
+        localStorage.setItem(SEED_VERSION_KEY, SEED_VERSION)
+    } catch {
+        /* приватный режим — посев всё равно уже в базе */
+    }
 }
 
 function qualifyingLap(row: LapRow): Lap {
@@ -387,5 +508,11 @@ function milliseconds(clock: string): number {
 function localTime(now: number, hours: number, minutes: number): number {
     const date = new Date(now)
     date.setHours(hours, minutes, 0, 0)
+    return date.getTime()
+}
+
+function shiftDays(at: number, days: number): number {
+    const date = new Date(at)
+    date.setDate(date.getDate() + days)
     return date.getTime()
 }

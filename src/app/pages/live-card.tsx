@@ -14,7 +14,7 @@ export const LiveCard = (props: { card: LiveCardModel }) => {
     const card = () => props.card
 
     return (
-        <section class="mx-6 mt-6 overflow-hidden rounded border border-line bg-surface">
+        <section class="mx-6 mt-6 shrink-0 overflow-hidden rounded border border-line bg-surface">
             <header class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b border-line px-4 py-3">
                 <div class="flex min-w-0 items-baseline gap-3">
                     <h2 class="truncate font-mono text-lg font-semibold tracking-tight text-ink uppercase">
@@ -72,7 +72,7 @@ export const LiveCard = (props: { card: LiveCardModel }) => {
                     rows={card().rows}
                     best={card().bestLap}
                 />
-                <div class="min-h-72 border-t border-line lg:border-t-0 lg:border-l">
+                <div class="relative min-h-72 overflow-hidden border-t border-line lg:border-t-0 lg:border-l">
                     <Show
                         when={card().line}
                         fallback={
@@ -81,7 +81,12 @@ export const LiveCard = (props: { card: LiveCardModel }) => {
                             </p>
                         }
                     >
-                        {trace => <TrackLine trace={trace()} />}
+                        {trace => (
+                            <TrackLine
+                                class="absolute inset-0 min-h-0"
+                                trace={trace()}
+                            />
+                        )}
                     </Show>
                 </div>
             </div>
@@ -113,24 +118,41 @@ const Summary = (props: {
     </div>
 )
 
+/** Сколько кругов видно без прокрутки таблицы. */
+const VISIBLE_LAP_ROWS = 7
+
+/** Высота шапки таблицы, rem. Совпадает с `h-8`. */
+const LAP_HEAD_REM = 2
+
+/** Высота строки круга, rem. Совпадает с `h-9`. */
+const LAP_ROW_REM = 2.25
+
+/**
+ * Высота окна таблицы: шапка и не больше семи кругов.
+ * Лишние круги прокручиваются внутри и не раздвигают карточку.
+ * Пиксель сверху закрывает нижнюю границу последней строки.
+ */
+const lapTableMaxHeight = (): string =>
+    `calc(${LAP_HEAD_REM}rem + ${VISIBLE_LAP_ROWS} * ${LAP_ROW_REM}rem + 1px)`
+
 const LapTable = (props: {
     sessionId: string
     rows: LiveLapRow[]
     best: LiveCardModel["bestLap"]
 }) => (
-    <div class="overflow-x-auto">
+    <div class="overflow-auto" style={{ "max-height": lapTableMaxHeight() }}>
         <table class="w-full min-w-[40rem] border-collapse text-left">
             <caption class="sr-only">{t("app.lapTable")}</caption>
-            <thead>
+            <thead class="sticky top-0 z-10 bg-surface">
                 <tr class="border-b border-line font-mono text-[10px] font-semibold tracking-wide text-secondary uppercase">
-                    <th class="px-3 py-2 font-semibold">{t("app.colLap")}</th>
-                    <th class="px-3 py-2 font-semibold">{t("app.colTime")}</th>
-                    <th class="px-3 py-2 font-semibold">{t("app.colDelta")}</th>
-                    <th class="px-3 py-2 font-semibold">S1</th>
-                    <th class="px-3 py-2 font-semibold">S2</th>
-                    <th class="px-3 py-2 font-semibold">S3</th>
-                    <th class="px-3 py-2 font-semibold">{t("app.colFuel")}</th>
-                    <th class="px-3 py-2 font-semibold">{t("app.colValid")}</th>
+                    <th class="h-8 px-3 font-semibold">{t("app.colLap")}</th>
+                    <th class="h-8 px-3 font-semibold">{t("app.colTime")}</th>
+                    <th class="h-8 px-3 font-semibold">{t("app.colDelta")}</th>
+                    <th class="h-8 px-3 font-semibold">S1</th>
+                    <th class="h-8 px-3 font-semibold">S2</th>
+                    <th class="h-8 px-3 font-semibold">S3</th>
+                    <th class="h-8 px-3 font-semibold">{t("app.colFuel")}</th>
+                    <th class="h-8 px-3 font-semibold">{t("app.colValid")}</th>
                 </tr>
             </thead>
             <tbody>
@@ -165,12 +187,12 @@ const LapRow = (props: {
     return (
         <tr
             class={cn(
-                "cursor-pointer border-b border-line last:border-b-0 hover:bg-inset",
+                "h-9 cursor-pointer border-b border-line last:border-b-0 hover:bg-inset",
                 muted() ? "text-muted" : "text-ink"
             )}
             onClick={open}
         >
-            <th scope="row" class="px-3 py-2 font-mono text-[13px] font-medium">
+            <th scope="row" class="px-3 font-mono text-[13px] font-medium">
                 <A
                     href={href()}
                     class="rounded outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20"
@@ -191,7 +213,7 @@ const LapRow = (props: {
             </th>
             <td
                 class={cn(
-                    "px-3 py-2 font-mono text-[13px]",
+                    "px-3 font-mono text-[13px]",
                     timeClass(props.row)
                 )}
             >
@@ -201,7 +223,7 @@ const LapRow = (props: {
             </td>
             <td
                 class={cn(
-                    "px-3 py-2 font-mono text-[13px]",
+                    "px-3 font-mono text-[13px]",
                     deltaClass(props.row)
                 )}
             >
@@ -222,10 +244,10 @@ const LapRow = (props: {
                 milliseconds={props.row.lap.s3Ms}
                 bestMilliseconds={props.best?.s3Ms ?? null}
             />
-            <td class="px-3 py-2 font-mono text-[13px]">
+            <td class="px-3 font-mono text-[13px]">
                 {props.row.lap.fuel.toFixed(1)} {t("app.litre")}
             </td>
-            <td class="px-3 py-2">
+            <td class="px-3">
                 <ValidMark valid={props.row.lap.valid} />
             </td>
         </tr>
@@ -239,7 +261,7 @@ const SectorCell = (props: {
 }) => (
     <td
         class={cn(
-            "px-3 py-2 font-mono text-[13px]",
+            "px-3 font-mono text-[13px]",
             sectorClass(props.row, props.milliseconds, props.bestMilliseconds)
         )}
     >

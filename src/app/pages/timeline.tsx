@@ -12,6 +12,7 @@ import {
     SESSION_FILTERS,
     closedSheet,
     fastestValidLap,
+    groupByDay,
     isSessionFilter,
     liveCard,
     type Lap,
@@ -23,6 +24,7 @@ import {
 import { carName, fmt, t, trackName } from "~/i18n"
 import { locale } from "~/i18n/locale"
 import { Tabs, cn } from "~/ui"
+import { DayNav, activeDayStart } from "~/app/pages/day-nav"
 import { LiveCard } from "~/app/pages/live-card"
 
 type DaySession = {
@@ -53,54 +55,77 @@ export function TimelinePage() {
     )
 
     return (
-        <Switch>
-            <Match when={sheet.error}>
-                <SheetMessage text={errorText(sheet.error)} />
-            </Match>
-            <Match when={sheet()}>
-                {loaded => (
-                    <Show
-                        when={loaded().past.length > 0 || loaded().live}
-                        fallback={<SheetMessage text={t("app.emptySheet")} />}
-                    >
-                        <Show when={loaded().live}>
-                            {card => <LiveCard card={card()} />}
+        <div>
+            <Switch>
+                <Match when={sheet.error}>
+                    <SheetMessage text={errorText(sheet.error)} />
+                </Match>
+                <Match when={sheet()}>
+                    {loaded => (
+                        <Show
+                            when={loaded().past.length > 0 || loaded().live}
+                            fallback={
+                                <SheetMessage text={t("app.emptySheet")} />
+                            }
+                        >
+                            <Show when={loaded().live}>
+                                {card => <LiveCard card={card()} />}
+                            </Show>
+                            <Show when={loaded().past.length > 0}>
+                                <PastSheet sessions={loaded().past} />
+                            </Show>
                         </Show>
-                        <Show when={loaded().past.length > 0}>
-                            <PastSheet sessions={loaded().past} />
-                        </Show>
-                    </Show>
-                )}
-            </Match>
-        </Switch>
+                    )}
+                </Match>
+            </Switch>
+        </div>
     )
 }
 
 function PastSheet(props: { sessions: DaySession[] }) {
     const [filter, setFilter] = createSignal<SessionFilter>("all")
-    const rows = () =>
-        closedSheet(
-            props.sessions.map(row => row.session),
-            filter()
-        ).flatMap(item => (item.kind === "session" ? [item] : []))
+    const [chosen, setChosen] = createSignal<number>()
+    const days = () =>
+        groupByDay(
+            closedSheet(
+                props.sessions.map(row => row.session),
+                "all"
+            ).flatMap(item => (item.kind === "session" ? [item.session] : []))
+        )
+    const selected = () => activeDayStart(days(), chosen(), Date.now())
+    const sessions = () => {
+        const day = days().find(item => item.start === selected())
+        if (!day) return []
+        return closedSheet(day.sessions, filter()).flatMap(item =>
+            item.kind === "session" ? [item.session] : []
+        )
+    }
     const bestLap = (sessionId: string) =>
         props.sessions.find(row => row.session.id === sessionId)?.bestLap
 
     return (
-        <section class="flex flex-col px-6 py-6">
+        <section class="px-6 py-6">
             <header class="flex flex-wrap items-center justify-between gap-4">
-                <h1 class="font-mono text-lg font-semibold tracking-tight text-ink">
-                    {dayTitle()}
-                </h1>
-                <SessionTypeFilter value={filter()} onChange={setFilter} />
+                <Show when={selected()}>
+                    {start => (
+                        <DayNav
+                            days={days()}
+                            value={start()}
+                            onChange={setChosen}
+                        />
+                    )}
+                </Show>
+                <div class="ml-auto">
+                    <SessionTypeFilter value={filter()} onChange={setFilter} />
+                </div>
             </header>
-            <Show when={rows().length > 0}>
+            <Show when={sessions().length > 0}>
                 <ul class="mt-6 border-t border-line">
-                    <For each={rows()}>
-                        {item => (
+                    <For each={sessions()}>
+                        {session => (
                             <ClosedRow
-                                session={item.session}
-                                bestLap={bestLap(item.session.id)}
+                                session={session}
+                                bestLap={bestLap(session.id)}
                             />
                         )}
                     </For>
@@ -224,10 +249,7 @@ function SheetMessage(props: { text: string }) {
 }
 
 async function readDaySheet(repo: SessionRepository): Promise<DaySheet> {
-    const items = await repo.readDay()
-    const sessions = items.flatMap(item =>
-        item.kind === "session" ? [item.session] : []
-    )
+    const sessions = await repo.readSessions()
     const liveSession = sessions
         .filter(session => session.status === "live")
         .sort((left, right) => right.startedAt - left.startedAt)[0]
@@ -264,13 +286,6 @@ function countableLap(
 ): (Lap & { timeMs: number }) | undefined {
     if (!lap || lap.timeMs === null) return undefined
     return { ...lap, timeMs: lap.timeMs }
-}
-
-function dayTitle(): string {
-    return new Intl.DateTimeFormat(locale(), {
-        day: "numeric",
-        month: "long",
-    }).format(new Date())
 }
 
 function filterLabel(filter: SessionFilter): string {

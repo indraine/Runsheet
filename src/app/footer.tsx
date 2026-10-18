@@ -3,7 +3,7 @@ import { t } from "~/i18n"
 
 export function Footer() {
     return (
-        <footer class="flex h-9 shrink-0 items-center gap-3 border-t border-line bg-surface px-6 font-mono text-[11px] text-muted select-none">
+        <footer class="sticky bottom-0 z-20 flex h-9 shrink-0 items-center gap-3 border-t border-line bg-surface px-6 font-mono text-[11px] text-muted select-none">
             <span>
                 {t("app.frequency")}{" "}
                 <span class="text-secondary">{frequencyValue()}</span>

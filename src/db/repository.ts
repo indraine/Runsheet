@@ -42,6 +42,11 @@ export class SessionRepository {
         this.setRevision = setRevision
     }
 
+    /** Все сессии, без отбора по дате. */
+    async readSessions(): Promise<Session[]> {
+        return this.database.getAll("sessions")
+    }
+
     /** Sessions whose local start date is `at`, earliest first, with a menu marker between outings. */
     async readDay(at: number = Date.now()): Promise<DayItem[]> {
         const sessions = await this.database.getAll("sessions")
