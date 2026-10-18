@@ -85,10 +85,15 @@ impl Collector {
         self.open.as_ref().map(|open| open.session_id)
     }
 
-    /// Сбросить незавершённый круг, не пакуя его.
-    /// Выезд закрылся или сессия сменилась: чужие точки в новый круг не переносятся.
-    pub(crate) fn discard(&mut self) {
-        self.open = None;
+    /// Забрать незавершённый круг и очистить буфер.
+    /// Без точек пачки нет: в базу нечего класть.
+    /// С точками круг уходит незачётным и без времени — линии он не пересёк.
+    pub(crate) fn abandon(&mut self) -> Option<Vec<u8>> {
+        let open = self.open.take()?;
+        if open.points.is_empty() {
+            return None;
+        }
+        Some(pack(&open.abandoned()))
     }
 
     /// Идентификатор открытого круга. Тот же уйдёт в пачку на финише.
@@ -229,6 +234,25 @@ impl OpenLap {
             s1_end_m: self.s1_end_m,
             s2_end_m: self.s2_end_m,
             valid: self.valid,
+            fuel: self.fuel,
+            max_speed: self.max_speed.unwrap_or(0.0),
+            points: self.points,
+        }
+    }
+
+    /// Выезд закрылся или сессия сменилась. Зачёт игры на этом круге уже не считается.
+    fn abandoned(self) -> Finished {
+        Finished {
+            id: self.id,
+            session_id: self.session_id,
+            number: self.number,
+            time_ms: None,
+            s1_ms: self.s1_ms,
+            s2_ms: self.s2_ms,
+            s3_ms: None,
+            s1_end_m: self.s1_end_m,
+            s2_end_m: self.s2_end_m,
+            valid: false,
             fuel: self.fuel,
             max_speed: self.max_speed.unwrap_or(0.0),
             points: self.points,

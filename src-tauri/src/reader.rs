@@ -467,7 +467,8 @@ struct Shot {
     lap: Option<Vec<u8>>,
 }
 
-/// Один снимок: машина, затем сборщик. Чужой буфер сбрасывается до записи новой точки.
+/// Один снимок: машина, затем сборщик.
+/// Чужой буфер пакуется незачётным до записи точки новой сессии.
 #[cfg(any(windows, test))]
 fn ingest(
     machine: &mut Machine,
@@ -476,18 +477,23 @@ fn ingest(
     motion: Option<&Motion>,
 ) -> Shot {
     let events = machine.step(tick);
-    release_foreign_lap(machine, laps);
-    let lap = record_live(machine, laps, tick, motion);
-    Shot { events, lap }
+    let abandoned = release_foreign_lap(machine, laps);
+    let finished = record_live(machine, laps, tick, motion);
+    Shot {
+        events,
+        lap: finished.or(abandoned),
+    }
 }
 
-/// Буфер принадлежит открытой сессии. Закрытый выезд и чужая сессия его не оставляют.
+/// Буфер принадлежит открытой сессии.
+/// Закрытый выезд и чужая сессия отдают точки одной пачкой, если они есть.
 #[cfg(any(windows, test))]
-fn release_foreign_lap(machine: &Machine, laps: &mut Collector) {
+fn release_foreign_lap(machine: &Machine, laps: &mut Collector) -> Option<Vec<u8>> {
     let current = machine.session().map(|session| session.id);
-    if laps.bound_session() != current {
-        laps.discard();
+    if laps.bound_session() == current {
+        return None;
     }
+    laps.abandon()
 }
 
 /// Точку пишет только `Live`. Пауза, повтор и `Off` буфер не пополняют.

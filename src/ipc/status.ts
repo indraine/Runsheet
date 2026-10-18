@@ -6,6 +6,23 @@ export const ACC_STATUS_EVENT = "acc-status"
 /** Связь с памятью ACC. В JSON — `unavailable`, `linked`, `lost`. */
 export type AccLinkState = "unavailable" | "linked" | "lost"
 
+/** Что машина выезда решила на этом тике. Имена совпадают с `StatusEvent` в Rust. */
+export type AccStatusEvent =
+    | { kind: "outingOpened"; outingId: string }
+    | { kind: "sessionOpened"; session: Session }
+    | {
+          kind: "sessionChanged"
+          previousId: string
+          endedAt: number
+          session: Session
+      }
+    | {
+          kind: "outingClosed"
+          outingId: string
+          sessionId: string | null
+          endedAt: number
+      }
+
 /** Снимок `acc-status` после разбора. Сессия уже в типах листа. */
 export type AccStatus = {
     link: AccLinkState
@@ -16,6 +33,7 @@ export type AccStatus = {
     speed: number | null
     airTemp: number | null
     roadTemp: number | null
+    events: AccStatusEvent[]
 }
 
 /** Предыдущий пакет, от которого считается частота. */
@@ -46,6 +64,7 @@ export const parseAccStatus = (payload: unknown): AccStatus | undefined => {
         speed: optionalNumber(payload.speed),
         airTemp: optionalNumber(payload.airTemp),
         roadTemp: optionalNumber(payload.roadTemp),
+        events: parseEvents(payload.events),
     }
 }
 
@@ -101,6 +120,67 @@ const parseSession = (value: unknown): Session | undefined => {
         status: "live",
         airTemp: value.airTemp,
         roadTemp: value.roadTemp,
+    }
+}
+
+/** Битый элемент пропускается. Нет массива — событий нет, статус всё равно живой. */
+const parseEvents = (value: unknown): AccStatusEvent[] => {
+    if (!Array.isArray(value)) return []
+    const events: AccStatusEvent[] = []
+    for (const item of value) {
+        const event = parseEvent(item)
+        if (event) events.push(event)
+    }
+    return events
+}
+
+const parseEvent = (value: unknown): AccStatusEvent | undefined => {
+    if (!isRecord(value) || typeof value.kind !== "string") return undefined
+
+    switch (value.kind) {
+        case "outingOpened": {
+            const outingId = text(value.outingId)
+            return outingId ? { kind: "outingOpened", outingId } : undefined
+        }
+        case "sessionOpened": {
+            const session = parseSession(value.session)
+            return session ? { kind: "sessionOpened", session } : undefined
+        }
+        case "sessionChanged": {
+            const previousId = text(value.previousId)
+            const session = parseSession(value.session)
+            if (!previousId || !session || !isFiniteNumber(value.endedAt)) {
+                return undefined
+            }
+            return {
+                kind: "sessionChanged",
+                previousId,
+                endedAt: value.endedAt,
+                session,
+            }
+        }
+        case "outingClosed": {
+            const outingId = text(value.outingId)
+            if (!outingId || !isFiniteNumber(value.endedAt)) return undefined
+            if (value.sessionId == null) {
+                return {
+                    kind: "outingClosed",
+                    outingId,
+                    sessionId: null,
+                    endedAt: value.endedAt,
+                }
+            }
+            const sessionId = text(value.sessionId)
+            if (!sessionId) return undefined
+            return {
+                kind: "outingClosed",
+                outingId,
+                sessionId,
+                endedAt: value.endedAt,
+            }
+        }
+        default:
+            return undefined
     }
 }
 

@@ -1,7 +1,7 @@
 import type { SessionRepository } from "~/db"
 import type { Session } from "~/domain"
 import { decodeLapPacket, type DecodedLap } from "~/ipc/packet"
-import type { AccStatus } from "~/ipc/status"
+import type { AccStatus, AccStatusEvent } from "~/ipc/status"
 
 /** Кладёт статус и пачки в репозиторий, не затирая закрытые выезды. */
 export type AccIngest = {
@@ -16,6 +16,8 @@ export type AccIngest = {
  */
 export const createAccIngest = (): AccIngest => {
     const pending = new Map<string, DecodedLap>()
+    /** Сессии, которые уже закрыты. Повторный статус с тем же id не открывает вторую строку. */
+    const closedAt = new Map<string, number>()
     let remembered: Session | undefined
     let chain: Promise<void> = Promise.resolve()
 
@@ -42,8 +44,17 @@ export const createAccIngest = (): AccIngest => {
         repo: SessionRepository,
         status: AccStatus
     ): Promise<void> => {
+        for (const event of status.events) {
+            await applyClose(repo, event)
+        }
+
         const next = liveSession(status)
         if (!next) return
+        const endedAt = closedAt.get(next.id)
+        if (endedAt !== undefined) {
+            await seal(repo, next, endedAt)
+            return
+        }
         if (remembered?.id === next.id && remembered.status === "closed") return
         if (remembered?.id === next.id && sameSession(remembered, next)) {
             await flush(repo, remembered)
@@ -55,6 +66,7 @@ export const createAccIngest = (): AccIngest => {
         )
         if (stored?.status === "closed") {
             remembered = stored
+            closedAt.set(stored.id, stored.endedAt ?? stored.startedAt)
             return
         }
         if (stored && sameSession(stored, next)) {
@@ -66,6 +78,63 @@ export const createAccIngest = (): AccIngest => {
         await repo.upsert({ session: next })
         remembered = next
         await flush(repo, next)
+    }
+
+    /**
+     * «Выезд закрыт» и смена сессии ставят предыдущую строку в `closed`.
+     * В событии закрытия нет полей строки: обновляется уже записанная.
+     */
+    const applyClose = async (
+        repo: SessionRepository,
+        event: AccStatusEvent
+    ): Promise<void> => {
+        const close =
+            event.kind === "outingClosed"
+                ? event.sessionId
+                    ? { sessionId: event.sessionId, endedAt: event.endedAt }
+                    : undefined
+                : event.kind === "sessionChanged"
+                  ? { sessionId: event.previousId, endedAt: event.endedAt }
+                  : undefined
+        if (!close) return
+
+        closedAt.set(close.sessionId, close.endedAt)
+        const stored = (await repo.readSessions()).find(
+            session => session.id === close.sessionId
+        )
+        if (!stored) return
+        await seal(repo, stored, close.endedAt)
+    }
+
+    /** Одна запись: сессия закрыта, незавершённый круг с точками — незачётный. */
+    const seal = async (
+        repo: SessionRepository,
+        session: Session,
+        endedAt: number
+    ): Promise<void> => {
+        const closed: Session = { ...session, status: "closed", endedAt }
+        const unfinished = await unfinishedLap(pending, repo, session.id)
+        if (
+            session.status === "closed" &&
+            session.endedAt === endedAt &&
+            !unfinished
+        ) {
+            remembered = closed
+            return
+        }
+
+        if (unfinished) {
+            await repo.upsert({
+                session: closed,
+                lap: { ...unfinished.lap, valid: false },
+                trace: unfinished.trace,
+            })
+            pending.delete(unfinished.lap.id)
+        } else {
+            await repo.upsert({ session: closed })
+        }
+        remembered = closed
+        await flush(repo, closed)
     }
 
     const writePacket = async (
@@ -82,11 +151,15 @@ export const createAccIngest = (): AccIngest => {
             pending.set(decoded.lap.id, decoded)
             return
         }
-        if (stored.status === "closed") return
+
+        const unfinished =
+            stored.status === "closed" && decoded.lap.timeMs === null
+        if (unfinished && !hasSamples(decoded)) return
+        const lap = unfinished ? { ...decoded.lap, valid: false } : decoded.lap
 
         await repo.upsert({
             session: stored,
-            lap: decoded.lap,
+            lap,
             trace: decoded.trace,
         })
         remembered = stored
@@ -100,11 +173,11 @@ export const createAccIngest = (): AccIngest => {
             .filter(item => item.lap.sessionId === session.id)
             .sort((left, right) => left.lap.number - right.lap.number)
         for (const item of ready) {
-            await repo.upsert({
-                session,
-                lap: item.lap,
-                trace: item.trace,
-            })
+            const lap =
+                session.status === "closed" && item.lap.timeMs === null
+                    ? { ...item.lap, valid: false }
+                    : item.lap
+            await repo.upsert({ session, lap, trace: item.trace })
             pending.delete(item.lap.id)
         }
     }
@@ -144,3 +217,31 @@ const sameSession = (left: Session, right: Session): boolean =>
 
 const sameTemp = (left: number, right: number): boolean =>
     Math.round(left * 10) === Math.round(right * 10)
+
+/**
+ * Незакрытый круг этой сессии, если в нём есть точки.
+ * Сначала пачка, которая ждала строку, потом уже записанный предпросмотр.
+ */
+const unfinishedLap = async (
+    pending: ReadonlyMap<string, DecodedLap>,
+    repo: SessionRepository,
+    sessionId: string
+): Promise<DecodedLap | undefined> => {
+    for (const item of pending.values()) {
+        if (item.lap.sessionId !== sessionId || item.lap.timeMs !== null) {
+            continue
+        }
+        if (hasSamples(item)) return item
+    }
+
+    const open = (await repo.readLaps(sessionId)).find(
+        lap => lap.timeMs === null
+    )
+    if (!open) return undefined
+    const trace = (await repo.readTraces([open.id])).get(open.id)
+    if (!trace || trace.distance.length < 1) return undefined
+    return { lap: open, trace }
+}
+
+const hasSamples = (decoded: DecodedLap): boolean =>
+    decoded.trace.distance.length > 0
