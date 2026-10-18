@@ -34,6 +34,31 @@ export type LiveCard = {
 const SECTOR_KEYS = ["s1Ms", "s2Ms", "s3Ms"] as const
 
 /**
+ * Живая сессия для карточки.
+ * Если статус назвал id и такая строка ещё `live`, берётся она —
+ * сид с более поздними часами её не закрывает.
+ * Без id остаётся самая поздняя живая. Закрытые выезды не выбираются.
+ */
+export const shownLive = (
+    sessions: readonly Session[],
+    sessionId?: string | null
+): Session | undefined => {
+    if (sessionId) {
+        const named = sessions.find(
+            session => session.id === sessionId && session.status === "live"
+        )
+        if (named) return named
+    }
+
+    let latest: Session | undefined
+    for (const session of sessions) {
+        if (session.status !== "live") continue
+        if (!latest || session.startedAt > latest.startedAt) latest = session
+    }
+    return latest
+}
+
+/**
  * Собирает карточку из сессии, её кругов и трейсов.
  * Круги приходят в любом порядке.
  */

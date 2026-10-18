@@ -1,10 +1,12 @@
 import { createSignal } from "solid-js"
 
-/** Connection row stage 2 fills from the acc-status event. */
+/** Строка связи. Её заполняет событие `acc-status`. */
 export type AccLink = {
     linked: boolean
     hz: number | null
     packetId: number | null
+    /** Id открытой сессии. Пока ACC её не прислала — null, и на листе остаётся сид. */
+    sessionId: string | null
 }
 
 /** Track and car in the analysis header. Null until a lap is loaded. */
@@ -17,6 +19,7 @@ const [accLink, setAccLink] = createSignal<AccLink>({
     linked: false,
     hz: null,
     packetId: null,
+    sessionId: null,
 })
 
 const [analysisHeading, setAnalysisHeading] = createSignal<AnalysisHeading>({

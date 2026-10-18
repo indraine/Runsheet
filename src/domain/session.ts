@@ -1,6 +1,26 @@
-/** `graphics.session_type`. Hotlap and hotstint stay in the sheet, outside the type filter. */
-export type SessionType =
-    "practice" | "qualifying" | "race" | "hotlap" | "hotstint"
+/**
+ * `graphics.session_type`. Имена совпадают с `kind_name` в Rust.
+ * В фильтре листа только гонка, квалификация и практика.
+ * Остальные типы остаются во «всех».
+ */
+export const SESSION_TYPES = [
+    "practice",
+    "qualifying",
+    "race",
+    "hotlap",
+    "hotstint",
+    "hotlapSuperpole",
+    "timeAttack",
+    "drift",
+    "drag",
+    "unknown",
+] as const
+
+export type SessionType = (typeof SESSION_TYPES)[number]
+
+/** Строка из статуса — известный тип сессии. */
+export const isSessionType = (value: string): value is SessionType =>
+    (SESSION_TYPES as readonly string[]).includes(value)
 
 /** `live` while the player is on track. `closed` after the outing ends in the menu. */
 export type SessionStatus = "live" | "closed"

@@ -3,6 +3,7 @@ import type { Locale } from "~/i18n/locale"
 const en = {
     wordmark: "Runsheet",
     accOffline: "Assetto Corsa Competizione is not running",
+    accOnline: "Assetto Corsa Competizione is running",
     backToTimeline: "To timeline",
     welcomeSlogan: "Drove! Recorded! Reviewed!",
     welcomeBody:
@@ -32,6 +33,11 @@ const en = {
     typeRace: "Race",
     typeHotlap: "Hot lap",
     typeHotstint: "Hot stint",
+    typeHotlapSuperpole: "Superpole",
+    typeTimeAttack: "Time attack",
+    typeDrift: "Drift",
+    typeDrag: "Drag",
+    typeUnknown: "Unknown",
     bestLap: "best",
     liveBest: "Best lap",
     liveCurrent: "Current lap",
@@ -74,6 +80,7 @@ const en = {
 const ru: typeof en = {
     wordmark: "Runsheet",
     accOffline: "Assetto Corsa Competizione не запущена",
+    accOnline: "Assetto Corsa Competizione запущена",
     backToTimeline: "К таймлайну",
     welcomeSlogan: "Проехал! Записал! Разобрал!",
     welcomeBody:
@@ -103,6 +110,11 @@ const ru: typeof en = {
     typeRace: "Гонка",
     typeHotlap: "Горячий круг",
     typeHotstint: "Длинная попытка",
+    typeHotlapSuperpole: "Суперпоул",
+    typeTimeAttack: "Атака на время",
+    typeDrift: "Дрифт",
+    typeDrag: "Драг",
+    typeUnknown: "Неизвестная",
     bestLap: "лучший",
     liveBest: "Лучший круг",
     liveCurrent: "Текущий круг",

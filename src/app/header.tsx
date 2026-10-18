@@ -5,6 +5,7 @@ import { accLink, analysisHeading } from "~/app/status"
 import { ThemeToggle } from "~/app/theme-toggle"
 import { Wordmark } from "~/app/wordmark"
 import { t } from "~/i18n"
+import { cn } from "~/ui"
 
 export function Header() {
     const analysis = useMatch(() => "/sessions/:sessionId/laps/:lapId")
@@ -49,10 +50,18 @@ export function Header() {
 }
 
 function AccStatus() {
+    const linked = () => accLink().linked
+
     return (
         <p class="inline-flex shrink-0 items-center gap-2 font-mono text-[11px] font-medium tracking-wide text-secondary uppercase">
-            <span class="size-1.5 rounded-full bg-muted" aria-hidden="true" />
-            <Show when={!accLink().linked}>{t("app.accOffline")}</Show>
+            <span
+                class={cn(
+                    "size-1.5 rounded-full",
+                    linked() ? "bg-gain" : "bg-muted"
+                )}
+                aria-hidden="true"
+            />
+            {linked() ? t("app.accOnline") : t("app.accOffline")}
         </p>
     )
 }

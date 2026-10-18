@@ -1,12 +1,15 @@
 import {
     createContext,
+    createEffect,
     createMemo,
     createResource,
+    onCleanup,
     useContext,
     type Accessor,
     type ParentProps,
     type Resource,
 } from "solid-js"
+import { startAccFeed } from "~/ipc/listen"
 import { openRunsheetDb, type RunsheetDatabase } from "~/db/schema"
 import { SessionRepository } from "~/db/repository"
 
@@ -35,10 +38,23 @@ export function DatabaseProvider(props: ParentProps) {
     return (
         <DbContext.Provider value={database}>
             <RepositoryContext.Provider value={repository}>
+                <AccFeed />
                 {props.children}
             </RepositoryContext.Provider>
         </DbContext.Provider>
     )
+}
+
+/** Подписка на ACC. Вне окна Tauri молчит, и dev-сид остаётся на листе. */
+function AccFeed() {
+    const repository = useSessionRepository()
+    const feed = startAccFeed()
+    onCleanup(() => feed.stop())
+    createEffect(() => {
+        const repo = repository()
+        if (repo) feed.attach(repo)
+    })
+    return null
 }
 
 export function useDb(): Resource<RunsheetDatabase> {

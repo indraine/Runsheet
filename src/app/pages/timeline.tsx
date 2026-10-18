@@ -7,6 +7,7 @@ import {
     createResource,
     createSignal,
 } from "solid-js"
+import { accLink } from "~/app/status"
 import { useSessionRepository, type SessionRepository } from "~/db"
 import {
     SESSION_FILTERS,
@@ -15,6 +16,7 @@ import {
     groupByDay,
     isSessionFilter,
     liveCard,
+    shownLive,
     type Lap,
     type LiveCard as LiveCardModel,
     type Session,
@@ -50,7 +52,7 @@ export function TimelinePage() {
         async () => {
             const repo = repository()
             if (!repo) return { past: [], live: undefined }
-            return readDaySheet(repo)
+            return readDaySheet(repo, accLink().sessionId)
         }
     )
 
@@ -248,11 +250,12 @@ function SheetMessage(props: { text: string }) {
     )
 }
 
-async function readDaySheet(repo: SessionRepository): Promise<DaySheet> {
+async function readDaySheet(
+    repo: SessionRepository,
+    sessionId: string | null
+): Promise<DaySheet> {
     const sessions = await repo.readSessions()
-    const liveSession = sessions
-        .filter(session => session.status === "live")
-        .sort((left, right) => right.startedAt - left.startedAt)[0]
+    const liveSession = shownLive(sessions, sessionId)
     const closed = sessions.filter(session => session.status === "closed")
 
     const [past, live] = await Promise.all([
@@ -313,6 +316,16 @@ function sessionTypeLabel(type: SessionType): string {
             return t("app.typeHotlap")
         case "hotstint":
             return t("app.typeHotstint")
+        case "hotlapSuperpole":
+            return t("app.typeHotlapSuperpole")
+        case "timeAttack":
+            return t("app.typeTimeAttack")
+        case "drift":
+            return t("app.typeDrift")
+        case "drag":
+            return t("app.typeDrag")
+        case "unknown":
+            return t("app.typeUnknown")
     }
 }
 
