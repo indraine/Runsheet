@@ -13,7 +13,9 @@ import {
     closedSheet,
     fastestValidLap,
     isSessionFilter,
+    liveCard,
     type Lap,
+    type LiveCard as LiveCardModel,
     type Session,
     type SessionFilter,
     type SessionType,
@@ -21,10 +23,16 @@ import {
 import { carName, fmt, t, trackName } from "~/i18n"
 import { locale } from "~/i18n/locale"
 import { Tabs, cn } from "~/ui"
+import { LiveCard } from "~/app/pages/live-card"
 
 type DaySession = {
     session: Session
     bestLap: Lap | undefined
+}
+
+type DaySheet = {
+    past: DaySession[]
+    live: LiveCardModel | undefined
 }
 
 const rowClass = "flex items-baseline gap-6 px-2 py-3"
@@ -39,8 +47,8 @@ export function TimelinePage() {
         },
         async () => {
             const repo = repository()
-            if (!repo) return []
-            return readDaySessions(repo)
+            if (!repo) return { past: [], live: undefined }
+            return readDaySheet(repo)
         }
     )
 
@@ -52,10 +60,15 @@ export function TimelinePage() {
             <Match when={sheet()}>
                 {loaded => (
                     <Show
-                        when={loaded().length > 0}
+                        when={loaded().past.length > 0 || loaded().live}
                         fallback={<SheetMessage text={t("app.emptySheet")} />}
                     >
-                        <PastSheet sessions={loaded()} />
+                        <Show when={loaded().live}>
+                            {card => <LiveCard card={card()} />}
+                        </Show>
+                        <Show when={loaded().past.length > 0}>
+                            <PastSheet sessions={loaded().past} />
+                        </Show>
                     </Show>
                 )}
             </Match>
@@ -210,17 +223,36 @@ function SheetMessage(props: { text: string }) {
     )
 }
 
-async function readDaySessions(repo: SessionRepository): Promise<DaySession[]> {
+async function readDaySheet(repo: SessionRepository): Promise<DaySheet> {
     const items = await repo.readDay()
     const sessions = items.flatMap(item =>
         item.kind === "session" ? [item.session] : []
     )
-    return Promise.all(
-        sessions.map(async session => ({
-            session,
-            bestLap: fastestValidLap(await repo.readLaps(session.id)),
-        }))
-    )
+    const liveSession = sessions
+        .filter(session => session.status === "live")
+        .sort((left, right) => right.startedAt - left.startedAt)[0]
+    const closed = sessions.filter(session => session.status === "closed")
+
+    const [past, live] = await Promise.all([
+        Promise.all(
+            closed.map(async session => ({
+                session,
+                bestLap: fastestValidLap(await repo.readLaps(session.id)),
+            }))
+        ),
+        liveSession ? readLiveCard(repo, liveSession) : undefined,
+    ])
+
+    return { past, live }
+}
+
+async function readLiveCard(
+    repo: SessionRepository,
+    session: Session
+): Promise<LiveCardModel> {
+    const laps = await repo.readLaps(session.id)
+    const traces = await repo.readTraces(laps.map(lap => lap.id))
+    return liveCard(session, laps, [...traces.values()])
 }
 
 function bestLapText(lap: (Lap & { timeMs: number }) | undefined): string {

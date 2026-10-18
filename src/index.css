@@ -6,8 +6,9 @@
 @import "tailwindcss";
 
 /*
-  Светлая палитра на :root. Тёмная — те же имена на html[data-theme="dark"].
-  Экраны остаются на bg-surface, text-muted, border-line, text-gain, text-loss.
+  Светлая палитра на :root. Тёмная и именованные схемы — те же имена
+  на html[data-theme="…"]. Экраны остаются на bg-surface, text-muted,
+  border-line, text-gain, text-loss.
 */
 :root {
     color-scheme: light;
@@ -49,6 +50,195 @@ html[data-theme="dark"] {
     --gain: #34d399;
     --loss: #f87171;
     --caution: #fbbf24;
+}
+
+html[data-theme="darcula"] {
+    color-scheme: dark;
+
+    --canvas: #2b2b2b;
+    --surface: #3c3f41;
+    --inset: #313335;
+    --line: #515658;
+
+    --ink: #a9b7c6;
+    --secondary: #8c96a3;
+    --muted: #6f7376;
+
+    --accent: #6897bb;
+    --on-accent: #2b2b2b;
+    --reference: #9876aa;
+
+    --gain: #6a8759;
+    --loss: #ff6b68;
+    --caution: #ffc66d;
+}
+
+html[data-theme="dracula"] {
+    color-scheme: dark;
+
+    --canvas: #21222c;
+    --surface: #282a36;
+    --inset: #1e1f29;
+    --line: #44475a;
+
+    --ink: #f8f8f2;
+    --secondary: #c8c8d4;
+    --muted: #6272a4;
+
+    --accent: #bd93f9;
+    --on-accent: #282a36;
+    --reference: #ff79c6;
+
+    --gain: #50fa7b;
+    --loss: #ff5555;
+    --caution: #ffb86c;
+}
+
+html[data-theme="monokai"] {
+    color-scheme: dark;
+
+    --canvas: #1e1f1c;
+    --surface: #272822;
+    --inset: #1a1b17;
+    --line: #49483e;
+
+    --ink: #f8f8f2;
+    --secondary: #cfcfc2;
+    --muted: #75715e;
+
+    --accent: #66d9ef;
+    --on-accent: #272822;
+    --reference: #ae81ff;
+
+    --gain: #a6e22e;
+    --loss: #f92672;
+    --caution: #e6db74;
+}
+
+html[data-theme="nord"] {
+    color-scheme: dark;
+
+    --canvas: #242933;
+    --surface: #2e3440;
+    --inset: #1e222a;
+    --line: #4c566a;
+
+    --ink: #eceff4;
+    --secondary: #d8dee9;
+    --muted: #7b88a1;
+
+    --accent: #88c0d0;
+    --on-accent: #2e3440;
+    --reference: #b48ead;
+
+    --gain: #a3be8c;
+    --loss: #bf616a;
+    --caution: #ebcb8b;
+}
+
+html[data-theme="mocha"] {
+    color-scheme: dark;
+
+    --canvas: #11111b;
+    --surface: #1e1e2e;
+    --inset: #181825;
+    --line: #45475a;
+
+    --ink: #cdd6f4;
+    --secondary: #a6adc8;
+    --muted: #6c7086;
+
+    --accent: #89b4fa;
+    --on-accent: #1e1e2e;
+    --reference: #cba6f7;
+
+    --gain: #a6e3a1;
+    --loss: #f38ba8;
+    --caution: #f9e2af;
+}
+
+html[data-theme="gruvbox"] {
+    color-scheme: dark;
+
+    --canvas: #1d2021;
+    --surface: #282828;
+    --inset: #1d2021;
+    --line: #504945;
+
+    --ink: #ebdbb2;
+    --secondary: #d5c4a1;
+    --muted: #928374;
+
+    --accent: #fe8019;
+    --on-accent: #282828;
+    --reference: #d3869b;
+
+    --gain: #b8bb26;
+    --loss: #fb4934;
+    --caution: #fabd2f;
+}
+
+html[data-theme="one-dark"] {
+    color-scheme: dark;
+
+    --canvas: #21252b;
+    --surface: #282c34;
+    --inset: #1b1e24;
+    --line: #3e4451;
+
+    --ink: #abb2bf;
+    --secondary: #9da5b4;
+    --muted: #5c6370;
+
+    --accent: #61afef;
+    --on-accent: #282c34;
+    --reference: #c678dd;
+
+    --gain: #98c379;
+    --loss: #e06c75;
+    --caution: #e5c07b;
+}
+
+html[data-theme="solarized-dark"] {
+    color-scheme: dark;
+
+    --canvas: #00212b;
+    --surface: #002b36;
+    --inset: #073642;
+    --line: #0a4a58;
+
+    --ink: #93a1a1;
+    --secondary: #839496;
+    --muted: #586e75;
+
+    --accent: #268bd2;
+    --on-accent: #fdf6e3;
+    --reference: #6c71c4;
+
+    --gain: #859900;
+    --loss: #dc322f;
+    --caution: #b58900;
+}
+
+html[data-theme="solarized-light"] {
+    color-scheme: light;
+
+    --canvas: #fdf6e3;
+    --surface: #eee8d5;
+    --inset: #f5efdc;
+    --line: #d3cbb7;
+
+    --ink: #586e75;
+    --secondary: #657b83;
+    --muted: #93a1a1;
+
+    --accent: #268bd2;
+    --on-accent: #fdf6e3;
+    --reference: #6c71c4;
+
+    --gain: #859900;
+    --loss: #dc322f;
+    --caution: #b58900;
 }
 
 @theme inline {

@@ -1,4 +1,5 @@
 export { groupDay, type DayItem } from "~/domain/day"
+export { liveCard, type LiveCard, type LiveLapRow } from "~/domain/live"
 export { fastestValidLap, type Lap } from "~/domain/lap"
 export {
     SESSION_FILTERS,

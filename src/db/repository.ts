@@ -61,6 +61,21 @@ export class SessionRepository {
         return laps.sort((left, right) => left.number - right.number)
     }
 
+    /** Трейсы указанных кругов. Круг без документа в карту не попадает. */
+    async readTraces(lapIds: readonly string[]): Promise<Map<string, Trace>> {
+        const found = new Map<string, Trace>()
+        if (lapIds.length === 0) return found
+
+        const tx = this.database.transaction("traces", "readonly")
+        const store = tx.objectStore("traces")
+        const traces = await Promise.all(lapIds.map(lapId => store.get(lapId)))
+        await tx.done
+        for (const trace of traces) {
+            if (trace) found.set(trace.lapId, trace)
+        }
+        return found
+    }
+
     /**
      * One lap plus the reference lap. `refLapId` selects a lap of the same session.
      * An unknown id falls back to the fastest valid lap of that session.

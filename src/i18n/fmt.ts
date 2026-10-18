@@ -37,4 +37,10 @@ function clock(at: Date | number): string {
     return `${pad(date.getHours(), 2)}:${pad(date.getMinutes(), 2)}`
 }
 
-export const fmt = { lap, delta, clock }
+/** Время сектора без нулевой минуты: `44.890` или `1:08.120`. */
+const sector = (milliseconds: number): string => {
+    const text = lap(milliseconds)
+    return text.startsWith("0:") ? text.slice(2) : text
+}
+
+export const fmt = { lap, delta, clock, sector }

@@ -2,21 +2,72 @@ import { createSignal } from "solid-js"
 
 /** Тот же ключ читает скрипт в index.html до первой отрисовки. */
 const THEME_KEY = "runsheet.theme"
-const LIGHT_CANVAS = "#f8fafc"
-const DARK_CANVAS = "#0b1220"
 
-export const THEMES = ["light", "dark", "system"] as const
+/** Свои режимы. Системная на экране становится светлой или тёмной. */
+export const APPEARANCE = ["light", "dark", "system"] as const
+
+/**
+ * Именованные схемы. Цвета лежат в index.css на `html[data-theme="…"]`.
+ * Точка в меню — тот же акцент, что `--accent` этой схемы.
+ */
+export const SCHEMES = [
+    "darcula",
+    "dracula",
+    "monokai",
+    "nord",
+    "mocha",
+    "gruvbox",
+    "one-dark",
+    "solarized-dark",
+    "solarized-light",
+] as const
+
+export const THEMES = [...APPEARANCE, ...SCHEMES] as const
 
 export type ThemePreference = (typeof THEMES)[number]
-export type ResolvedTheme = "light" | "dark"
+export type ThemeScheme = (typeof SCHEMES)[number]
+export type ResolvedTheme = Exclude<ThemePreference, "system">
 
-/** Проверяет, что строка — один из трёх режимов темы. */
+const COLOR_SCHEME: Record<ResolvedTheme, "light" | "dark"> = {
+    light: "light",
+    dark: "dark",
+    darcula: "dark",
+    dracula: "dark",
+    monokai: "dark",
+    nord: "dark",
+    mocha: "dark",
+    gruvbox: "dark",
+    "one-dark": "dark",
+    "solarized-dark": "dark",
+    "solarized-light": "light",
+}
+
+/** Акцент схемы для точки в меню. Совпадает с `--accent` в index.css. */
+export const THEME_SWATCH: Record<ThemeScheme, string> = {
+    darcula: "#6897bb",
+    dracula: "#bd93f9",
+    monokai: "#66d9ef",
+    nord: "#88c0d0",
+    mocha: "#89b4fa",
+    gruvbox: "#fe8019",
+    "one-dark": "#61afef",
+    "solarized-dark": "#268bd2",
+    "solarized-light": "#268bd2",
+}
+
+/** Проверяет, что строка — известный режим или схема. */
 export const isThemePreference = (value: string): value is ThemePreference =>
     (THEMES as readonly string[]).includes(value)
 
+/** Проверяет, что это именованная схема, а не светлая, тёмная или системная. */
+export const isThemeScheme = (
+    preference: ThemePreference
+): preference is ThemeScheme =>
+    (SCHEMES as readonly string[]).includes(preference)
+
 /**
- * Светлая и тёмная возвращаются как есть.
  * Системная повторяет тёмную схему ОС.
+ * Остальные режимы остаются собой: у Darcula не подменяется своя тёмная.
  */
 export const resolveTheme = (
     preference: ThemePreference,
@@ -25,6 +76,10 @@ export const resolveTheme = (
     if (preference === "system") return systemDark ? "dark" : "light"
     return preference
 }
+
+/** Светлая или тёмная для нативных контролов и полос прокрутки. */
+export const colorSchemeOf = (resolved: ResolvedTheme): "light" | "dark" =>
+    COLOR_SCHEME[resolved]
 
 const readPreference = (): ThemePreference => {
     if (typeof localStorage === "undefined") return "light"
@@ -43,14 +98,16 @@ const systemPrefersDark = (): boolean =>
 /** Красит документ уже разрешённой темой, без значения «системная». */
 const applyTheme = (preference: ThemePreference): void => {
     const resolved = resolveTheme(preference, systemPrefersDark())
+    const scheme = colorSchemeOf(resolved)
     document.documentElement.dataset.theme = resolved
-    document.documentElement.style.colorScheme = resolved
+    document.documentElement.style.colorScheme = scheme
+    const canvas = getComputedStyle(document.documentElement)
+        .getPropertyValue("--canvas")
+        .trim()
+    if (!canvas) return
     document
         .querySelector('meta[name="theme-color"]')
-        ?.setAttribute(
-            "content",
-            resolved === "dark" ? DARK_CANVAS : LIGHT_CANVAS
-        )
+        ?.setAttribute("content", canvas)
 }
 
 const [theme, setThemeSignal] = createSignal<ThemePreference>(readPreference())

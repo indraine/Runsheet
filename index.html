@@ -6,25 +6,38 @@
         <meta name="theme-color" content="#f8fafc" />
         <script>
             ;(function () {
+                var schemes = {
+                    light: "light",
+                    dark: "dark",
+                    darcula: "dark",
+                    dracula: "dark",
+                    monokai: "dark",
+                    nord: "dark",
+                    mocha: "dark",
+                    gruvbox: "dark",
+                    "one-dark": "dark",
+                    "solarized-dark": "dark",
+                    "solarized-light": "light",
+                }
                 var preference = "light"
                 try {
                     var stored = localStorage.getItem("runsheet.theme")
-                    if (
-                        stored === "light" ||
-                        stored === "dark" ||
-                        stored === "system"
-                    ) {
+                    if (stored === "system" || schemes[stored])
                         preference = stored
-                    }
                 } catch (e) {}
-                var dark =
-                    preference === "dark" ||
-                    (preference === "system" &&
-                        matchMedia("(prefers-color-scheme: dark)").matches)
-                document.documentElement.dataset.theme = dark ? "dark" : "light"
-                document.documentElement.style.colorScheme = dark
-                    ? "dark"
-                    : "light"
+                var resolved = preference
+                var scheme = "light"
+                if (preference === "system") {
+                    resolved = matchMedia("(prefers-color-scheme: dark)")
+                        .matches
+                        ? "dark"
+                        : "light"
+                    scheme = resolved
+                } else {
+                    scheme = schemes[preference]
+                }
+                document.documentElement.dataset.theme = resolved
+                document.documentElement.style.colorScheme = scheme
             })()
         </script>
         <link rel="icon" type="image/svg+xml" href="/src/assets/icon.svg" />
