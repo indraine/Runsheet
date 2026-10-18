@@ -6,8 +6,9 @@
 //! дистанцию. Рост `completed_lap` закрывает круг: время из `last_time`,
 //! третий сектор — остаток, зачёт — с последнего тика перед линией.
 
-// Поток чтения подключит сборщик следующим шагом. До этого обычная сборка его не вызывает.
-#![cfg_attr(not(test), allow(dead_code))]
+// Пачку забирает доставка во фронт. На не-Windows поток сборщик не крутит,
+// поэтому без `test` сборка эти типы не вызывает.
+#![cfg_attr(not(any(windows, test)), allow(dead_code))]
 
 use uuid::Uuid;
 
@@ -79,6 +80,26 @@ pub(crate) struct Collector {
 }
 
 impl Collector {
+    /// Сессия, которой принадлежит открытый буфер.
+    pub(crate) fn bound_session(&self) -> Option<Uuid> {
+        self.open.as_ref().map(|open| open.session_id)
+    }
+
+    /// Сбросить незавершённый круг, не пакуя его.
+    /// Выезд закрылся или сессия сменилась: чужие точки в новый круг не переносятся.
+    pub(crate) fn discard(&mut self) {
+        self.open = None;
+    }
+
+    /// Сколько точек сейчас в открытом круге.
+    #[cfg(test)]
+    pub(crate) fn open_points(&self) -> usize {
+        self.open
+            .as_ref()
+            .map(|open| open.points.len())
+            .unwrap_or(0)
+    }
+
     /// Принять тик. `Some` — круг только что закрылся, в буфере его пачка.
     #[must_use]
     pub(crate) fn push(&mut self, sample: &Sample) -> Option<Vec<u8>> {

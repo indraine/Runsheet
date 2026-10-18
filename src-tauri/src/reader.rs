@@ -1,19 +1,34 @@
 //! Поток чтения shared memory ACC.
-//! Пакет в лог не пишется: на появлении и потере связи — одна строка.
+//!
+//! Снимок берётся 20 раз в секунду. Статус сессии кормит машину выезда,
+//! физика открытого круга — сборщик. Кольца всех пакетов нет: буфер принадлежит
+//! открытому кругу и сбрасывается, когда выезд закрывается или сессия сменилась.
+//! Полный `ACCMap` в лог и во фронт не копируется.
 
 #[cfg(windows)]
 use std::time::Duration;
 
 #[cfg(windows)]
 use acc_shared_memory_rs::ACCSharedMemory;
+#[cfg(any(windows, test))]
+use acc_shared_memory_rs::datatypes::Vector3f;
+#[cfg(any(windows, test))]
+use acc_shared_memory_rs::enums::{AccSessionType, AccStatus};
+#[cfg(windows)]
+use acc_shared_memory_rs::maps::ACCMap;
+
+#[cfg(any(windows, test))]
+use crate::lap::{Collector, Sample};
+#[cfg(any(windows, test))]
+use crate::session::{Event, Frame, GameStatus, Machine, SessionKind, Sight, Tick};
 
 /// Пауза между попытками открыть память, пока ACC не запущена.
 #[cfg(windows)]
 const RETRY_AFTER: Duration = Duration::from_millis(500);
 
-/// Пауза между чтениями, когда память уже открыта.
+/// Пауза между снимками. 20 Гц — и статус сессии, и вход сборщика.
 #[cfg(windows)]
-const POLL_AFTER: Duration = Duration::from_millis(16);
+const SNAPSHOT_EVERY: Duration = Duration::from_millis(50);
 
 /// Что сказать в лог при смене связи. Повтор того же состояния молчит.
 #[derive(Debug, PartialEq, Eq)]
@@ -95,10 +110,15 @@ fn wait_without_acc() -> ! {
 #[cfg(windows)]
 fn poll() -> ! {
     let mut link = Link::default();
+    let mut machine = Machine::default();
+    let mut laps = Collector::default();
+    let clock = Clock::start();
+
     loop {
         let mut acc = match ACCSharedMemory::new() {
             Ok(acc) => acc,
             Err(_) => {
+                settle(ingest_absent(&mut machine, &mut laps, &clock));
                 report(link.note_down());
                 std::thread::sleep(RETRY_AFTER);
                 continue;
@@ -107,10 +127,276 @@ fn poll() -> ! {
 
         report(link.note_up());
 
-        while acc.read_shared_memory().is_ok() {
-            std::thread::sleep(POLL_AFTER);
+        loop {
+            match acc.read_shared_memory() {
+                Ok(Some(map)) => {
+                    settle(ingest_map(&mut machine, &mut laps, &clock, &map));
+                    std::thread::sleep(SNAPSHOT_EVERY);
+                }
+                Ok(None) => {
+                    // Физика замерла (пауза, меню), а статус живёт в другом сегменте.
+                    // Сбрасываем защёлку пакета, чтобы следующий снимок её показал.
+                    acc.reset();
+                    if let Ok(Some(map)) = acc.read_shared_memory() {
+                        settle(ingest_map(&mut machine, &mut laps, &clock, &map));
+                    }
+                    std::thread::sleep(SNAPSHOT_EVERY);
+                }
+                Err(_) => {
+                    settle(ingest_absent(&mut machine, &mut laps, &clock));
+                    report(link.note_down());
+                    break;
+                }
+            }
         }
-
-        report(link.note_down());
     }
+}
+
+/// События и пачка живут один тик. Доставка во фронт заберёт их следующим шагом.
+#[cfg(windows)]
+fn settle(shot: Shot) {
+    let Shot { events, lap } = shot;
+    let _ = (events, lap);
+}
+
+#[cfg(windows)]
+fn ingest_map(machine: &mut Machine, laps: &mut Collector, clock: &Clock, map: &ACCMap) -> Shot {
+    let motion = motion_from(map);
+    let tick = clock.stamp(sight_from(map));
+    ingest(machine, laps, &tick, Some(&motion))
+}
+
+#[cfg(windows)]
+fn ingest_absent(machine: &mut Machine, laps: &mut Collector, clock: &Clock) -> Shot {
+    ingest(machine, laps, &clock.stamp(Sight::Absent), None)
+}
+
+/// Монотонные миллисекунды от старта потока и локальные часы.
+#[cfg(windows)]
+struct Clock {
+    start: std::time::Instant,
+}
+
+#[cfg(windows)]
+impl Clock {
+    fn start() -> Self {
+        Self {
+            start: std::time::Instant::now(),
+        }
+    }
+
+    fn stamp(&self, sight: Sight) -> Tick {
+        Tick {
+            mono_ms: u64::try_from(self.start.elapsed().as_millis()).unwrap_or(u64::MAX),
+            wall_ms: wall_ms(),
+            sight,
+        }
+    }
+}
+
+#[cfg(windows)]
+fn wall_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX))
+        .unwrap_or(0)
+}
+
+#[cfg(windows)]
+fn sight_from(map: &ACCMap) -> Sight {
+    Sight::Frame(Frame {
+        status: game_status(map.graphics.status),
+        kind: session_kind(map.graphics.session_type),
+        session_index: map.graphics.session_index,
+        track: map.statics.track.clone(),
+        car: map.statics.car_model.clone(),
+        online: map.statics.is_online,
+        car_count: map.graphics.active_cars,
+        setup_menu: map.graphics.is_setup_menu_visible,
+        air_c: map.physics.air_temp,
+        road_c: map.physics.road_temp,
+    })
+}
+
+#[cfg(windows)]
+fn motion_from(map: &ACCMap) -> Motion {
+    let (x, z) = player_ground(
+        &map.graphics.car_id,
+        &map.graphics.car_coordinates,
+        map.graphics.player_car_id,
+    );
+    let pressure = map.physics.wheel_pressure;
+    let brake_temp = map.physics.brake_temp;
+    Motion {
+        completed_lap: map.graphics.completed_lap,
+        last_time_ms: map.graphics.last_time,
+        last_sector_time_ms: map.graphics.last_sector_time,
+        sector_index: map.graphics.current_sector_index,
+        valid: map.graphics.is_valid_lap,
+        distance_m: map.graphics.distance_traveled,
+        fuel: map.physics.fuel,
+        throttle: map.physics.gas,
+        brake: map.physics.brake,
+        steer: map.physics.steer_angle,
+        speed: map.physics.speed_kmh,
+        lap_time_ms: map.graphics.current_time,
+        g_long: map.physics.g_force.z,
+        g_lat: map.physics.g_force.x,
+        x,
+        z,
+        pressure_fl: pressure.front_left,
+        pressure_fr: pressure.front_right,
+        pressure_rl: pressure.rear_left,
+        pressure_rr: pressure.rear_right,
+        brake_temp_fl: brake_temp.front_left,
+        brake_temp_fr: brake_temp.front_right,
+    }
+}
+
+#[cfg(any(windows, test))]
+fn game_status(status: AccStatus) -> GameStatus {
+    match status {
+        AccStatus::Off => GameStatus::Off,
+        AccStatus::Replay => GameStatus::Replay,
+        AccStatus::Live => GameStatus::Live,
+        AccStatus::Pause => GameStatus::Pause,
+    }
+}
+
+#[cfg(any(windows, test))]
+fn session_kind(kind: AccSessionType) -> SessionKind {
+    match kind {
+        AccSessionType::Unknown => SessionKind::Unknown,
+        AccSessionType::Practice => SessionKind::Practice,
+        AccSessionType::Qualifying => SessionKind::Qualifying,
+        AccSessionType::Race => SessionKind::Race,
+        AccSessionType::Hotlap => SessionKind::Hotlap,
+        AccSessionType::TimeAttack => SessionKind::TimeAttack,
+        AccSessionType::Drift => SessionKind::Drift,
+        AccSessionType::Drag => SessionKind::Drag,
+        AccSessionType::Hotstint => SessionKind::Hotstint,
+        AccSessionType::HotlapSuperpole => SessionKind::HotlapSuperpole,
+    }
+}
+
+/// Земля машины игрока: `x` и `z`. `player_car_id` — идентификатор, не индекс.
+/// Слот ищется в `car_id`. Нет слота — нули, круг всё равно пишется.
+#[cfg(any(windows, test))]
+fn player_ground(car_ids: &[i32], coordinates: &[Vector3f], player_car_id: i32) -> (f32, f32) {
+    let Some(slot) = car_ids.iter().position(|id| *id == player_car_id) else {
+        return (0.0, 0.0);
+    };
+    let Some(point) = coordinates.get(slot) else {
+        return (0.0, 0.0);
+    };
+    (point.x, point.z)
+}
+
+/// Поля физики круга без сессии: её идентификатор знает только машина.
+#[cfg(any(windows, test))]
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Motion {
+    completed_lap: i32,
+    last_time_ms: i32,
+    last_sector_time_ms: i32,
+    sector_index: i32,
+    valid: bool,
+    distance_m: f32,
+    fuel: f32,
+    throttle: f32,
+    brake: f32,
+    steer: f32,
+    speed: f32,
+    lap_time_ms: i32,
+    g_long: f32,
+    g_lat: f32,
+    x: f32,
+    z: f32,
+    pressure_fl: f32,
+    pressure_fr: f32,
+    pressure_rl: f32,
+    pressure_rr: f32,
+    brake_temp_fl: f32,
+    brake_temp_fr: f32,
+}
+
+#[cfg(any(windows, test))]
+impl Motion {
+    fn sample(self, mono_ms: u64, session_id: uuid::Uuid) -> Sample {
+        Sample {
+            mono_ms,
+            session_id,
+            completed_lap: self.completed_lap,
+            last_time_ms: self.last_time_ms,
+            last_sector_time_ms: self.last_sector_time_ms,
+            sector_index: self.sector_index,
+            valid: self.valid,
+            distance_m: self.distance_m,
+            fuel: self.fuel,
+            throttle: self.throttle,
+            brake: self.brake,
+            steer: self.steer,
+            speed: self.speed,
+            lap_time_ms: self.lap_time_ms,
+            g_long: self.g_long,
+            g_lat: self.g_lat,
+            x: self.x,
+            z: self.z,
+            pressure_fl: self.pressure_fl,
+            pressure_fr: self.pressure_fr,
+            pressure_rl: self.pressure_rl,
+            pressure_rr: self.pressure_rr,
+            brake_temp_fl: self.brake_temp_fl,
+            brake_temp_fr: self.brake_temp_fr,
+        }
+    }
+}
+
+/// Что изменил один снимок. Пачка есть только если на этом тике круг закрылся.
+#[cfg(any(windows, test))]
+struct Shot {
+    events: Vec<Event>,
+    lap: Option<Vec<u8>>,
+}
+
+/// Один снимок: машина, затем сборщик. Чужой буфер сбрасывается до записи новой точки.
+#[cfg(any(windows, test))]
+fn ingest(
+    machine: &mut Machine,
+    laps: &mut Collector,
+    tick: &Tick,
+    motion: Option<&Motion>,
+) -> Shot {
+    let events = machine.step(tick);
+    release_foreign_lap(machine, laps);
+    let lap = record_live(machine, laps, tick, motion);
+    Shot { events, lap }
+}
+
+/// Буфер принадлежит открытой сессии. Закрытый выезд и чужая сессия его не оставляют.
+#[cfg(any(windows, test))]
+fn release_foreign_lap(machine: &Machine, laps: &mut Collector) {
+    let current = machine.session().map(|session| session.id);
+    if laps.bound_session() != current {
+        laps.discard();
+    }
+}
+
+/// Точку пишет только `Live`. Пауза, повтор и `Off` буфер не пополняют.
+#[cfg(any(windows, test))]
+fn record_live(
+    machine: &Machine,
+    laps: &mut Collector,
+    tick: &Tick,
+    motion: Option<&Motion>,
+) -> Option<Vec<u8>> {
+    let Sight::Frame(frame) = &tick.sight else {
+        return None;
+    };
+    if frame.status != GameStatus::Live {
+        return None;
+    }
+    let session_id = machine.session()?.id;
+    let motion = motion?;
+    laps.push(&motion.sample(tick.mono_ms, session_id))
 }
