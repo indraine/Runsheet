@@ -1,12 +1,9 @@
 //! Чистый кадр телеметрии.
-//!
-//! Его собирает ingress. Домен принимает поля уже приведёнными к единицам.
 
 use super::tires::TireSet;
 use super::units::{BrakePosition, Celsius, LapTime, Psi, Speed, ThrottlePosition, TrackProgress};
 use super::{CarState, GameStatus, SessionKind};
 
-/// Физика одного пакета.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct CleanTelemetryFrame {
     pub packet_id: i32,
@@ -24,7 +21,6 @@ pub(crate) struct CleanTelemetryFrame {
     pub brake_temp: TireSet<Celsius>,
 }
 
-/// Графика и статика того же пакета, уже без сырых страниц ACC.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct CleanSessionGraphic {
     pub status: GameStatus,

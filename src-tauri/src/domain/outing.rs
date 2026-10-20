@@ -1,7 +1,4 @@
 //! Типы выезда и сессии.
-//!
-//! Это снимок полей, ещё не чистый кадр ingress. Температуры и счётчики здесь
-//! сырые числа: санитизация появится на границе, а не внутри этих структур.
 
 use super::{OutingId, SessionId};
 
@@ -31,27 +28,20 @@ pub(crate) enum SessionKind {
     HotlapSuperpole,
 }
 
-/// Поля одного пакета, которые решают, открыта ли сессия.
-///
-/// Числа ещё не приведены к единицам домена.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Frame {
     pub status: GameStatus,
     pub kind: SessionKind,
-    /// Индекс сессии уикенда, `graphics.session_index`.
     pub session_index: i32,
     pub track: String,
     pub car: String,
     pub online: bool,
-    /// Число машин в строке листа.
     pub car_count: i32,
-    /// `graphics.is_setup_menu_visible`. В ключ строки не входит.
     pub setup_menu: bool,
     pub air_c: f32,
     pub road_c: f32,
 }
 
-/// Открытая или только что открытая сессия.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Session {
     pub id: SessionId,

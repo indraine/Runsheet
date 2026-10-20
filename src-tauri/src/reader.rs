@@ -1,24 +1,26 @@
 //! Поток чтения shared memory ACC.
 //!
 //! Снимок берётся 20 раз в секунду. Статус сессии кормит машину выезда,
-//! физика открытого круга — сборщик. Кольца всех пакетов нет: буфер принадлежит
-//! открытому кругу и сбрасывается, когда выезд закрывается или сессия сменилась.
-//! Полный `ACCMap` в лог и во фронт не копируется.
+//! физика открытого круга — сборщик. Сырой `ACCMap` разбирает только `ingress::decode`.
+//! Кольца всех пакетов нет: буфер принадлежит открытому кругу и сбрасывается,
+//! когда выезд закрывается или сессия сменилась.
 
 use std::time::Duration;
 
 #[cfg(windows)]
 use acc_shared_memory_rs::ACCSharedMemory;
-#[cfg(any(windows, test))]
-use acc_shared_memory_rs::datatypes::Vector3f;
-#[cfg(any(windows, test))]
-use acc_shared_memory_rs::enums::{AccSessionType, AccStatus};
 #[cfg(windows)]
 use acc_shared_memory_rs::maps::ACCMap;
 
 #[cfg(any(windows, test))]
-use crate::lap::{Collector, Sample};
+use crate::domain::{GameStatus as CleanStatus, LapTime, SessionKind as CleanKind};
+#[cfg(any(windows, test))]
+use crate::ingress::CleanTick;
 #[cfg(windows)]
+use crate::ingress::{PageOutcome, decode};
+#[cfg(any(windows, test))]
+use crate::lap::{Collector, Sample};
+#[cfg(any(windows, test))]
 use crate::session::Frame;
 #[cfg(any(windows, test))]
 use crate::session::{Event, GameStatus, Machine, SessionKind, Sight, Tick};
@@ -145,6 +147,7 @@ fn poll(outbox: ipc::Outbox) -> ! {
     let mut relay = Relay::default();
     let clock = Clock::start();
     let mut process = ProcessProbe::default();
+    let mut seen_packet = None;
 
     loop {
         let mut acc = match ACCSharedMemory::new() {
@@ -160,6 +163,7 @@ fn poll(outbox: ipc::Outbox) -> ! {
                     &mut machine,
                     &mut laps,
                     None,
+                    &mut seen_packet,
                 );
                 std::thread::sleep(RETRY_AFTER);
                 continue;
@@ -180,6 +184,7 @@ fn poll(outbox: ipc::Outbox) -> ! {
                         &mut machine,
                         &mut laps,
                         Some(&map),
+                        &mut seen_packet,
                     );
                     std::thread::sleep(SNAPSHOT_EVERY);
                 }
@@ -188,6 +193,9 @@ fn poll(outbox: ipc::Outbox) -> ! {
                     // Сбрасываем защёлку пакета, чтобы следующий снимок её показал.
                     acc.reset();
                     if let Ok(Some(map)) = acc.read_shared_memory() {
+                        // Идентификатор физики тот же, а пауза и меню живут в графике.
+                        // Иначе decode вернёт Stale и выезд не увидит Off.
+                        seen_packet = None;
                         deliver(
                             &outbox,
                             &mut relay,
@@ -197,6 +205,7 @@ fn poll(outbox: ipc::Outbox) -> ! {
                             &mut machine,
                             &mut laps,
                             Some(&map),
+                            &mut seen_packet,
                         );
                     }
                     std::thread::sleep(SNAPSHOT_EVERY);
@@ -212,6 +221,7 @@ fn poll(outbox: ipc::Outbox) -> ! {
                         &mut machine,
                         &mut laps,
                         None,
+                        &mut seen_packet,
                     );
                     break;
                 }
@@ -243,13 +253,9 @@ impl ProcessProbe {
     }
 }
 
-/// `Off` — главное меню или экран вне заезда. Пауза и повтор остаются сессией.
-#[cfg(windows)]
-fn in_session(map: Option<&ACCMap>) -> bool {
-    map.is_some_and(|map| map.graphics.status != AccStatus::Off)
-}
-
 /// Статус и пачка этого снимка. Промежуточная пачка открытого круга — не чаще раза в секунду.
+///
+/// `map` доходит только до `decode`. Повтор пакета и неконечное поле машину не двигают.
 #[cfg(windows)]
 fn deliver(
     outbox: &ipc::Outbox,
@@ -260,11 +266,29 @@ fn deliver(
     machine: &mut Machine,
     laps: &mut Collector,
     map: Option<&ACCMap>,
+    seen_packet: &mut Option<i32>,
 ) {
-    let packet_id = map.map(|map| map.physics.packet_id);
-    let motion = map.map(motion_from);
-    let tick = clock.stamp(match map {
-        Some(map) => sight_from(map),
+    let fresh = match map {
+        None => {
+            *seen_packet = None;
+            None
+        }
+        Some(map) => match decode(*seen_packet, map) {
+            Ok(PageOutcome::Stale) => return,
+            Ok(PageOutcome::Fresh(tick)) => {
+                *seen_packet = Some(tick.physics.packet_id);
+                Some(tick)
+            }
+            Err(error) => {
+                eprintln!("кадр ACC отвергнут: {error}");
+                return;
+            }
+        },
+    };
+    let packet_id = fresh.as_ref().map(|tick| tick.physics.packet_id);
+    let motion = fresh.as_ref().map(motion_of);
+    let tick = clock.stamp(match &fresh {
+        Some(clean) => Sight::Frame(frame_of(clean)),
         None => Sight::Absent,
     });
     let shot = ingest(machine, laps, &tick, motion.as_ref());
@@ -278,10 +302,13 @@ fn deliver(
         shot.lap.is_some(),
         laps.open_id(),
     );
+    let in_session = fresh
+        .as_ref()
+        .is_some_and(|tick| tick.graphic.status != CleanStatus::Off);
     if decision.emit_status {
         outbox.emit_status(&Status::capture(Capture {
             link,
-            presence: game::presence(link == LinkState::Linked, in_session(map), process_running),
+            presence: game::presence(link == LinkState::Linked, in_session, process_running),
             packet_id,
             outing_id: machine.outing_id(),
             session: machine.session(),
@@ -303,18 +330,6 @@ fn deliver(
     } else {
         outbox.drain();
     }
-}
-
-#[cfg(windows)]
-fn ingest_map(machine: &mut Machine, laps: &mut Collector, clock: &Clock, map: &ACCMap) -> Shot {
-    let motion = motion_from(map);
-    let tick = clock.stamp(sight_from(map));
-    ingest(machine, laps, &tick, Some(&motion))
-}
-
-#[cfg(windows)]
-fn ingest_absent(machine: &mut Machine, laps: &mut Collector, clock: &Clock) -> Shot {
-    ingest(machine, laps, &clock.stamp(Sight::Absent), None)
 }
 
 /// Монотонные миллисекунды от старта потока и локальные часы.
@@ -348,95 +363,85 @@ fn wall_ms() -> u64 {
         .unwrap_or(0)
 }
 
-#[cfg(windows)]
-fn sight_from(map: &ACCMap) -> Sight {
-    Sight::Frame(Frame {
-        status: game_status(map.graphics.status),
-        kind: session_kind(map.graphics.session_type),
-        session_index: map.graphics.session_index,
-        track: map.statics.track.clone(),
-        car: map.statics.car_model.clone(),
-        online: map.statics.is_online,
-        car_count: map.graphics.active_cars,
-        setup_menu: map.graphics.is_setup_menu_visible,
-        air_c: map.physics.air_temp,
-        road_c: map.physics.road_temp,
-    })
-}
-
-#[cfg(windows)]
-fn motion_from(map: &ACCMap) -> Motion {
-    let (x, z) = player_ground(
-        &map.graphics.car_id,
-        &map.graphics.car_coordinates,
-        map.graphics.player_car_id,
-    );
-    let pressure = map.physics.wheel_pressure;
-    let brake_temp = map.physics.brake_temp;
-    Motion {
-        completed_lap: map.graphics.completed_lap,
-        last_time_ms: map.graphics.last_time,
-        last_sector_time_ms: map.graphics.last_sector_time,
-        sector_index: map.graphics.current_sector_index,
-        valid: map.graphics.is_valid_lap,
-        distance_m: map.graphics.distance_traveled,
-        fuel: map.physics.fuel,
-        throttle: map.physics.gas,
-        brake: map.physics.brake,
-        steer: map.physics.steer_angle,
-        speed: map.physics.speed_kmh,
-        lap_time_ms: map.graphics.current_time,
-        progress: map.graphics.normalized_car_position,
-        g_long: map.physics.g_force.z,
-        g_lat: map.physics.g_force.x,
-        x,
-        z,
-        pressure_fl: pressure.front_left,
-        pressure_fr: pressure.front_right,
-        pressure_rl: pressure.rear_left,
-        pressure_rr: pressure.rear_right,
-        brake_temp_fl: brake_temp.front_left,
-        brake_temp_fr: brake_temp.front_right,
+/// Старый снимок сессии. Машина выезда ещё принимает его, не страницы ACC.
+#[cfg(any(windows, test))]
+fn frame_of(tick: &CleanTick) -> Frame {
+    let graphic = &tick.graphic;
+    Frame {
+        status: status_of(graphic.status),
+        kind: kind_of(graphic.kind),
+        session_index: graphic.session_index,
+        track: graphic.track.clone(),
+        car: graphic.car.clone(),
+        online: graphic.online,
+        car_count: graphic.car_count,
+        setup_menu: graphic.setup_menu,
+        air_c: graphic.air.celsius(),
+        road_c: graphic.road.celsius(),
     }
 }
 
 #[cfg(any(windows, test))]
-fn game_status(status: AccStatus) -> GameStatus {
+fn status_of(status: CleanStatus) -> GameStatus {
     match status {
-        AccStatus::Off => GameStatus::Off,
-        AccStatus::Replay => GameStatus::Replay,
-        AccStatus::Live => GameStatus::Live,
-        AccStatus::Pause => GameStatus::Pause,
+        CleanStatus::Off => GameStatus::Off,
+        CleanStatus::Replay => GameStatus::Replay,
+        CleanStatus::Live => GameStatus::Live,
+        CleanStatus::Pause => GameStatus::Pause,
     }
 }
 
 #[cfg(any(windows, test))]
-fn session_kind(kind: AccSessionType) -> SessionKind {
+fn kind_of(kind: CleanKind) -> SessionKind {
     match kind {
-        AccSessionType::Unknown => SessionKind::Unknown,
-        AccSessionType::Practice => SessionKind::Practice,
-        AccSessionType::Qualifying => SessionKind::Qualifying,
-        AccSessionType::Race => SessionKind::Race,
-        AccSessionType::Hotlap => SessionKind::Hotlap,
-        AccSessionType::TimeAttack => SessionKind::TimeAttack,
-        AccSessionType::Drift => SessionKind::Drift,
-        AccSessionType::Drag => SessionKind::Drag,
-        AccSessionType::Hotstint => SessionKind::Hotstint,
-        AccSessionType::HotlapSuperpole => SessionKind::HotlapSuperpole,
+        CleanKind::Unknown => SessionKind::Unknown,
+        CleanKind::Practice => SessionKind::Practice,
+        CleanKind::Qualifying => SessionKind::Qualifying,
+        CleanKind::Race => SessionKind::Race,
+        CleanKind::Hotlap => SessionKind::Hotlap,
+        CleanKind::TimeAttack => SessionKind::TimeAttack,
+        CleanKind::Drift => SessionKind::Drift,
+        CleanKind::Drag => SessionKind::Drag,
+        CleanKind::Hotstint => SessionKind::Hotstint,
+        CleanKind::HotlapSuperpole => SessionKind::HotlapSuperpole,
     }
 }
 
-/// Земля машины игрока: `x` и `z`. `player_car_id` — идентификатор, не индекс.
-/// Слот ищется в `car_id`. Нет слота — нули, круг всё равно пишется.
+/// Поля сборщика круга. Нет времени — `-1`, как у ACC, пока круг ещё не закрыт.
 #[cfg(any(windows, test))]
-fn player_ground(car_ids: &[i32], coordinates: &[Vector3f], player_car_id: i32) -> (f32, f32) {
-    let Some(slot) = car_ids.iter().position(|id| *id == player_car_id) else {
-        return (0.0, 0.0);
-    };
-    let Some(point) = coordinates.get(slot) else {
-        return (0.0, 0.0);
-    };
-    (point.x, point.z)
+fn motion_of(tick: &CleanTick) -> Motion {
+    let physics = &tick.physics;
+    let graphic = &tick.graphic;
+    Motion {
+        completed_lap: graphic.completed_lap,
+        last_time_ms: lap_ms(graphic.last_time),
+        last_sector_time_ms: lap_ms(graphic.last_sector_time),
+        sector_index: graphic.sector_index,
+        valid: graphic.valid_lap,
+        distance_m: graphic.distance_m,
+        fuel: physics.fuel_l,
+        throttle: physics.throttle.fraction(),
+        brake: physics.brake.fraction(),
+        steer: physics.steer_deg,
+        speed: physics.speed.kmh(),
+        lap_time_ms: lap_ms(graphic.current_lap_time),
+        progress: physics.progress.fraction(),
+        g_long: physics.g_long,
+        g_lat: physics.g_lat,
+        x: physics.ground_x,
+        z: physics.ground_z,
+        pressure_fl: physics.pressure.front_left.psi(),
+        pressure_fr: physics.pressure.front_right.psi(),
+        pressure_rl: physics.pressure.rear_left.psi(),
+        pressure_rr: physics.pressure.rear_right.psi(),
+        brake_temp_fl: physics.brake_temp.front_left.celsius(),
+        brake_temp_fr: physics.brake_temp.front_right.celsius(),
+    }
+}
+
+#[cfg(any(windows, test))]
+fn lap_ms(time: Option<LapTime>) -> i32 {
+    time.map(LapTime::ms).unwrap_or(-1)
 }
 
 /// Поля физики круга без сессии: её идентификатор знает только машина.
@@ -578,5 +583,83 @@ mod tests {
 
         assert_eq!(link.note_up(), Some(LinkNotice::Linked));
         assert_eq!(link.state(), LinkState::Linked);
+    }
+
+    #[test]
+    fn clean_tick_feeds_the_frame_and_the_lap_motion() {
+        use crate::domain::{
+            BrakePosition, CarState, Celsius, CleanSessionGraphic, CleanTelemetryFrame, Psi, Speed,
+            ThrottlePosition, TireSet, TrackProgress,
+        };
+
+        let tick = CleanTick {
+            physics: CleanTelemetryFrame {
+                packet_id: 7,
+                speed: Speed::from_kmh_unchecked(180.0),
+                throttle: ThrottlePosition::from_fraction_unchecked(1.0),
+                brake: BrakePosition::from_fraction_unchecked(0.0),
+                steer_deg: 8.0,
+                progress: TrackProgress::from_fraction_unchecked(0.25),
+                fuel_l: 42.0,
+                g_long: 0.5,
+                g_lat: 0.2,
+                ground_x: 12.0,
+                ground_z: -4.0,
+                pressure: TireSet::new(
+                    Psi::from_psi_unchecked(27.5),
+                    Psi::from_psi_unchecked(27.6),
+                    Psi::from_psi_unchecked(26.5),
+                    Psi::from_psi_unchecked(26.4),
+                ),
+                brake_temp: TireSet::new(
+                    Celsius::from_celsius_unchecked(420.0),
+                    Celsius::from_celsius_unchecked(430.0),
+                    Celsius::from_celsius_unchecked(300.0),
+                    Celsius::from_celsius_unchecked(310.0),
+                ),
+            },
+            graphic: CleanSessionGraphic {
+                status: CleanStatus::Live,
+                kind: CleanKind::Practice,
+                session_index: 2,
+                track: "monza".to_owned(),
+                car: "ferrari_296_gt3".to_owned(),
+                online: false,
+                car_count: 20,
+                setup_menu: false,
+                air: Celsius::from_celsius_unchecked(21.5),
+                road: Celsius::from_celsius_unchecked(28.0),
+                car_state: CarState::OnTrack,
+                completed_lap: 3,
+                last_time: None,
+                last_sector_time: Some(LapTime::from_ms_unchecked(30_000)),
+                current_lap_time: Some(LapTime::from_ms_unchecked(12_000)),
+                sector_index: 1,
+                valid_lap: true,
+                distance_m: 1_500.0,
+                packet_id: 7,
+            },
+        };
+
+        let frame = frame_of(&tick);
+        assert_eq!(frame.status, GameStatus::Live);
+        assert_eq!(frame.kind, SessionKind::Practice);
+        assert_eq!(frame.track, "monza");
+        assert_eq!(frame.air_c, 21.5);
+        assert_eq!(frame.road_c, 28.0);
+
+        let motion = motion_of(&tick);
+        assert_eq!(motion.speed, 180.0);
+        assert_eq!(motion.throttle, 1.0);
+        assert_eq!(motion.last_time_ms, -1);
+        assert_eq!(motion.last_sector_time_ms, 30_000);
+        assert_eq!(motion.lap_time_ms, 12_000);
+        assert_eq!(motion.x, 12.0);
+        assert_eq!(motion.z, -4.0);
+        assert_eq!(motion.pressure_rr, 26.4);
+        assert_eq!(motion.brake_temp_fl, 420.0);
+        assert_eq!(motion.brake_temp_fr, 430.0);
+        assert_eq!(motion.g_long, 0.5);
+        assert_eq!(motion.g_lat, 0.2);
     }
 }
