@@ -1,3 +1,4 @@
+mod domain;
 mod game;
 mod ipc;
 mod lap;
