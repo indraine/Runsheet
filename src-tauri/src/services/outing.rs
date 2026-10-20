@@ -2,65 +2,18 @@
 //!
 //! На вход подаётся снимок полей, не shared memory. Часы тоже снаружи:
 //! разрыв считается по монотонным миллисекундам, метки начала и конца — по локальным.
-//! Идентификаторы создаются здесь.
+//! Идентификаторы создаются здесь, байтами, без текстового UUID.
 //!
 //! `Off` или отсутствие памяти дольше [`OUTING_GAP_MS`] закрывает выезд.
 //! Пауза и повтор выезд не закрывают. Повтор сессию не открывает.
 //! Боксы остаются `Live`, отдельного входа у них нет.
 //! Смена машины, трассы, соло/онлайн, типа или индекса сессии открывает новую сессию того же выезда.
 
-// Поля событий забирает доставка во фронт. На не-Windows поток машину не крутит,
-// поэтому без `test` сборка эти типы не вызывает.
-#![cfg_attr(not(any(windows, test)), allow(dead_code))]
-
-use uuid::Uuid;
+use crate::domain::{Frame, GameStatus, OutingEvent, OutingId, Session, SessionId, SessionKind};
 
 /// Сколько миллисекунд `Off` или пустой памяти держатся, прежде чем выезд закроется.
 /// Ровно этот порог уже закрывает.
 pub(crate) const OUTING_GAP_MS: u64 = 500;
-
-/// `graphics.status`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum GameStatus {
-    Off,
-    Replay,
-    Live,
-    Pause,
-}
-
-/// `graphics.session_type`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum SessionKind {
-    Unknown,
-    Practice,
-    Qualifying,
-    Race,
-    Hotlap,
-    TimeAttack,
-    Drift,
-    Drag,
-    Hotstint,
-    HotlapSuperpole,
-}
-
-/// Поля одного пакета, которые решают, открыта ли сессия.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Frame {
-    pub status: GameStatus,
-    pub kind: SessionKind,
-    /// Индекс сессии уикенда, `graphics.session_index`.
-    pub session_index: i32,
-    pub track: String,
-    pub car: String,
-    pub online: bool,
-    /// Число машин в строке листа.
-    pub car_count: i32,
-    /// `graphics.is_setup_menu_visible`. В ключ строки не входит, поэтому поле только хранится.
-    #[allow(dead_code)]
-    pub setup_menu: bool,
-    pub air_c: f32,
-    pub road_c: f32,
-}
 
 /// Что видно на этом тике. Пустая память — тоже снимок.
 #[derive(Debug, Clone, PartialEq)]
@@ -75,44 +28,6 @@ pub(crate) struct Tick {
     pub mono_ms: u64,
     pub wall_ms: u64,
     pub sight: Sight,
-}
-
-/// Открытая или только что открытая сессия.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Session {
-    pub id: Uuid,
-    pub outing_id: Uuid,
-    pub started_at_ms: u64,
-    pub ended_at_ms: Option<u64>,
-    pub online: bool,
-    pub track: String,
-    pub car: String,
-    pub kind: SessionKind,
-    pub car_count: i32,
-    pub air_c: f32,
-    pub road_c: f32,
-}
-
-/// Что изменилось на этом снимке. Пустой вектор — тот же выезд и та же сессия.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Event {
-    OutingOpened {
-        outing_id: Uuid,
-    },
-    SessionOpened {
-        session: Session,
-    },
-    SessionChanged {
-        previous_id: Uuid,
-        ended_at_ms: u64,
-        session: Session,
-    },
-    OutingClosed {
-        outing_id: Uuid,
-        /// Сессия, которая ещё была открыта. Прошлые уже закрыты событием смены.
-        session_id: Option<Uuid>,
-        ended_at_ms: u64,
-    },
 }
 
 #[derive(Debug)]
@@ -152,20 +67,20 @@ struct OpenSession {
 
 /// Состояние между снимками. Само время не читает.
 #[derive(Debug, Default)]
-pub(crate) struct Machine {
-    outing_id: Option<Uuid>,
+pub(crate) struct OutingMachine {
+    outing_id: Option<OutingId>,
     open: Option<OpenSession>,
     gap_from_ms: Option<u64>,
 }
 
-impl Machine {
+impl OutingMachine {
     /// Переход по одному снимку.
     #[must_use]
-    pub(crate) fn step(&mut self, tick: &Tick) -> Vec<Event> {
+    pub(crate) fn step(&mut self, tick: &Tick) -> Vec<OutingEvent> {
         react(self, tick)
     }
 
-    pub(crate) fn outing_id(&self) -> Option<Uuid> {
+    pub(crate) fn outing_id(&self) -> Option<OutingId> {
         self.outing_id
     }
 
@@ -187,28 +102,28 @@ impl Machine {
         }
     }
 
-    fn close(&mut self, wall_ms: u64) -> Option<Event> {
+    fn close(&mut self, wall_ms: u64) -> Option<OutingEvent> {
         let outing_id = self.outing_id.take()?;
         self.gap_from_ms = None;
         let session_id = self.open.take().map(|open| open.session.id);
-        Some(Event::OutingClosed {
+        Some(OutingEvent::OutingClosed {
             outing_id,
             session_id,
             ended_at_ms: wall_ms,
         })
     }
 
-    fn ensure_outing(&mut self, events: &mut Vec<Event>) -> Uuid {
+    fn ensure_outing(&mut self, events: &mut Vec<OutingEvent>) -> OutingId {
         if let Some(id) = self.outing_id {
             return id;
         }
-        let outing_id = Uuid::new_v4();
+        let outing_id = OutingId::from_bytes(uuid::Uuid::new_v4().into_bytes());
         self.outing_id = Some(outing_id);
-        events.push(Event::OutingOpened { outing_id });
+        events.push(OutingEvent::OutingOpened { outing_id });
         outing_id
     }
 
-    fn sync_row(&mut self, wall_ms: u64, frame: &Frame) -> Vec<Event> {
+    fn sync_row(&mut self, wall_ms: u64, frame: &Frame) -> Vec<OutingEvent> {
         let mut events = Vec::new();
         let outing_id = self.ensure_outing(&mut events);
 
@@ -226,8 +141,8 @@ impl Machine {
             key: RowKey::from(frame),
             session: session.clone(),
         }) {
-            None => Event::SessionOpened { session },
-            Some(previous) => Event::SessionChanged {
+            None => OutingEvent::SessionOpened { session },
+            Some(previous) => OutingEvent::SessionChanged {
                 previous_id: previous.session.id,
                 ended_at_ms: wall_ms,
                 session,
@@ -239,9 +154,9 @@ impl Machine {
 }
 
 impl Session {
-    fn open(outing_id: Uuid, wall_ms: u64, frame: &Frame) -> Self {
+    fn open(outing_id: OutingId, wall_ms: u64, frame: &Frame) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: SessionId::from_bytes(uuid::Uuid::new_v4().into_bytes()),
             outing_id,
             started_at_ms: wall_ms,
             ended_at_ms: None,
@@ -256,7 +171,7 @@ impl Session {
     }
 }
 
-fn react(machine: &mut Machine, tick: &Tick) -> Vec<Event> {
+fn react(machine: &mut OutingMachine, tick: &Tick) -> Vec<OutingEvent> {
     let mut events = Vec::new();
     if machine.gap_reached(tick.mono_ms) {
         events.extend(machine.close(tick.wall_ms));
@@ -275,4 +190,121 @@ fn react(machine: &mut Machine, tick: &Tick) -> Vec<Event> {
     }
 
     events
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn live(track: &str) -> Frame {
+        Frame {
+            status: GameStatus::Live,
+            kind: SessionKind::Practice,
+            session_index: 0,
+            track: track.to_owned(),
+            car: "ferrari_296_gt3".to_owned(),
+            online: false,
+            car_count: 20,
+            setup_menu: false,
+            air_c: 21.0,
+            road_c: 28.0,
+        }
+    }
+
+    fn with_status(status: GameStatus) -> Frame {
+        Frame {
+            status,
+            ..live("monza")
+        }
+    }
+
+    fn at(mono_ms: u64, sight: Sight) -> Tick {
+        Tick {
+            mono_ms,
+            wall_ms: 1_000 + mono_ms,
+            sight,
+        }
+    }
+
+    fn closed(events: &[OutingEvent]) -> bool {
+        events
+            .iter()
+            .any(|event| matches!(event, OutingEvent::OutingClosed { .. }))
+    }
+
+    #[test]
+    fn gap_of_500_ms_closes_and_499_does_not() {
+        let mut machine = OutingMachine::default();
+        let opened = machine.step(&at(0, Sight::Frame(live("monza"))));
+        assert!(
+            opened
+                .iter()
+                .any(|event| matches!(event, OutingEvent::OutingOpened { .. }))
+        );
+        assert!(machine.outing_id().is_some());
+
+        let armed = machine.step(&at(0, Sight::Frame(with_status(GameStatus::Off))));
+        assert!(!closed(&armed));
+
+        let held = machine.step(&at(499, Sight::Absent));
+        assert!(!closed(&held));
+        assert!(machine.outing_id().is_some());
+
+        let done = machine.step(&at(500, Sight::Absent));
+        assert!(closed(&done));
+        assert!(machine.outing_id().is_none());
+        assert!(machine.session().is_none());
+    }
+
+    #[test]
+    fn pause_and_replay_do_not_close_the_outing() {
+        let mut machine = OutingMachine::default();
+        let _opened = machine.step(&at(0, Sight::Frame(live("monza"))));
+        let session_id = machine.session().expect("session").id;
+
+        let paused = machine.step(&at(10_000, Sight::Frame(with_status(GameStatus::Pause))));
+        assert!(!closed(&paused));
+        assert_eq!(
+            machine.session().expect("pause keeps session").id,
+            session_id
+        );
+
+        let replayed = machine.step(&at(20_000, Sight::Frame(with_status(GameStatus::Replay))));
+        assert!(!closed(&replayed));
+        assert!(machine.outing_id().is_some());
+        assert_eq!(
+            machine.session().expect("replay keeps the open session").id,
+            session_id
+        );
+    }
+
+    #[test]
+    fn track_change_emits_session_changed() {
+        let mut machine = OutingMachine::default();
+        let opened = machine.step(&at(0, Sight::Frame(live("monza"))));
+        let previous_id = opened
+            .iter()
+            .find_map(|event| match event {
+                OutingEvent::SessionOpened { session } => Some(session.id),
+                _ => None,
+            })
+            .expect("first session");
+
+        let changed = machine.step(&at(1_000, Sight::Frame(live("spa"))));
+        match changed.as_slice() {
+            [
+                OutingEvent::SessionChanged {
+                    previous_id: seen,
+                    session,
+                    ..
+                },
+            ] => {
+                assert_eq!(*seen, previous_id);
+                assert_eq!(session.track, "spa");
+                assert_ne!(session.id, previous_id);
+                assert_eq!(session.outing_id, machine.outing_id().expect("same outing"));
+            }
+            other => panic!("expected SessionChanged, got {other:?}"),
+        }
+    }
 }

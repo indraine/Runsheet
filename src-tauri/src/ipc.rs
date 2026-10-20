@@ -1,28 +1,20 @@
-//! Доставка во фронт: редкий статус связи и одна пачка круга.
+//! Доставка во фронт: статус связи и одна пачка круга.
 //!
-//! `acc-status` — маленький JSON, не чаще 20 Гц. Пачка круга — сырые байты
-//! заголовка и плоскости f32 из сборщика, не массив чисел. Их забирает `Channel`:
-//! страница получает `ArrayBuffer`. Пока круг открыт, промежуточная пачка
-//! уходит примерно раз в секунду с тем же id.
+//! Как часто звать `emit` и слать пачку, решает `pipeline`. Здесь только конверт.
+//! `acc-status` — маленький JSON. Пачка круга — сырые байты заголовка и плоскости
+//! f32, не массив чисел. Их забирает `Channel`: страница получает `ArrayBuffer`.
 
 use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, State};
-use uuid::Uuid;
 
+use crate::domain::{OutingEvent, OutingId, Session, SessionKind};
 use crate::platform::game::Presence;
-use crate::session::{Event, Session, SessionKind};
 
 /// Имя события Tauri со снимком связи и открытой сессии.
 pub(crate) const ACC_STATUS: &str = "acc-status";
-
-/// Нижняя граница между событиями `acc-status`. 20 Гц.
-pub(crate) const STATUS_GAP_MS: u64 = 50;
-
-/// Как часто растёт строка ещё не закрытого круга.
-const LAP_GAP_MS: u64 = 1_000;
 
 const LIVE: &str = "live";
 
@@ -106,14 +98,14 @@ pub(crate) struct Capture<'a> {
     pub link: LinkState,
     pub presence: Presence,
     pub packet_id: Option<i32>,
-    pub outing_id: Option<Uuid>,
+    pub outing_id: Option<OutingId>,
     pub session: Option<&'a Session>,
     pub lap_number: Option<i32>,
     pub sector: Option<i32>,
     pub speed: Option<f32>,
     pub air_temp: Option<f32>,
     pub road_temp: Option<f32>,
-    pub events: &'a [Event],
+    pub events: &'a [OutingEvent],
 }
 
 impl Status {
@@ -122,7 +114,7 @@ impl Status {
             link: input.link,
             presence: input.presence,
             packet_id: input.packet_id,
-            outing_id: input.outing_id.map(|id| id.to_string()),
+            outing_id: input.outing_id.map(|id| id_text(id.as_bytes())),
             session: input.session.map(SessionBody::from_session),
             lap_number: input.lap_number,
             sector: input.sector,
@@ -137,8 +129,8 @@ impl Status {
 impl SessionBody {
     fn from_session(session: &Session) -> Self {
         Self {
-            id: session.id.to_string(),
-            outing_id: session.outing_id.to_string(),
+            id: id_text(session.id.as_bytes()),
+            outing_id: id_text(session.outing_id.as_bytes()),
             started_at: session.started_at_ms,
             ended_at: session.ended_at_ms,
             online: session.online,
@@ -154,34 +146,39 @@ impl SessionBody {
 }
 
 impl StatusEvent {
-    fn from_event(event: &Event) -> Self {
+    fn from_event(event: &OutingEvent) -> Self {
         match event {
-            Event::OutingOpened { outing_id } => Self::OutingOpened {
-                outing_id: outing_id.to_string(),
+            OutingEvent::OutingOpened { outing_id } => Self::OutingOpened {
+                outing_id: id_text(outing_id.as_bytes()),
             },
-            Event::SessionOpened { session } => Self::SessionOpened {
+            OutingEvent::SessionOpened { session } => Self::SessionOpened {
                 session: SessionBody::from_session(session),
             },
-            Event::SessionChanged {
+            OutingEvent::SessionChanged {
                 previous_id,
                 ended_at_ms,
                 session,
             } => Self::SessionChanged {
-                previous_id: previous_id.to_string(),
+                previous_id: id_text(previous_id.as_bytes()),
                 ended_at: *ended_at_ms,
                 session: SessionBody::from_session(session),
             },
-            Event::OutingClosed {
+            OutingEvent::OutingClosed {
                 outing_id,
                 session_id,
                 ended_at_ms,
             } => Self::OutingClosed {
-                outing_id: outing_id.to_string(),
-                session_id: session_id.map(|id| id.to_string()),
+                outing_id: id_text(outing_id.as_bytes()),
+                session_id: session_id.map(|id| id_text(id.as_bytes())),
                 ended_at: *ended_at_ms,
             },
         }
     }
+}
+
+/// Текстовый UUID для фронта. В домене идентификатор — шестнадцать байт.
+fn id_text(bytes: [u8; 16]) -> String {
+    uuid::Uuid::from_bytes(bytes).to_string()
 }
 
 fn kind_name(kind: SessionKind) -> &'static str {
@@ -196,81 +193,6 @@ fn kind_name(kind: SessionKind) -> &'static str {
         SessionKind::Drag => "drag",
         SessionKind::Hotstint => "hotstint",
         SessionKind::HotlapSuperpole => "hotlapSuperpole",
-    }
-}
-
-/// Что отправить на этом тике.
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) struct Decision {
-    pub emit_status: bool,
-    pub lap: LapSend,
-}
-
-/// Какую пачку круга отдать. `None` — на этом тике байтов нет.
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) enum LapSend {
-    None,
-    /// Открытый круг, тот же id, что будет на финише.
-    Preview,
-    /// Круг только что закрылся.
-    Closed,
-}
-
-/// Решает частоту статуса и промежуточных пачек. Часы снаружи.
-#[derive(Debug, Default)]
-pub(crate) struct Relay {
-    last_status_ms: Option<u64>,
-    last_lap_ms: Option<u64>,
-    seen_lap: Option<Uuid>,
-}
-
-impl Relay {
-    /// `has_events` выпускает статус сразу: закрытие выезда нельзя проглотить паузой 20 Гц.
-    /// Финиш круга тоже сразу. Первая пачка нового id — сразу, дальше не чаще раза в секунду.
-    pub(crate) fn decide(
-        &mut self,
-        now_ms: u64,
-        has_events: bool,
-        lap_closed: bool,
-        open_id: Option<Uuid>,
-    ) -> Decision {
-        Decision {
-            emit_status: self.take_status(now_ms, has_events),
-            lap: self.take_lap(now_ms, lap_closed, open_id),
-        }
-    }
-
-    fn take_status(&mut self, now_ms: u64, force: bool) -> bool {
-        let due = self
-            .last_status_ms
-            .is_none_or(|previous| now_ms.saturating_sub(previous) >= STATUS_GAP_MS);
-        if !force && !due {
-            return false;
-        }
-        self.last_status_ms = Some(now_ms);
-        true
-    }
-
-    fn take_lap(&mut self, now_ms: u64, lap_closed: bool, open_id: Option<Uuid>) -> LapSend {
-        if lap_closed {
-            self.last_lap_ms = Some(now_ms);
-            self.seen_lap = None;
-            return LapSend::Closed;
-        }
-        let Some(open_id) = open_id else {
-            self.seen_lap = None;
-            return LapSend::None;
-        };
-        let fresh = self.seen_lap != Some(open_id);
-        let due = self
-            .last_lap_ms
-            .is_none_or(|previous| now_ms.saturating_sub(previous) >= LAP_GAP_MS);
-        if !fresh && !due {
-            return LapSend::None;
-        }
-        self.last_lap_ms = Some(now_ms);
-        self.seen_lap = Some(open_id);
-        LapSend::Preview
     }
 }
 

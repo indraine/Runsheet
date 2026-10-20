@@ -69,6 +69,14 @@ impl CarState {
             event: pit_event(self, next),
         }
     }
+
+    /// Ребро пит-лейна между двумя уже известными местами.
+    ///
+    /// Секвенсор берёт следующее место из кадра: ingress считает его без истории.
+    #[must_use]
+    pub(crate) const fn pit_edge(self, next: Self) -> Option<SessionEvent> {
+        pit_event(self, next)
+    }
 }
 
 const fn resolve(place: CarPlace) -> Option<CarState> {

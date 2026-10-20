@@ -3,16 +3,15 @@
 //! На вход подаётся снимок полей, не shared memory. Пока круг открыт, точка
 //! трейса кладётся не чаще 20 Гц. Дистанция круга — `distance_traveled` минус
 //! значение на старте. Смена сектора запоминает `last_sector_time` и эту
-//! дистанцию. Круг закрывается, когда вырастает `completed_lap` или машина
-//! пересекла линию: часы круга сбросились, либо `normalized_car_position`
-//! перешёл через старт. Время берётся из `last_time`, третий сектор — остаток,
-//! зачёт — с последнего тика перед линией.
-
-// Пачку забирает доставка во фронт. На не-Windows поток сборщик не крутит,
-// поэтому без `test` сборка эти типы не вызывает.
-#![cfg_attr(not(any(windows, test)), allow(dead_code))]
+//! дистанцию и отдаёт `SessionEvent::SectorCompleted`. Круг закрывается, когда
+//! вырастает `completed_lap` или машина пересекла линию: часы круга сбросились,
+//! либо `normalized_car_position` перешёл через старт. Время берётся из
+//! `last_time`, третий сектор — остаток, зачёт — с последнего тика перед линией.
+//! Готовая пачка уходит только в `listen_laps`.
 
 use uuid::Uuid;
+
+use crate::domain::{LapId, LapTime, SessionEvent, SessionId};
 
 /// Минимальный зазор между точками трейса. 20 Гц — это 50 мс.
 const TRACE_GAP_MS: u64 = 50;
@@ -40,10 +39,10 @@ const MISSING_M: f32 = -1.0;
 pub(crate) struct Sample {
     /// Монотонные миллисекунды. От них считается зазор 20 Гц.
     pub mono_ms: u64,
-    pub session_id: Uuid,
+    pub session_id: SessionId,
     /// `graphics.completed_lap`.
     pub completed_lap: i32,
-    /// `graphics.last_time`, миллисекунды.
+    /// `graphics.last_time`, миллисекунды. `-1` — времени ещё нет.
     pub last_time_ms: i32,
     /// `graphics.last_sector_time`, миллисекунды.
     pub last_sector_time_ms: i32,
@@ -89,11 +88,12 @@ pub(crate) struct Collector {
     open: Option<OpenLap>,
     /// `completed_lap`, уже отданный закрытому кругу. Следующий тик его не повторяет.
     carry_completed: Option<i32>,
+    events: Vec<SessionEvent>,
 }
 
 impl Collector {
     /// Сессия, которой принадлежит открытый буфер.
-    pub(crate) fn bound_session(&self) -> Option<Uuid> {
+    pub(crate) fn bound_session(&self) -> Option<SessionId> {
         self.open.as_ref().map(|open| open.session_id)
     }
 
@@ -110,7 +110,7 @@ impl Collector {
     }
 
     /// Идентификатор открытого круга. Тот же уйдёт в пачку на финише.
-    pub(crate) fn open_id(&self) -> Option<Uuid> {
+    pub(crate) fn open_id(&self) -> Option<LapId> {
         self.open.as_ref().map(|open| open.id)
     }
 
@@ -123,6 +123,11 @@ impl Collector {
     /// Времени круга ещё нет: в заголовке `-1`, третий сектор пуст.
     pub(crate) fn preview(&self) -> Option<Vec<u8>> {
         self.open.as_ref().map(|open| pack(&open.partial()))
+    }
+
+    /// События круга с прошлого забора: старт, сектор, финиш.
+    pub(crate) fn take_events(&mut self) -> Vec<SessionEvent> {
+        std::mem::take(&mut self.events)
     }
 
     /// Сколько точек сейчас в открытом круге.
@@ -150,7 +155,11 @@ impl Collector {
         let closed = self.take_closed(sample);
         if self.open.is_none() {
             let completed_at_open = self.carry_completed.take().unwrap_or(sample.completed_lap);
-            self.open = Some(OpenLap::begin(sample, completed_at_open));
+            let open = OpenLap::begin(sample, completed_at_open);
+            self.events.push(SessionEvent::LapStarted {
+                lap_number: open.number,
+            });
+            self.open = Some(open);
         }
         self.observe(sample);
         closed
@@ -170,37 +179,49 @@ impl Collector {
         let consumed = boundary
             .completed_lap
             .max(open.completed_at_open.saturating_add(1));
+        let number = open.number;
         let open = self.open.take()?;
         self.carry_completed = Some(consumed);
+        let time =
+            (boundary.last_time_ms > 0).then(|| LapTime::from_ms_unchecked(boundary.last_time_ms));
+        self.events.push(SessionEvent::LapCompleted {
+            lap_number: number,
+            time,
+        });
         Some(pack(&open.finish(boundary)))
     }
 
     fn observe(&mut self, sample: &Sample) {
-        let Some(open) = self.open.as_mut() else {
-            return;
+        let sector = {
+            let Some(open) = self.open.as_mut() else {
+                return;
+            };
+            let along_m = sample.distance_m - open.origin_m;
+            let sector = open.note_sector(sample.sector_index, sample.last_sector_time_ms, along_m);
+            open.valid = sample.valid;
+            open.fuel = sample.fuel;
+            open.max_speed = Some(match open.max_speed {
+                Some(seen) => seen.max(sample.speed),
+                None => sample.speed,
+            });
+            open.last_lap_time_ms = Some(sample.lap_time_ms);
+            open.last_progress = Some(sample.progress);
+            if open.due(sample.mono_ms) {
+                open.points.push(Point::capture(sample, along_m));
+                open.last_trace_ms = Some(sample.mono_ms);
+            }
+            sector
         };
-        let along_m = sample.distance_m - open.origin_m;
-        open.note_sector(sample.sector_index, sample.last_sector_time_ms, along_m);
-        open.valid = sample.valid;
-        open.fuel = sample.fuel;
-        open.max_speed = Some(match open.max_speed {
-            Some(seen) => seen.max(sample.speed),
-            None => sample.speed,
-        });
-        open.last_lap_time_ms = Some(sample.lap_time_ms);
-        open.last_progress = Some(sample.progress);
-        if !open.due(sample.mono_ms) {
-            return;
+        if let Some(event) = sector {
+            self.events.push(event);
         }
-        open.points.push(Point::capture(sample, along_m));
-        open.last_trace_ms = Some(sample.mono_ms);
     }
 }
 
 #[derive(Debug)]
 struct OpenLap {
-    id: Uuid,
-    session_id: Uuid,
+    id: LapId,
+    session_id: SessionId,
     number: i32,
     completed_at_open: i32,
     origin_m: f32,
@@ -221,7 +242,7 @@ struct OpenLap {
 impl OpenLap {
     fn begin(sample: &Sample, completed_at_open: i32) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: LapId::from_bytes(Uuid::new_v4().into_bytes()),
             session_id: sample.session_id,
             number: completed_at_open.saturating_add(1),
             completed_at_open,
@@ -305,9 +326,14 @@ impl OpenLap {
         }
     }
 
-    fn note_sector(&mut self, sector_index: i32, sector_ms: i32, along_m: f32) {
+    fn note_sector(
+        &mut self,
+        sector_index: i32,
+        sector_ms: i32,
+        along_m: f32,
+    ) -> Option<SessionEvent> {
         if sector_index == self.sector {
-            return;
+            return None;
         }
         if sector_index == 1 && self.s1_ms.is_none() {
             self.s1_ms = Some(sector_ms);
@@ -317,6 +343,10 @@ impl OpenLap {
             self.s2_end_m = Some(along_m);
         }
         self.sector = sector_index;
+        (sector_ms > 0).then(|| SessionEvent::SectorCompleted {
+            index: sector_index,
+            time: LapTime::from_ms_unchecked(sector_ms),
+        })
     }
 
     fn due(&self, mono_ms: u64) -> bool {
@@ -369,8 +399,8 @@ impl Point {
 }
 
 struct Finished {
-    id: Uuid,
-    session_id: Uuid,
+    id: LapId,
+    session_id: SessionId,
     number: i32,
     time_ms: Option<i32>,
     s1_ms: Option<i32>,
@@ -416,8 +446,8 @@ fn line_crossed(open: &OpenLap, sample: &Sample) -> bool {
 fn pack(lap: &Finished) -> Vec<u8> {
     let count = u32::try_from(lap.points.len()).unwrap_or(u32::MAX);
     let mut out = Vec::with_capacity(HEADER_LEN + lap.points.len() * CHANNEL_COUNT * 4);
-    out.extend_from_slice(lap.id.as_bytes());
-    out.extend_from_slice(lap.session_id.as_bytes());
+    out.extend_from_slice(&lap.id.as_bytes());
+    out.extend_from_slice(&lap.session_id.as_bytes());
     write_i32(&mut out, lap.number);
     write_u32(&mut out, count);
     write_i32(&mut out, lap.time_ms.unwrap_or(MISSING_MS));
@@ -473,9 +503,9 @@ fn write_f32(out: &mut Vec<u8>, value: f32) {
 }
 
 #[cfg(test)]
-fn packet_lap_id(bytes: &[u8]) -> Option<Uuid> {
+fn packet_lap_id(bytes: &[u8]) -> Option<LapId> {
     let raw: [u8; 16] = bytes.get(..16)?.try_into().ok()?;
-    Some(Uuid::from_bytes(raw))
+    Some(LapId::from_bytes(raw))
 }
 
 #[cfg(test)]
@@ -485,7 +515,7 @@ mod tests {
     fn at(mono_ms: u64, completed: i32, sector: i32, distance_m: f32) -> Sample {
         Sample {
             mono_ms,
-            session_id: Uuid::nil(),
+            session_id: SessionId::default(),
             completed_lap: completed,
             last_time_ms: 90_000,
             last_sector_time_ms: 30_000,
@@ -582,5 +612,33 @@ mod tests {
         assert!(laps.push(&follow).is_none());
         assert_eq!(laps.open_number(), Some(2));
         assert_eq!(laps.open_points(), 1);
+    }
+
+    #[test]
+    fn sector_change_and_the_line_emit_session_events() {
+        let mut laps = Collector::default();
+        assert!(laps.push(&at(0, 0, 0, 100.0)).is_none());
+        let started = laps.take_events();
+        assert_eq!(started, vec![SessionEvent::LapStarted { lap_number: 1 }]);
+
+        assert!(laps.push(&at(TRACE_GAP_MS, 0, 1, 250.0)).is_none());
+        let sector = laps.take_events();
+        assert_eq!(
+            sector,
+            vec![SessionEvent::SectorCompleted {
+                index: 1,
+                time: LapTime::from_ms_unchecked(30_000),
+            }]
+        );
+
+        let mut boundary = at(TRACE_GAP_MS * 2, 1, 0, 400.0);
+        boundary.last_time_ms = 91_234;
+        assert!(laps.push(&boundary).is_some());
+        let finished = laps.take_events();
+        assert!(finished.contains(&SessionEvent::LapCompleted {
+            lap_number: 1,
+            time: Some(LapTime::from_ms_unchecked(91_234)),
+        }));
+        assert!(finished.contains(&SessionEvent::LapStarted { lap_number: 2 }));
     }
 }

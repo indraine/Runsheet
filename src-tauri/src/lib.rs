@@ -1,10 +1,9 @@
 mod domain;
 mod ingress;
 mod ipc;
-mod lap;
+mod pipeline;
 mod platform;
-mod reader;
-mod session;
+mod services;
 pub mod startup;
 
 use tauri::Manager;
@@ -47,7 +46,8 @@ pub fn run() {
             StartupProbes::verify_memory_layout()?;
             let outbox = ipc::Outbox::new(app.handle().clone());
             app.manage(outbox.clone());
-            std::thread::spawn(move || reader::run(outbox));
+            let journal = dir.join("frames");
+            pipeline::spawn_reader(outbox, journal);
             Ok(())
         })
         .run(tauri::generate_context!())
