@@ -25,8 +25,8 @@ use crate::session::Frame;
 #[cfg(any(windows, test))]
 use crate::session::{Event, GameStatus, Machine, SessionKind, Sight, Tick};
 
-use crate::game;
 use crate::ipc::{self, Capture, LinkState, Relay, Status};
+use crate::platform::game;
 
 /// Пауза между попытками открыть память, пока ACC не запущена.
 #[cfg(windows)]

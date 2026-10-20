@@ -12,7 +12,7 @@ use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
-use crate::game::Presence;
+use crate::platform::game::Presence;
 use crate::session::{Event, Session, SessionKind};
 
 /// Имя события Tauri со снимком связи и открытой сессии.

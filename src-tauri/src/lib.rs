@@ -1,12 +1,15 @@
 mod domain;
-mod game;
 mod ingress;
 mod ipc;
 mod lap;
+mod platform;
 mod reader;
 mod session;
+pub mod startup;
 
 use tauri::Manager;
+
+use startup::{ProbeFailure, StartupProbes};
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -16,13 +19,13 @@ fn greet(name: &str) -> String {
 /// Путь к exe ACC, если установка нашлась. Нет файла — `null`.
 #[tauri::command]
 fn acc_install() -> Option<String> {
-    game::find_executable().map(|path| path.to_string_lossy().into_owned())
+    platform::game::find_executable().map(|path| path.to_string_lossy().into_owned())
 }
 
 /// Запускает найденную ACC. Ошибка, если файла нет или процесс не стартовал.
 #[tauri::command]
 fn launch_acc() -> Result<(), String> {
-    game::launch()
+    platform::game::launch()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -36,6 +39,12 @@ pub fn run() {
             launch_acc
         ])
         .setup(|app| {
+            // Воркер не стартует, пока каталог данных и размер памяти не подтверждены.
+            let dir = app.path().app_data_dir().map_err(|error| {
+                ProbeFailure::new("каталог данных приложения недоступен", error.to_string())
+            })?;
+            StartupProbes::verify_storage_dir(&dir)?;
+            StartupProbes::verify_memory_layout()?;
             let outbox = ipc::Outbox::new(app.handle().clone());
             app.manage(outbox.clone());
             std::thread::spawn(move || reader::run(outbox));
