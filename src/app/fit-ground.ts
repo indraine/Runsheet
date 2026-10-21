@@ -57,18 +57,6 @@ export const fitFrame = (
     )
 }
 
-/**
- * Вписывает землю `x`/`z` в прямоугольник.
- * Ось `z` смотрит вверх, поэтому на экране она перевёрнута.
- */
-export const fitGround = (
-    x: ArrayLike<number>,
-    z: ArrayLike<number>,
-    width: number,
-    height: number,
-    padding: number
-): GroundPoint[] => fitFrame([{ x, z }], width, height, padding)[0] ?? []
-
 const collect = (x: ArrayLike<number>, z: ArrayLike<number>): GroundPoint[] => {
     const count = Math.min(x.length, z.length)
     const raw: GroundPoint[] = []

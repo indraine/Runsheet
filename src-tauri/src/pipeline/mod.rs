@@ -1,19 +1,16 @@
-//! Кадры от shared memory до UI и журнала.
+//! Кадры от shared memory до UI.
 //!
 //! Производитель — отдельный поток. Потребитель — задача `tauri::async_runtime`.
-//! В журнал не пишутся сессии и круги: их единственное хранилище — IndexedDB
-//! после `listen_laps`.
+//! Сессии и круги пишет фронт в IndexedDB после `listen_laps`.
 
 mod broadcast;
 mod reader;
 mod ring;
 mod sequencer;
-mod storage;
 
 #[cfg(test)]
 mod fixture;
 
-use std::path::PathBuf;
 use std::time::Instant;
 
 use crate::ipc::{self, Capture, LinkState};
@@ -23,13 +20,11 @@ pub(crate) use ring::TelemetryRing;
 
 use ring::{Envelope, PipeBody};
 use sequencer::{Moment, Outcome, Sequencer};
-use storage::Journal;
 
-/// Забирает кольцо: выезд, круг, журнал, `acc-status` и пачка `listen_laps`.
+/// Забирает кольцо: выезд, круг, `acc-status` и пачка `listen_laps`.
 #[cfg_attr(not(windows), allow(dead_code))]
-pub(crate) async fn run_consumer(ring: TelemetryRing, outbox: ipc::Outbox, journal_dir: PathBuf) {
+pub(crate) async fn run_consumer(ring: TelemetryRing, outbox: ipc::Outbox) {
     let mut sequencer = Sequencer::default();
-    let mut journal = Journal::new(journal_dir);
     let clock = HostClock::start();
     while let Some(envelope) = ring.recv().await {
         let link = envelope.link;
@@ -37,18 +32,10 @@ pub(crate) async fn run_consumer(ring: TelemetryRing, outbox: ipc::Outbox, journ
         let moment = Moment {
             mono_ms: clock.mono_ms(),
             wall_ms: wall_ms(),
-            write_busy: journal.busy(),
         };
-        let mut outcome = step(&mut sequencer, envelope, moment);
+        let outcome = step(&mut sequencer, envelope, moment);
         if outcome.stale {
             continue;
-        }
-        let flushes = std::mem::take(&mut outcome.flushes);
-        for batch in flushes {
-            if journal.busy() {
-                journal.wait().await;
-            }
-            journal.spawn(batch);
         }
         publish(&outbox, link, process_running, &outcome);
     }
@@ -110,19 +97,18 @@ fn wall_ms() -> u64 {
 }
 
 /// Точка входа потока чтения. На не-Windows круги не пишутся.
-pub(crate) fn spawn_reader(outbox: ipc::Outbox, journal_dir: PathBuf) {
+pub(crate) fn spawn_reader(outbox: ipc::Outbox) {
     #[cfg(windows)]
     {
         let ring = TelemetryRing::new();
         let incoming = ring.clone();
         tauri::async_runtime::spawn(async move {
-            run_consumer(incoming, outbox, journal_dir).await;
+            run_consumer(incoming, outbox).await;
         });
         std::thread::spawn(move || reader::run(ring));
     }
     #[cfg(not(windows))]
     {
-        let _ = journal_dir;
         std::thread::spawn(move || reader::run_without_acc(outbox));
     }
 }

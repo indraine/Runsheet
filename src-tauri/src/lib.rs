@@ -9,7 +9,7 @@ pub mod startup;
 use tauri::Manager;
 
 use ipc::{acc_install, launch_acc, listen_laps};
-use startup::{ProbeFailure, StartupProbes};
+use startup::StartupProbes;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -21,16 +21,11 @@ pub fn run() {
             launch_acc
         ])
         .setup(|app| {
-            // Воркер не стартует, пока каталог данных и размер памяти не подтверждены.
-            let dir = app.path().app_data_dir().map_err(|error| {
-                ProbeFailure::new("каталог данных приложения недоступен", error.to_string())
-            })?;
-            StartupProbes::verify_storage_dir(&dir)?;
+            // Воркер не стартует, пока размер shared memory не подтверждён.
             StartupProbes::verify_memory_layout()?;
             let outbox = ipc::Outbox::new(app.handle().clone());
             app.manage(outbox.clone());
-            let journal = dir.join("frames");
-            pipeline::spawn_reader(outbox, journal);
+            pipeline::spawn_reader(outbox);
             Ok(())
         })
         .run(tauri::generate_context!())

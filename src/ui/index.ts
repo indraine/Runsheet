@@ -8,11 +8,3 @@ export {
     TabsRootView,
     TabsTrigger,
 } from "~/ui/tabs"
-export {
-    Tooltip,
-    TooltipArrowTipView,
-    TooltipArrowView,
-    TooltipContentView,
-    TooltipPositionerView,
-    TooltipTriggerView,
-} from "~/ui/tooltip"

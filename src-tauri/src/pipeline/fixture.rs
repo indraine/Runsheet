@@ -70,12 +70,8 @@ impl TickDraft {
                     Psi::from_psi_unchecked(26.5),
                     Psi::from_psi_unchecked(26.4),
                 ),
-                brake_temp: TireSet::new(
-                    Celsius::from_celsius_unchecked(420.0),
-                    Celsius::from_celsius_unchecked(430.0),
-                    Celsius::from_celsius_unchecked(300.0),
-                    Celsius::from_celsius_unchecked(310.0),
-                ),
+                brake_temp_fl: Celsius::from_celsius_unchecked(420.0),
+                brake_temp_fr: Celsius::from_celsius_unchecked(430.0),
             },
             graphic: CleanSessionGraphic {
                 status: self.status,

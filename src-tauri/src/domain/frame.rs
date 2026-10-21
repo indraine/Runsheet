@@ -18,7 +18,9 @@ pub(crate) struct CleanTelemetryFrame {
     pub ground_x: f32,
     pub ground_z: f32,
     pub pressure: TireSet<Psi>,
-    pub brake_temp: TireSet<Celsius>,
+    /// Передние `physics.brake_temp`.
+    pub brake_temp_fl: Celsius,
+    pub brake_temp_fr: Celsius,
 }
 
 #[derive(Debug, Clone, PartialEq)]

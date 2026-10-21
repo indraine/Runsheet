@@ -84,15 +84,8 @@ impl TryFrom<&RawPhysicsPage> for CleanTelemetryFrame {
             ],
             page.wheel_pressure,
         )?;
-        let brake_temp = finite_set(
-            [
-                "brake_temp.front_left",
-                "brake_temp.front_right",
-                "brake_temp.rear_left",
-                "brake_temp.rear_right",
-            ],
-            page.brake_temp,
-        )?;
+        let brake_temp_fl = finite("brake_temp.front_left", page.brake_temp.front_left)?;
+        let brake_temp_fr = finite("brake_temp.front_right", page.brake_temp.front_right)?;
         let g_lat = finite("g_force.x", page.g_force.x)?;
         let g_long = finite("g_force.z", page.g_force.z)?;
         finite("g_force.y", page.g_force.y)?;
@@ -110,7 +103,8 @@ impl TryFrom<&RawPhysicsPage> for CleanTelemetryFrame {
             ground_x: 0.0,
             ground_z: 0.0,
             pressure: pressure.map(Psi::from_psi_unchecked),
-            brake_temp: brake_temp.map(Celsius::from_celsius_unchecked),
+            brake_temp_fl: Celsius::from_celsius_unchecked(brake_temp_fl),
+            brake_temp_fr: Celsius::from_celsius_unchecked(brake_temp_fr),
         })
     }
 }
