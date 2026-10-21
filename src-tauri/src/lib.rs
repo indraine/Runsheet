@@ -8,32 +8,15 @@ pub mod startup;
 
 use tauri::Manager;
 
+use ipc::{acc_install, launch_acc, listen_laps};
 use startup::{ProbeFailure, StartupProbes};
-
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
-/// Путь к exe ACC, если установка нашлась. Нет файла — `null`.
-#[tauri::command]
-fn acc_install() -> Option<String> {
-    platform::game::find_executable().map(|path| path.to_string_lossy().into_owned())
-}
-
-/// Запускает найденную ACC. Ошибка, если файла нет или процесс не стартовал.
-#[tauri::command]
-fn launch_acc() -> Result<(), String> {
-    platform::game::launch()
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            greet,
-            ipc::listen_laps,
+            listen_laps,
             acc_install,
             launch_acc
         ])

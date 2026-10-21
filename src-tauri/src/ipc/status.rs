@@ -1,14 +1,6 @@
-//! Доставка во фронт: статус связи и одна пачка круга.
-//!
-//! Как часто звать `emit` и слать пачку, решает `pipeline`. Здесь только конверт.
-//! `acc-status` — маленький JSON. Пачка круга — сырые байты заголовка и плоскости
-//! f32, не массив чисел. Их забирает `Channel`: страница получает `ArrayBuffer`.
-
-use std::sync::{Arc, Mutex};
+//! Снимок `acc-status`. Имена JSON совпадают с разбором на фронте.
 
 use serde::Serialize;
-use tauri::ipc::{Channel, InvokeResponseBody};
-use tauri::{AppHandle, Emitter, State};
 
 use crate::domain::{OutingEvent, OutingId, Session, SessionKind};
 use crate::platform::game::Presence;
@@ -196,70 +188,99 @@ fn kind_name(kind: SessionKind) -> &'static str {
     }
 }
 
-struct LapGate {
-    channel: Option<Channel<InvokeResponseBody>>,
-    /// Последняя пачка, если страница ещё не вызвала `listen_laps`.
-    pending: Option<Vec<u8>>,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::{OutingId, SessionId};
 
-/// Куда поток чтения кладёт статус и пачки.
-#[derive(Clone)]
-pub(crate) struct Outbox {
-    app: AppHandle,
-    laps: Arc<Mutex<LapGate>>,
-}
+    #[test]
+    fn session_body_snapshot_is_live_and_names_the_type() {
+        let body = SessionBody::from_session(&sample_session());
+        let json = serde_json::to_value(&body).expect("сессия сериализуется");
+        assert_eq!(json["type"], "practice");
+        assert_eq!(json["status"], "live");
+        assert_eq!(json["track"], "monza");
+        assert_eq!(json["outingId"], id_text([0x22; 16]));
+        assert_eq!(json["startedAt"], 1_700_000_000_000u64);
+        assert!(json["endedAt"].is_null());
+    }
 
-impl Outbox {
-    pub(crate) fn new(app: AppHandle) -> Self {
-        Self {
-            app,
-            laps: Arc::new(Mutex::new(LapGate {
-                channel: None,
-                pending: None,
-            })),
+    #[test]
+    fn outing_events_use_the_kinds_the_page_parses() {
+        let session = sample_session();
+        let events = [
+            OutingEvent::OutingOpened {
+                outing_id: session.outing_id,
+            },
+            OutingEvent::SessionOpened {
+                session: session.clone(),
+            },
+            OutingEvent::SessionChanged {
+                previous_id: session.id,
+                ended_at_ms: 50,
+                session: session.clone(),
+            },
+            OutingEvent::OutingClosed {
+                outing_id: session.outing_id,
+                session_id: None,
+                ended_at_ms: 80,
+            },
+        ];
+        let status = Status::capture(Capture {
+            link: LinkState::Linked,
+            presence: Presence::Session,
+            packet_id: Some(7),
+            outing_id: Some(session.outing_id),
+            session: Some(&session),
+            lap_number: Some(3),
+            sector: Some(1),
+            speed: Some(120.0),
+            air_temp: Some(session.air_c),
+            road_temp: Some(session.road_c),
+            events: &events,
+        });
+        let json = serde_json::to_value(&status).expect("статус сериализуется");
+        let kinds: Vec<_> = json["events"]
+            .as_array()
+            .expect("события — массив")
+            .iter()
+            .map(|event| event["kind"].as_str().expect("kind — строка").to_owned())
+            .collect();
+        assert_eq!(
+            kinds,
+            [
+                "outingOpened",
+                "sessionOpened",
+                "sessionChanged",
+                "outingClosed"
+            ]
+        );
+
+        let changed = &json["events"][2];
+        assert_eq!(changed["previousId"], id_text(session.id.as_bytes()));
+        assert_eq!(changed["endedAt"], 50);
+        assert_eq!(changed["session"]["type"], "practice");
+        assert_eq!(changed["session"]["status"], "live");
+
+        let closed = &json["events"][3];
+        assert!(closed["sessionId"].is_null());
+        assert_eq!(closed["endedAt"], 80);
+        assert_eq!(closed["outingId"], id_text(session.outing_id.as_bytes()));
+    }
+
+    fn sample_session() -> Session {
+        Session {
+            id: SessionId::from_bytes([0x11; 16]),
+            outing_id: OutingId::from_bytes([0x22; 16]),
+            started_at_ms: 1_700_000_000_000,
+            ended_at_ms: None,
+            online: false,
+            track: "monza".to_owned(),
+            car: "porsche_991ii_gt3_r".to_owned(),
+            kind: SessionKind::Practice,
+            car_count: 20,
+            air_c: 21.5,
+            road_c: 27.0,
         }
     }
-
-    pub(crate) fn emit_status(&self, status: &Status) {
-        let _ = self.app.emit(ACC_STATUS, status);
-    }
-
-    /// Кладёт пачку. Если канал уже есть, байты уходят сразу, иначе заменяют предыдущие.
-    #[cfg_attr(not(windows), allow(dead_code))]
-    pub(crate) fn send_lap(&self, bytes: Vec<u8>) {
-        self.laps.lock().expect("канал пачек круга").pending = Some(bytes);
-        self.drain();
-    }
-
-    /// Отдаёт последнюю пачку, когда подписка появилась между тиками.
-    pub(crate) fn drain(&self) {
-        let ready = {
-            let mut gate = self.laps.lock().expect("канал пачек круга");
-            let channel = gate.channel.clone();
-            let bytes = if channel.is_some() {
-                gate.pending.take()
-            } else {
-                None
-            };
-            channel.zip(bytes)
-        };
-        let Some((channel, bytes)) = ready else {
-            return;
-        };
-        // `Raw`, чтобы страница получила ArrayBuffer, а не JSON-массив чисел.
-        if channel.send(InvokeResponseBody::Raw(bytes)).is_err() {
-            self.laps.lock().expect("канал пачек круга").channel = None;
-        }
-    }
-
-    fn listen(&self, channel: Channel<InvokeResponseBody>) {
-        self.laps.lock().expect("канал пачек круга").channel = Some(channel);
-        self.drain();
-    }
-}
-
-/// Подписка на пачки круга. Аргумент `channel` — `Channel` с фронта.
-#[tauri::command]
-pub(crate) fn listen_laps(outbox: State<'_, Outbox>, channel: Channel<InvokeResponseBody>) {
-    outbox.listen(channel);
 }

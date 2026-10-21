@@ -18,7 +18,8 @@ export const LaunchAcc = () => {
 
     onMount(() => {
         if (!isTauri()) return
-        void invoke<string | null>("acc_install")
+        void invoke<CommandBody<string | null>>("acc_install")
+            .then(unwrap)
             .then(path => setInstall(path ?? null))
             .catch(report)
     })
@@ -27,7 +28,7 @@ export const LaunchAcc = () => {
         if (started() || readLaunchChoice() !== "yes") return
         if (accLink().presence !== "off" || !install()) return
         setStarted(true)
-        void invoke("launch_acc").catch(report)
+        void invoke<CommandBody<null>>("launch_acc").then(unwrap).catch(report)
     })
 
     const open = () =>
@@ -41,7 +42,7 @@ export const LaunchAcc = () => {
         if (remember()) writeLaunchChoice("yes")
         setDismissed(true)
         setStarted(true)
-        void invoke("launch_acc").catch(report)
+        void invoke<CommandBody<null>>("launch_acc").then(unwrap).catch(report)
     }
 
     const later = () => {
@@ -88,6 +89,16 @@ export const LaunchAcc = () => {
             </div>
         </Show>
     )
+}
+
+type CommandBody<T> =
+    | { status: "success"; data: T }
+    | { status: "error"; message: string; hint: string }
+
+/** Берёт `data` из успешного конверта. Ошибка команды становится исключением с `message`. */
+function unwrap<T>(body: CommandBody<T>): T {
+    if (body.status === "success") return body.data
+    throw new Error(body.message)
 }
 
 const report = (error: unknown): void => {

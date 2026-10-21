@@ -67,10 +67,40 @@ pub(crate) fn find_executable() -> Option<PathBuf> {
     }
 }
 
+/// Почему запуск не удался. `hint` говорит, куда смотреть.
+#[derive(Debug)]
+pub(crate) struct LaunchError {
+    pub message: String,
+    pub hint: String,
+}
+
+/// Где ищем exe. На не-Windows файла нет, места поиска те же.
+const STEAM_SEARCH_HINT: &str = "\
+Искали AC2-Win64-Shipping.exe в библиотеках Steam: реестр HKCU\\Software\\Valve\\Steam, \
+libraryfolders.vdf, C:\\Program Files (x86)\\Steam и C:\\Program Files\\Steam.";
+
+const SPAWN_HINT: &str = "Файл установки найден, но процесс не стартовал.";
+
+impl LaunchError {
+    fn missing() -> Self {
+        Self {
+            message: "ACC не найдена".to_owned(),
+            hint: STEAM_SEARCH_HINT.to_owned(),
+        }
+    }
+
+    fn spawn(error: std::io::Error) -> Self {
+        Self {
+            message: error.to_string(),
+            hint: SPAWN_HINT.to_owned(),
+        }
+    }
+}
+
 /// Запускает найденный exe. Рабочий каталог — папка бинарника.
 #[cfg_attr(not(windows), allow(dead_code))]
-pub(crate) fn launch() -> Result<(), String> {
-    let exe = find_executable().ok_or_else(|| "ACC не найдена".to_owned())?;
+pub(crate) fn launch() -> Result<(), LaunchError> {
+    let exe = find_executable().ok_or_else(LaunchError::missing)?;
     let directory = exe
         .parent()
         .map(Path::to_path_buf)
@@ -79,7 +109,7 @@ pub(crate) fn launch() -> Result<(), String> {
         .current_dir(directory)
         .spawn()
         .map(|_| ())
-        .map_err(|error| error.to_string())
+        .map_err(LaunchError::spawn)
 }
 
 #[cfg(windows)]
@@ -219,6 +249,14 @@ mod tests {
         let text = r#""0" { "path" "D:\\Steam Library" }"#;
         let paths = vdf_paths(text);
         assert_eq!(paths, vec![PathBuf::from(r"D:\Steam Library")]);
+    }
+
+    #[test]
+    fn missing_install_names_the_steam_places() {
+        let error = LaunchError::missing();
+        assert_eq!(error.message, "ACC не найдена");
+        assert!(error.hint.contains("Steam"));
+        assert!(error.hint.contains("libraryfolders.vdf"));
     }
 
     #[test]
