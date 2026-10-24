@@ -11,7 +11,12 @@ export {
     type LiveCard,
     type LiveLapRow,
 } from "~/domain/live"
-export { fastestValidLap, realTimeMs, withRealTimes, type Lap } from "~/domain/lap"
+export {
+    fastestValidLap,
+    realTimeMs,
+    withRealTimes,
+    type Lap,
+} from "~/domain/lap"
 export {
     SESSION_FILTERS,
     closedSheet,
@@ -26,3 +31,11 @@ export {
     type SessionType,
 } from "~/domain/session"
 export { TRACE_CHANNELS, type Trace, type TraceChannel } from "~/domain/trace"
+export {
+    TRACK_SORTS,
+    isTrackSort,
+    sortTracks,
+    trackRecords,
+    type TrackRecord,
+    type TrackSort,
+} from "~/domain/track-record"

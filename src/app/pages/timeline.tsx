@@ -5,6 +5,7 @@ import {
     Show,
     Switch,
     createEffect,
+    createMemo,
     createSignal,
     onCleanup,
     untrack,
@@ -16,6 +17,7 @@ import {
     closedSheet,
     groupByDay,
     isSessionFilter,
+    trackRecords,
     type Lap,
     type Session,
     type SessionFilter,
@@ -33,6 +35,7 @@ import {
     type DaySession,
 } from "~/app/pages/day-memory"
 import { LiveCard } from "~/app/pages/live-card"
+import { TrackBoard } from "~/app/pages/track-board"
 
 const rowClass = "flex items-baseline gap-6 px-2 py-3"
 
@@ -98,19 +101,34 @@ export function TimelinePage() {
                 </Match>
                 <Match when={memory()}>
                     {loaded => {
-                        const sheet = () => projectDay(loaded())
+                        const sheet = createMemo(() => projectDay(loaded()))
+                        const records = createMemo(() =>
+                            trackRecords(sheet().past)
+                        )
+                        /** Live — только когда реально едешь; иначе шахматка трасс. */
+                        const liveOnTrack = () => {
+                            if (
+                                accLink().presence !== "onTrack" ||
+                                accLink().inPit
+                            ) {
+                                return undefined
+                            }
+                            return sheet().live
+                        }
                         return (
-                            <Show
-                                when={sheet().past.length > 0 || sheet().live}
-                                fallback={<SheetMessage text={emptyText()} />}
-                            >
-                                <Show when={sheet().live}>
+                            <>
+                                <Show
+                                    when={liveOnTrack()}
+                                    fallback={
+                                        <TrackBoard records={records()} />
+                                    }
+                                >
                                     {card => <LiveCard card={card()} />}
                                 </Show>
                                 <Show when={sheet().past.length > 0}>
                                     <PastSheet sessions={sheet().past} />
                                 </Show>
-                            </Show>
+                            </>
                         )
                     }}
                 </Match>
@@ -276,8 +294,6 @@ function Separator() {
         </span>
     )
 }
-
-const emptyText = (): string => t("app.emptyMenu")
 
 function SheetMessage(props: { text: string }) {
     return (

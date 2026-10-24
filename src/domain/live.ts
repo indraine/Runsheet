@@ -17,7 +17,8 @@ export type LiveCard = {
     pressurePsi: number | undefined
     rows: LiveLapRow[]
     road: Trace | undefined
-    line: Trace | undefined
+    /** Открытый круг: его последний сэмпл — где машина сейчас. */
+    car: Trace | undefined
 }
 
 const SECTOR_KEYS = ["s1Ms", "s2Ms", "s3Ms"] as const
@@ -52,7 +53,7 @@ export const liveCard = (
         fullestTrace(ordered, byLap, lap => lap.timeMs !== null) ??
         (openTrace && hasGround(openTrace) ? openTrace : undefined) ??
         fullestTrace(ordered, byLap, () => true)
-    const line = openTrace && hasPoint(openTrace) ? openTrace : undefined
+    const car = openTrace && hasPoint(openTrace) ? openTrace : undefined
     const pressureTrace = pressureSource(currentLap, ordered, byLap)
 
     return {
@@ -68,7 +69,7 @@ export const liveCard = (
             best: bestLap?.id === lap.id,
         })),
         road,
-        line,
+        car,
     }
 }
 

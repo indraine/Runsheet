@@ -6,7 +6,7 @@ import { cn } from "~/ui/cn"
 
 const buttonVariants = cva(
     [
-        "inline-flex items-center justify-center gap-1.5 rounded border border-transparent",
+        "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded border border-transparent",
         "font-mono text-xs font-medium tracking-wide uppercase select-none",
         "transition-colors",
         "outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20",

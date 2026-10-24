@@ -20,11 +20,9 @@ export type LiveBuffer = {
     traces: Trace[]
 }
 
-/** `last` — последний закрытый заезд: карточка показывает его, пока живого нет. */
 export type DayMemory = {
     past: DaySession[]
     live: LiveBuffer | undefined
-    last?: LiveBuffer
 }
 
 export type DaySheet = {
@@ -32,15 +30,12 @@ export type DaySheet = {
     live: LiveCard | undefined
 }
 
-export const projectDay = (memory: DayMemory): DaySheet => {
-    const shown = memory.live ?? memory.last
-    return {
-        past: memory.past,
-        live: shown
-            ? liveCard(shown.session, shown.laps, shown.traces)
-            : undefined,
-    }
-}
+export const projectDay = (memory: DayMemory): DaySheet => ({
+    past: memory.past,
+    live: memory.live
+        ? liveCard(memory.live.session, memory.live.laps, memory.live.traces)
+        : undefined,
+})
 
 export const applyDayWrite = (
     memory: DayMemory,
@@ -78,14 +73,9 @@ const readDayMemory = async (
             bestLap: fastestValidLap(await repo.readLaps(session.id)),
         }))
     )
-    if (liveSession) {
-        return { past, live: await readBuffer(repo, liveSession) }
-    }
-    const latest = latestSession(closed)
     return {
         past,
-        live: undefined,
-        last: latest ? await readBuffer(repo, latest) : undefined,
+        live: liveSession ? await readBuffer(repo, liveSession) : undefined,
     }
 }
 
@@ -97,13 +87,6 @@ const readBuffer = async (
     const traces = await repo.readTraces(laps.map(lap => lap.id))
     return { session, laps, traces: [...traces.values()] }
 }
-
-const latestSession = (sessions: readonly Session[]): Session | undefined =>
-    sessions.reduce<Session | undefined>(
-        (latest, session) =>
-            !latest || session.startedAt > latest.startedAt ? session : latest,
-        undefined
-    )
 
 const showsLive = (session: Session, sessionId: string | null): boolean =>
     sessionId !== null && session.id === sessionId
@@ -142,7 +125,6 @@ const closeSession = (memory: DayMemory, write: SessionWrite): DayMemory => {
             bestLap: fastestValidLap(laps),
         }),
         live: buffer ? undefined : memory.live,
-        last: buffer ? { session, laps, traces: buffer.traces } : memory.last,
     }
 }
 

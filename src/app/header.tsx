@@ -54,26 +54,34 @@ export function Header() {
 
 function AccStatus() {
     const presence = () => accLink().presence
+    const label = () => presenceLabel(presence())
 
     return (
         <Show when={!isGameOff()} fallback={<LaunchAccButton />}>
-            <p class="inline-flex shrink-0 items-center gap-2 font-mono text-[11px] font-medium tracking-wide text-secondary uppercase">
-                <span
-                    class={cn("size-1.5 rounded-full", presenceDot(presence()))}
-                    aria-hidden="true"
-                />
-                {presenceLabel(presence())}
-            </p>
+            <Show when={label()}>
+                {text => (
+                    <p class="inline-flex shrink-0 items-center gap-2 font-mono text-[11px] font-medium tracking-wide text-secondary uppercase">
+                        <span
+                            class={cn(
+                                "size-1.5 rounded-full",
+                                presenceDot(presence())
+                            )}
+                            aria-hidden="true"
+                        />
+                        {text()}
+                    </p>
+                )}
+            </Show>
         </Show>
     )
 }
 
 const presenceLabel = (
     presence: ReturnType<typeof accLink>["presence"]
-): string => {
+): string | undefined => {
     if (presence === "onTrack") return t("app.accOnTrack")
     if (presence === "menu") return t("app.accMenu")
-    return t("app.empty")
+    return undefined
 }
 
 const presenceDot = (

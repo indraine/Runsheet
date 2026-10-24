@@ -1,8 +1,6 @@
 import { A, useNavigate } from "@solidjs/router"
 import { Check } from "lucide-solid"
 import { createEffect, createSignal, For, Index, Show } from "solid-js"
-import { mapViewFor } from "~/app/map-view"
-import { accLink } from "~/app/status"
 import { hasAsphalt } from "~/app/track-catalog"
 import { TrackLine } from "~/app/track-line"
 import type { LiveCard as LiveCardModel, LiveLapRow } from "~/domain"
@@ -15,15 +13,6 @@ export const LiveCard = (props: { card: LiveCardModel }) => {
     const [preview, setPreview] = createSignal<string>()
     const shownTrack = () => preview() ?? card().session.track
     const ownTrack = () => shownTrack() === card().session.track
-    const canFollow = () =>
-        accLink().presence === "onTrack" &&
-        ownTrack() &&
-        (card().line?.x.length ?? 0) >= 2
-    const view = () =>
-        mapViewFor({
-            canFollow: canFollow(),
-            inPit: accLink().inPit,
-        })
     const seedDev = () =>
         import.meta.env.DEV && card().session.id.startsWith("seed-")
 
@@ -117,7 +106,7 @@ export const LiveCard = (props: { card: LiveCardModel }) => {
                 <div class="relative min-h-72 overflow-hidden border-t border-line lg:border-t-0 lg:border-l">
                     <Show
                         when={
-                            (ownTrack() && (card().road || card().line)) ||
+                            (ownTrack() && (card().road || card().car)) ||
                             hasAsphalt(shownTrack())
                         }
                         fallback={
@@ -130,8 +119,7 @@ export const LiveCard = (props: { card: LiveCardModel }) => {
                             class="absolute inset-0 min-h-0"
                             track={shownTrack()}
                             road={ownTrack() ? card().road : undefined}
-                            line={ownTrack() ? card().line : undefined}
-                            view={view()}
+                            car={ownTrack() ? card().car : undefined}
                         />
                     </Show>
                 </div>

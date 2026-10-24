@@ -1,12 +1,6 @@
 import { Application, Graphics } from "pixi.js"
 import { createEffect, onCleanup, onMount } from "solid-js"
-import {
-    fitFrame,
-    followFrame,
-    followPixelsPerMeter,
-    type GroundPoint,
-    type GroundSeries,
-} from "~/app/fit-ground"
+import { fitFrame, type GroundPoint, type GroundSeries } from "~/app/fit-ground"
 import { theme } from "~/app/theme"
 import { boundariesFor } from "~/app/track-catalog"
 import {
@@ -15,7 +9,6 @@ import {
     type Placement,
     type PlanarPoint,
     shouldReusePlacement,
-    type Similarity,
     type TrackBoundaries,
 } from "~/app/track-surface"
 import type { Trace } from "~/domain"
@@ -23,32 +16,27 @@ import { t } from "~/i18n"
 import { cn } from "~/ui"
 
 const PADDING = 16
-const ROAD_EDGE = 18
-const ROAD_FILL = 11
-const SCHEMATIC_WIDTH = 5
-const SCHEMATIC_OUTLINE = 1
-/** Сколько метров трассы видно от машины до верхнего края. */
-const FOLLOW_AHEAD_M = 90
-/** Ширина полотна, если в каталоге трассы её нет. Типичный трек ACC. */
-const TRACK_WIDTH_M = 12
-const EDGE_WIDTH = 1.5
-/** Край короче этого — ширины в каталоге нет, край совпал с осью. */
-const MIN_EDGE_M = 0.5
-const LINE_WIDTH = 1.5
+const ROAD_WIDTH = 5
+const ROAD_OUTLINE = 1
+const CAR_RADIUS = 5
+const CAR_RING = 2
 const FALLBACK_ACCENT = 0x2a6fc9
 const FALLBACK_EDGE = 0x475569
 const FALLBACK_FILL = 0x94a3b8
+const FALLBACK_SURFACE = 0xffffff
 
+/**
+ * Схема трассы и точка машины.
+ * `road` — заезд, по которому схема совмещается с каталогом; `car` — текущий круг, точка в его последнем сэмпле.
+ */
 export const TrackLine = (props: {
     track?: string
     road?: Trace
-    line?: Trace
-    view?: "overview" | "follow"
+    car?: Trace
     class?: string
 }) => {
     let host: HTMLDivElement | undefined
     let roadGraphics: Graphics | undefined
-    let lineGraphics: Graphics | undefined
     let carGraphics: Graphics | undefined
     let placement: Placement | undefined
     let disposed = false
@@ -57,93 +45,39 @@ export const TrackLine = (props: {
     const redraw = () => {
         const view = host
         const road = roadGraphics
-        const line = lineGraphics
         const car = carGraphics
-        if (!ready || !view || !road || !line || !car) return
+        if (!ready || !view || !road || !car) return
+
+        road.clear()
+        car.clear()
+
+        const bounds = props.track ? boundariesFor(props.track) : undefined
+        placement = resolvePlacement(
+            bounds,
+            props.track,
+            props.road ?? props.car,
+            placement
+        )
+        const laid = bounds
+            ? layoutCatalog(bounds, placement, props.car, view)
+            : layoutTrace(props.road, props.car, view)
 
         const edge = cssColor("--secondary", FALLBACK_EDGE)
         const fill = cssColor("--muted", FALLBACK_FILL)
-        const accent = cssColor("--accent", FALLBACK_ACCENT)
-        const anchor = props.road ?? props.line
-        const bounds = props.track ? boundariesFor(props.track) : undefined
-        placement = resolvePlacement(bounds, props.track, anchor, placement)
-
-        road.clear()
-        line.clear()
-        car.clear()
-
-        if (bounds) {
-            const fit =
-                placement?.status === "matched" ? placement.fit : undefined
-            const projected =
-                fit && props.line ? projectGround(props.line, fit) : undefined
-            const laid = layoutTrack(
-                bounds,
-                projected,
-                view.clientWidth,
-                view.clientHeight,
-                props.view === "follow"
-            )
-            if (laid.metersToPixels === undefined) {
-                strokeClosed(
-                    road,
-                    laid.center,
-                    SCHEMATIC_WIDTH + SCHEMATIC_OUTLINE * 2,
-                    edge
-                )
-                strokeClosed(road, laid.center, SCHEMATIC_WIDTH, fill)
-            } else if (laid.edges) {
-                fillAsphalt(road, laid.edges.left, laid.edges.right, fill)
-                strokeClosed(road, laid.edges.left, EDGE_WIDTH, edge)
-                strokeClosed(road, laid.edges.right, EDGE_WIDTH, edge)
-            } else {
-                const width = TRACK_WIDTH_M * laid.metersToPixels
-                strokeClosed(road, laid.center, width + EDGE_WIDTH * 2, edge)
-                strokeClosed(road, laid.center, width, fill)
-            }
-            if (projected) {
-                strokePath(line, laid.line, LINE_WIDTH, accent)
-                drawCar(car, laid.line, accent)
-            }
-            return
+        strokeRoad(
+            road,
+            laid.road,
+            ROAD_WIDTH + ROAD_OUTLINE * 2,
+            edge,
+            laid.closed
+        )
+        strokeRoad(road, laid.road, ROAD_WIDTH, fill, laid.closed)
+        if (laid.car) {
+            drawCar(car, laid.car, {
+                fill: cssColor("--accent", FALLBACK_ACCENT),
+                ring: cssColor("--surface", FALLBACK_SURFACE),
+            })
         }
-
-        const roadSeries = {
-            x: props.road?.x ?? [],
-            z: props.road?.z ?? [],
-        }
-        const lineSeries = {
-            x: props.line?.x ?? [],
-            z: props.line?.z ?? [],
-        }
-        const followed =
-            props.view === "follow"
-                ? followFrame(
-                      [roadSeries, lineSeries],
-                      view.clientWidth,
-                      view.clientHeight,
-                      FOLLOW_AHEAD_M
-                  )
-                : undefined
-        const [roadPoints, linePoints] =
-            followed ??
-            fitFrame(
-                [roadSeries, lineSeries],
-                view.clientWidth,
-                view.clientHeight,
-                PADDING
-            )
-        const fillWidth = followed
-            ? TRACK_WIDTH_M *
-              followPixelsPerMeter(view.clientHeight, FOLLOW_AHEAD_M)
-            : ROAD_FILL
-        const outerWidth = followed
-            ? fillWidth + EDGE_WIDTH * 2
-            : ROAD_EDGE
-        strokePath(road, roadPoints, outerWidth, edge)
-        strokePath(road, roadPoints, fillWidth, fill)
-        strokePath(line, linePoints, LINE_WIDTH, accent)
-        drawCar(car, linePoints, accent)
     }
 
     onMount(() => {
@@ -169,15 +103,13 @@ export const TrackLine = (props: {
                     return
                 }
                 roadGraphics = new Graphics()
-                lineGraphics = new Graphics()
                 carGraphics = new Graphics()
-                app.stage.addChild(roadGraphics, lineGraphics, carGraphics)
+                app.stage.addChild(roadGraphics, carGraphics)
                 view.appendChild(app.canvas)
                 ready = true
                 redraw()
             })
-            .catch(() => {
-            })
+            .catch(() => {})
 
         onCleanup(() => {
             disposed = true
@@ -186,7 +118,6 @@ export const TrackLine = (props: {
             ready = false
             app.destroy(true, true)
             roadGraphics = undefined
-            lineGraphics = undefined
             carGraphics = undefined
         })
     })
@@ -196,10 +127,9 @@ export const TrackLine = (props: {
         props.road?.x
         props.road?.z
         props.road?.lapId
-        props.line?.x
-        props.line?.z
-        props.line?.lapId
-        props.view
+        props.car?.x
+        props.car?.z
+        props.car?.lapId
         theme()
         redraw()
     })
@@ -216,6 +146,56 @@ export const TrackLine = (props: {
     )
 }
 
+type TrackLayout = {
+    road: GroundPoint[]
+    car: GroundPoint | undefined
+    closed: boolean
+}
+
+type Viewport = { clientWidth: number; clientHeight: number }
+
+/** Схема из каталога; точка встаёт на неё, только когда заезд совмещён с осью трассы. */
+const layoutCatalog = (
+    bounds: TrackBoundaries,
+    placement: Placement | undefined,
+    car: Trace | undefined,
+    view: Viewport
+): TrackLayout => {
+    const center = asGround(bounds.center)
+    const tip = car ? lastPoint(car) : undefined
+    const fit = placement?.status === "matched" ? placement.fit : undefined
+    const placed = tip && fit ? applySimilarity(tip, fit) : undefined
+    const series = placed ? [center, asGround([placed])] : [center]
+    const fitted = fitFrame(
+        series,
+        view.clientWidth,
+        view.clientHeight,
+        PADDING,
+        [center]
+    )
+    return { road: fitted[0] ?? [], car: fitted[1]?.[0], closed: true }
+}
+
+/** Трассы нет в каталоге — схема рисуется по самому полному записанному кругу. */
+const layoutTrace = (
+    road: Trace | undefined,
+    car: Trace | undefined,
+    view: Viewport
+): TrackLayout => {
+    const roadSeries = { x: road?.x ?? [], z: road?.z ?? [] }
+    const tip = car ? lastPoint(car) : undefined
+    const series = tip ? [roadSeries, asGround([tip])] : [roadSeries]
+    const frame = roadSeries.x.length > 0 ? [roadSeries] : series
+    const fitted = fitFrame(
+        series,
+        view.clientWidth,
+        view.clientHeight,
+        PADDING,
+        frame
+    )
+    return { road: fitted[0] ?? [], car: fitted[1]?.[0], closed: false }
+}
+
 const resolvePlacement = (
     bounds: TrackBoundaries | undefined,
     track: string | undefined,
@@ -229,7 +209,7 @@ const resolvePlacement = (
     return placeOnTrack(
         bounds.center,
         track,
-        anchor?.lapId ?? "",
+        lapId,
         tracePlanar(anchor?.x ?? [], anchor?.z ?? []),
         previous
     )
@@ -250,19 +230,17 @@ const tracePlanar = (
     return points
 }
 
-const projectGround = (trace: Trace, fit: Similarity): GroundSeries => {
-    const count = Math.min(trace.x.length, trace.z.length)
-    const x = new Float32Array(count)
-    const z = new Float32Array(count)
-    for (let index = 0; index < count; index += 1) {
-        const point = applySimilarity(
-            { x: trace.x[index], y: trace.z[index] },
-            fit
-        )
-        x[index] = point.x
-        z[index] = point.y
+const lastPoint = (trace: Trace): PlanarPoint | undefined => {
+    for (
+        let index = Math.min(trace.x.length, trace.z.length) - 1;
+        index >= 0;
+        index -= 1
+    ) {
+        const x = trace.x[index]
+        const y = trace.z[index]
+        if (Number.isFinite(x) && Number.isFinite(y)) return { x, y }
     }
-    return { x, z }
+    return undefined
 }
 
 const asGround = (points: readonly PlanarPoint[]): GroundSeries => ({
@@ -270,146 +248,31 @@ const asGround = (points: readonly PlanarPoint[]): GroundSeries => ({
     z: Float32Array.from(points, point => point.y),
 })
 
-/** `metersToPixels` есть только в режиме «за машиной»: там полотно в реальном масштабе. */
-type TrackLayout = {
-    center: GroundPoint[]
-    line: GroundPoint[]
-    edges?: { left: GroundPoint[]; right: GroundPoint[] }
-    metersToPixels?: number
-}
-
-const layoutTrack = (
-    bounds: TrackBoundaries,
-    projected: GroundSeries | undefined,
-    width: number,
-    height: number,
-    follow: boolean
-): TrackLayout => {
-    const center = asGround(bounds.center)
-    if (follow && projected) {
-        const followed = followFrame(
-            [center, asGround(bounds.left), asGround(bounds.right), projected],
-            width,
-            height,
-            FOLLOW_AHEAD_M
-        )
-        if (followed) {
-            return {
-                center: followed[0] ?? [],
-                line: followed[3] ?? [],
-                edges: hasEdges(bounds)
-                    ? { left: followed[1] ?? [], right: followed[2] ?? [] }
-                    : undefined,
-                metersToPixels: followPixelsPerMeter(height, FOLLOW_AHEAD_M),
-            }
-        }
-    }
-
-    const series = projected ? [center, projected] : [center]
-    const fitted = fitFrame(series, width, height, PADDING, [center])
-    return {
-        center: fitted[0] ?? [],
-        line: fitted[1] ?? [],
-    }
-}
-
-const hasEdges = (bounds: TrackBoundaries): boolean =>
-    bounds.left.some((point, index) => {
-        const middle = bounds.center[index]
-        return (
-            middle !== undefined &&
-            Math.hypot(point.x - middle.x, point.y - middle.y) > MIN_EDGE_M
-        )
-    })
-
-/** Полотно — четырёхугольники между соседними точками левого и правого края. */
-const fillAsphalt = (
-    graphics: Graphics,
-    left: readonly GroundPoint[],
-    right: readonly GroundPoint[],
-    color: number
-) => {
-    const count = Math.min(left.length, right.length)
-    if (count < 2) return
-    for (let index = 0; index < count; index += 1) {
-        const next = (index + 1) % count
-        graphics.poly(
-            [
-                left[index].x,
-                left[index].y,
-                left[next].x,
-                left[next].y,
-                right[next].x,
-                right[next].y,
-                right[index].x,
-                right[index].y,
-            ],
-            true
-        )
-    }
-    graphics.fill({ color })
-}
-
-const strokeClosed = (
+const strokeRoad = (
     graphics: Graphics,
     points: readonly GroundPoint[],
     width: number,
-    color: number
+    color: number,
+    closed: boolean
 ) => {
     if (points.length < 2) return
     graphics.moveTo(points[0].x, points[0].y)
     for (let index = 1; index < points.length; index += 1) {
         graphics.lineTo(points[index].x, points[index].y)
     }
-    graphics.closePath()
-    graphics.stroke({ width, color, cap: "round", join: "round" })
-}
-
-const strokePath = (
-    graphics: Graphics,
-    points: readonly GroundPoint[],
-    width: number,
-    color: number
-) => {
-    if (points.length < 2) return
-    graphics.moveTo(points[0].x, points[0].y)
-    for (let index = 1; index < points.length; index += 1) {
-        graphics.lineTo(points[index].x, points[index].y)
-    }
+    if (closed) graphics.closePath()
     graphics.stroke({ width, color, cap: "round", join: "round" })
 }
 
 const drawCar = (
     graphics: Graphics,
-    points: readonly GroundPoint[],
-    color: number
+    at: GroundPoint,
+    colors: { fill: number; ring: number }
 ) => {
-    const tip = points[points.length - 1]
-    if (!tip) return
-    const prev = points.length >= 2 ? points[points.length - 2] : undefined
-    const angle = prev
-        ? Math.atan2(tip.y - prev.y, tip.x - prev.x)
-        : -Math.PI / 2
-    const cos = Math.cos(angle)
-    const sin = Math.sin(angle)
-    const at = (along: number, side: number): GroundPoint => ({
-        x: tip.x + cos * along - sin * side,
-        y: tip.y + sin * along + cos * side,
-    })
-    const nose = at(9, 0)
-    const frontLeft = at(3, 5)
-    const rearLeft = at(-7, 5)
-    const tail = at(-8, 0)
-    const rearRight = at(-7, -5)
-    const frontRight = at(3, -5)
-    graphics.moveTo(nose.x, nose.y)
-    graphics.lineTo(frontLeft.x, frontLeft.y)
-    graphics.lineTo(rearLeft.x, rearLeft.y)
-    graphics.lineTo(tail.x, tail.y)
-    graphics.lineTo(rearRight.x, rearRight.y)
-    graphics.lineTo(frontRight.x, frontRight.y)
-    graphics.closePath()
-    graphics.fill({ color })
+    graphics.circle(at.x, at.y, CAR_RADIUS + CAR_RING)
+    graphics.fill({ color: colors.ring })
+    graphics.circle(at.x, at.y, CAR_RADIUS)
+    graphics.fill({ color: colors.fill })
 }
 
 const cssColor = (name: string, fallback: number): number => {
