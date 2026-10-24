@@ -1,12 +1,13 @@
 import { A, useMatch } from "@solidjs/router"
 import { ArrowLeft } from "lucide-solid"
 import { Show } from "solid-js"
-import { clearStored } from "~/app/stored"
+import { isGameOff, LaunchAccButton } from "~/app/launch-acc"
+import { SettingsMenu } from "~/app/settings-menu"
 import { accLink, analysisHeading } from "~/app/status"
 import { ThemeToggle } from "~/app/theme-toggle"
 import { Wordmark } from "~/app/wordmark"
 import { t } from "~/i18n"
-import { Button, cn } from "~/ui"
+import { cn } from "~/ui"
 
 export function Header() {
     const analysis = useMatch(() => "/sessions/:sessionId/laps/:lapId")
@@ -44,10 +45,8 @@ export function Header() {
                 <Show when={analysis()}>
                     <AccStatus />
                 </Show>
-                <Button variant="ghost" size="sm" onClick={clearStored}>
-                    {t("app.resetStored")}
-                </Button>
                 <ThemeToggle />
+                <SettingsMenu />
             </div>
         </header>
     )
@@ -57,13 +56,15 @@ function AccStatus() {
     const presence = () => accLink().presence
 
     return (
-        <p class="inline-flex shrink-0 items-center gap-2 font-mono text-[11px] font-medium tracking-wide text-secondary uppercase">
-            <span
-                class={cn("size-1.5 rounded-full", presenceDot(presence()))}
-                aria-hidden="true"
-            />
-            {presenceLabel(presence())}
-        </p>
+        <Show when={!isGameOff()} fallback={<LaunchAccButton />}>
+            <p class="inline-flex shrink-0 items-center gap-2 font-mono text-[11px] font-medium tracking-wide text-secondary uppercase">
+                <span
+                    class={cn("size-1.5 rounded-full", presenceDot(presence()))}
+                    aria-hidden="true"
+                />
+                {presenceLabel(presence())}
+            </p>
+        </Show>
     )
 }
 

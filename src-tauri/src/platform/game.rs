@@ -1,7 +1,7 @@
-//! Где лежит ACC.
+//! Где лежит ACC и запущена ли она.
 //!
-//! Состояние для листа — только по shared memory: заезд есть или его нет.
-//! Процесс игры отдельно не смотрим.
+//! Заезд виден по shared memory. Запущена ли игра — по `tasklist`: в главном
+//! меню памяти ещё нет, а процесс уже есть.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -14,28 +14,62 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-#[cfg(windows)]
+/// Имя exe ACC: и для поиска в Steam, и для `tasklist`.
 const PROCESS_NAME: &str = "AC2-Win64-Shipping.exe";
 
 #[cfg(windows)]
 const GAME_DIR: &str = "Assetto Corsa Competizione";
 
-/// `Menu` — заезда нет. `OnTrack` — игрок в сессии.
+/// `Off` — игра не запущена. `Menu` — запущена, заезда нет. `OnTrack` — игрок в сессии.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum Presence {
+    Off,
     Menu,
     OnTrack,
 }
 
-/// Заезд виден по shared memory. Игру и меню по процессу не отличаем.
+/// Заезд важнее процесса: живая сессия — это трасса, даже если `tasklist` опоздал.
 #[cfg_attr(not(windows), allow(dead_code))]
-pub(crate) fn presence(in_session: bool) -> Presence {
-    if in_session {
-        Presence::OnTrack
-    } else {
-        Presence::Menu
+pub(crate) fn presence(in_session: bool, game_running: bool) -> Presence {
+    match (in_session, game_running) {
+        (true, _) => Presence::OnTrack,
+        (false, true) => Presence::Menu,
+        (false, false) => Presence::Off,
     }
+}
+
+/// `Some` — `tasklist` ответил. `None` — команда не отработала, прошлое значение живёт.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) fn is_game_running() -> Option<bool> {
+    #[cfg(windows)]
+    {
+        let filter = format!("IMAGENAME eq {PROCESS_NAME}");
+        let output = Command::new("tasklist")
+            .args(["/FI", &filter, "/FO", "CSV", "/NH"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        Some(lists_process(&String::from_utf8_lossy(&output.stdout)))
+    }
+    #[cfg(not(windows))]
+    {
+        Some(false)
+    }
+}
+
+/// В CSV `tasklist` имя процесса — первая колонка в кавычках.
+#[cfg_attr(not(any(windows, test)), allow(dead_code))]
+fn lists_process(csv: &str) -> bool {
+    let quoted = format!("\"{PROCESS_NAME}\"");
+    csv.lines().any(|line| {
+        line.trim_start()
+            .get(..quoted.len())
+            .is_some_and(|head| head.eq_ignore_ascii_case(&quoted))
+    })
 }
 
 /// Каталог установки, если он нашёлся в обычных местах Steam.
@@ -201,9 +235,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn session_is_on_track_and_everything_else_is_the_menu() {
-        assert_eq!(presence(false), Presence::Menu);
-        assert_eq!(presence(true), Presence::OnTrack);
+    fn session_wins_then_the_process_splits_menu_from_off() {
+        assert_eq!(presence(true, false), Presence::OnTrack);
+        assert_eq!(presence(true, true), Presence::OnTrack);
+        assert_eq!(presence(false, true), Presence::Menu);
+        assert_eq!(presence(false, false), Presence::Off);
+    }
+
+    #[test]
+    fn tasklist_csv_names_the_game_or_says_nothing_found() {
+        let running = "\"AC2-Win64-Shipping.exe\",\"1234\",\"Console\",\"1\",\"2 000 000 K\"\r\n";
+        assert!(lists_process(running));
+        assert!(!lists_process(
+            "INFO: No tasks are running which match the specified criteria.\r\n"
+        ));
+        assert!(!lists_process(""));
     }
 
     #[test]

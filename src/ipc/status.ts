@@ -20,7 +20,7 @@ export type AccStatusEvent =
           endedAt: number
       }
 
-export type AccPresence = "menu" | "onTrack"
+export type AccPresence = "off" | "menu" | "onTrack"
 
 export type AccStatus = {
     link: AccLinkState
@@ -179,13 +179,13 @@ const parseEvent = (value: unknown): AccStatusEvent | undefined => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null
 
-const PRESENCE = new Set<AccPresence>(["menu", "onTrack"])
+const PRESENCE = new Set<AccPresence>(["off", "menu", "onTrack"])
 
 const parsePresence = (value: unknown, link: AccLinkState): AccPresence => {
     if (typeof value === "string" && PRESENCE.has(value as AccPresence)) {
         return value as AccPresence
     }
-    return link === "linked" ? "onTrack" : "menu"
+    return link === "linked" ? "onTrack" : "off"
 }
 
 const isLinkState = (value: unknown): value is AccLinkState =>

@@ -84,7 +84,11 @@ const en = {
     launchRemember: "Remember my choice",
     launchNow: "Launch",
     launchLater: "I'll launch it",
-    resetStored: "Reset saved choices",
+    launchButton: "Launch ACC",
+    launchStarting: "Starting ACC…",
+    launchMissing: "ACC was not found in Steam libraries",
+    settings: "Settings",
+    resetSettings: "Reset settings",
 }
 
 const ru: typeof en = {
@@ -170,7 +174,11 @@ const ru: typeof en = {
     launchRemember: "Запомнить мой выбор",
     launchNow: "Запустить",
     launchLater: "Запущу сам",
-    resetStored: "Сбросить сохранённое",
+    launchButton: "Запустить ACC",
+    launchStarting: "Запускаю ACC…",
+    launchMissing: "ACC не найдена в библиотеках Steam",
+    settings: "Настройки",
+    resetSettings: "Сбросить настройки",
 }
 
 export const appDict: Record<Locale, typeof en> = { en, ru }

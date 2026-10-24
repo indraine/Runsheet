@@ -28,6 +28,7 @@ pub(crate) async fn run_consumer(ring: TelemetryRing, outbox: ipc::Outbox) {
     let clock = HostClock::start();
     while let Some(envelope) = ring.recv().await {
         let link = envelope.link;
+        let game_running = envelope.game_running;
         let moment = Moment {
             mono_ms: clock.mono_ms(),
             wall_ms: wall_ms(),
@@ -36,7 +37,7 @@ pub(crate) async fn run_consumer(ring: TelemetryRing, outbox: ipc::Outbox) {
         if outcome.stale {
             continue;
         }
-        publish(&outbox, link, &outcome);
+        publish(&outbox, link, game_running, &outcome);
     }
 }
 
@@ -48,12 +49,13 @@ fn step(sequencer: &mut Sequencer, envelope: Envelope, moment: Moment) -> Outcom
     }
 }
 
-fn publish(outbox: &ipc::Outbox, link: LinkState, outcome: &Outcome) {
+fn publish(outbox: &ipc::Outbox, link: LinkState, game_running: bool, outcome: &Outcome) {
     if outcome.emit_status {
         let snap = &outcome.snap;
+        let in_session = link == LinkState::Linked && snap.in_session;
         outbox.emit_status(&ipc::Status::capture(Capture {
             link,
-            presence: game::presence(link == LinkState::Linked && snap.in_session),
+            presence: game::presence(in_session, game_running),
             in_pit: snap.in_pit,
             packet_id: snap.packet_id,
             outing_id: snap.outing_id,
@@ -104,9 +106,11 @@ pub(crate) fn spawn_reader(outbox: ipc::Outbox) {
     {
         let ring = TelemetryRing::new();
         let incoming = ring.clone();
+        let probed = ring.clone();
         tauri::async_runtime::spawn(async move {
             run_consumer(incoming, outbox).await;
         });
+        std::thread::spawn(move || reader::probe_game(probed));
         std::thread::spawn(move || reader::run(ring));
     }
     #[cfg(not(windows))]

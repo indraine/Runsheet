@@ -113,7 +113,7 @@ pub(crate) fn run_without_acc(outbox: ipc::Outbox) -> ! {
         if clock.status_due(now_ms, false) {
             outbox.emit_status(&Status::capture(Capture {
                 link: link.state(),
-                presence: game::Presence::Menu,
+                presence: game::Presence::Off,
                 packet_id: None,
                 outing_id: None,
                 session: None,
@@ -173,6 +173,21 @@ fn poll(ring: TelemetryRing) -> ! {
                 }
             }
         }
+    }
+}
+
+/// Как часто смотреть `tasklist`. Команда тяжелее чтения памяти, поэтому свой поток.
+#[cfg(windows)]
+const PROBE_EVERY: Duration = Duration::from_secs(2);
+
+/// Отдельный поток: `tasklist` не задерживает чтение кадров.
+#[cfg(windows)]
+pub(crate) fn probe_game(ring: TelemetryRing) -> ! {
+    loop {
+        if let Some(running) = game::is_game_running() {
+            ring.note_game_running(running);
+        }
+        std::thread::sleep(PROBE_EVERY);
     }
 }
 

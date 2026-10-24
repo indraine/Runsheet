@@ -2,7 +2,7 @@ import { createSignal } from "solid-js"
 
 export type AccLink = {
     linked: boolean
-    presence: "unknown" | "menu" | "onTrack"
+    presence: "unknown" | "off" | "menu" | "onTrack"
     hz: number | null
     packetId: number | null
     sessionId: string | null
