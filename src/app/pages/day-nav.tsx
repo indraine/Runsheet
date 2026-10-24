@@ -19,10 +19,6 @@ const dayCellClass = [
     "data-disabled:pointer-events-none data-disabled:text-muted",
 ].join(" ")
 
-/**
- * Дата листа. Стрелки шагают по дням, где есть сессии.
- * Нажатие на дату открывает календарь: активны только эти дни.
- */
 export const DayNav = (props: {
     days: DayGroup[]
     value: number
@@ -178,10 +174,6 @@ export const DayNav = (props: {
     )
 }
 
-/**
- * Какой день показать: выбранный, если в нём есть сессии.
- * Иначе сегодняшний, если он есть в списке, иначе самый поздний.
- */
 export const activeDayStart = (
     days: readonly DayGroup[],
     chosen: number | undefined,

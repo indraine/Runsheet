@@ -9,35 +9,27 @@ import {
     type Trace,
 } from "~/domain"
 
-/** Закрытый выезд на листе и его лучший зачётный круг. */
 export type DaySession = {
     session: Session
     bestLap: Lap | undefined
 }
 
-/** Живая сессия и круги, которые уже лежат в памяти листа. */
 export type LiveBuffer = {
     session: Session
     laps: Lap[]
     traces: Trace[]
 }
 
-/** Лист дня без пересборки карточки: её считает `projectDay`. */
 export type DayMemory = {
     past: DaySession[]
     live: LiveBuffer | undefined
 }
 
-/** То, что рисует таймлайн. */
 export type DaySheet = {
     past: DaySession[]
     live: LiveCard | undefined
 }
 
-/**
- * Карточка из буфера. Новые объекты строк не пересоздают таблицу:
- * сами круги сохраняют ссылку, пока их пачка не пришла.
- */
 export const projectDay = (memory: DayMemory): DaySheet => ({
     past: memory.past,
     live: memory.live
@@ -45,10 +37,6 @@ export const projectDay = (memory: DayMemory): DaySheet => ({
         : undefined,
 })
 
-/**
- * Накладывает одну запись на лист.
- * Перечитывать базу на каждом круге нельзя: ресурс под Suspense гасит страницу.
- */
 export const applyDayWrite = (
     memory: DayMemory,
     write: SessionWrite,
@@ -59,9 +47,6 @@ export const applyDayWrite = (
     return upsertLive(memory, write)
 }
 
-/**
- * Читает лист один раз и повторяет, пока запись круга не вклинилась в выборку.
- */
 export const readStableDay = async (
     repo: SessionRepository,
     sessionId: string | null

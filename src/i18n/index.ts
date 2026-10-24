@@ -9,4 +9,4 @@ export const t = translator(dict, resolveTemplate)
 
 export { carName } from "~/i18n/cars"
 export { fmt } from "~/i18n/fmt"
-export { trackName } from "~/i18n/tracks"
+export { trackCodes, trackName } from "~/i18n/tracks"

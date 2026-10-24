@@ -11,17 +11,11 @@ import {
     type RateMark,
 } from "~/ipc/status"
 
-/** Подписка, которую можно остановить вместе с окном. */
 export type AccFeed = {
     attach: (repo: SessionRepository) => void
     stop: () => void
 }
 
-/**
- * Слушает `acc-status` и канал пачек.
- * Вне Tauri ничего не делает: в браузере остаётся dev-сид.
- * Последний статус и последняя пачка дожидаются открытия базы.
- */
 export const startAccFeed = (): AccFeed => {
     if (!isTauri()) {
         return { attach: () => undefined, stop: () => undefined }

@@ -3,20 +3,13 @@ import type { Session } from "~/domain"
 import { decodeLapPacket, type DecodedLap } from "~/ipc/packet"
 import type { AccStatus, AccStatusEvent } from "~/ipc/status"
 
-/** Кладёт статус и пачки в репозиторий, не затирая закрытые выезды. */
 export type AccIngest = {
     applyStatus: (repo: SessionRepository, status: AccStatus) => Promise<void>
     applyPacket: (repo: SessionRepository, buffer: ArrayBuffer) => Promise<void>
 }
 
-/**
- * Один приёмник на окно.
- * Пока сессии в базе нет, последняя пачка круга ждёт её.
- * Повтор того же id не создаёт вторую строку.
- */
 export const createAccIngest = (): AccIngest => {
     const pending = new Map<string, DecodedLap>()
-    /** Сессии, которые уже закрыты. Повторный статус с тем же id не открывает вторую строку. */
     const closedAt = new Map<string, number>()
     let remembered: Session | undefined
     let chain: Promise<void> = Promise.resolve()
@@ -80,10 +73,6 @@ export const createAccIngest = (): AccIngest => {
         await flush(repo, next)
     }
 
-    /**
-     * «Выезд закрыт» и смена сессии ставят предыдущую строку в `closed`.
-     * В событии закрытия нет полей строки: обновляется уже записанная.
-     */
     const applyClose = async (
         repo: SessionRepository,
         event: AccStatusEvent
@@ -106,7 +95,6 @@ export const createAccIngest = (): AccIngest => {
         await seal(repo, stored, close.endedAt)
     }
 
-    /** Одна запись: сессия закрыта, незавершённый круг с точками — незачётный. */
     const seal = async (
         repo: SessionRepository,
         session: Session,
@@ -185,10 +173,6 @@ export const createAccIngest = (): AccIngest => {
     return { applyStatus, applyPacket }
 }
 
-/**
- * Живая сессия из статуса. Пока связи нет, в базу ничего не пишется — сид остаётся.
- * Верхние температуры свежее снимка, снятого при открытии строки.
- */
 const liveSession = (status: AccStatus): Session | undefined => {
     if (status.link !== "linked" || !status.session) return undefined
     return {
@@ -200,7 +184,6 @@ const liveSession = (status: AccStatus): Session | undefined => {
     }
 }
 
-/** Десятая градуса не считается новой строкой. */
 const sameSession = (left: Session, right: Session): boolean =>
     left.id === right.id &&
     left.outingId === right.outingId &&
@@ -218,10 +201,6 @@ const sameSession = (left: Session, right: Session): boolean =>
 const sameTemp = (left: number, right: number): boolean =>
     Math.round(left * 10) === Math.round(right * 10)
 
-/**
- * Незакрытый круг этой сессии, если в нём есть точки.
- * Сначала пачка, которая ждала строку, потом уже записанный предпросмотр.
- */
 const unfinishedLap = async (
     pending: ReadonlyMap<string, DecodedLap>,
     repo: SessionRepository,

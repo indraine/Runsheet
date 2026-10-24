@@ -6,7 +6,6 @@ type WordmarkProps = {
     class?: string
 }
 
-/** Логотип. «UN» красится цветом текста, поэтому читается и на тёмной шапке. */
 export const Wordmark = (props: WordmarkProps) => (
     <span
         class={cn(

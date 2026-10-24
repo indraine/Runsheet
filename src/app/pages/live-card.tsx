@@ -1,26 +1,66 @@
 import { A, useNavigate } from "@solidjs/router"
 import { Check } from "lucide-solid"
-import { Index, Show } from "solid-js"
+import { createEffect, createSignal, For, Index, Show } from "solid-js"
+import { hasAsphalt } from "~/app/track-catalog"
 import { TrackLine } from "~/app/track-line"
 import type { LiveCard as LiveCardModel, LiveLapRow } from "~/domain"
-import { carName, fmt, t, trackName } from "~/i18n"
+import { carName, fmt, t, trackCodes, trackName } from "~/i18n"
 import { locale } from "~/i18n/locale"
 import { cn } from "~/ui"
 
-/**
- * Верх таймлайна: трасса, сводка, таблица кругов и карта проезда.
- */
 export const LiveCard = (props: { card: LiveCardModel }) => {
     const card = () => props.card
+    const [preview, setPreview] = createSignal<string>()
+    const [mapView, setMapView] = createSignal<"overview" | "follow">(
+        "overview"
+    )
+    const shownTrack = () => preview() ?? card().session.track
+    const ownTrack = () => shownTrack() === card().session.track
+    const canFollow = () => ownTrack() && (card().line?.x.length ?? 0) >= 2
+    const seedDev = () =>
+        import.meta.env.DEV && card().session.id.startsWith("seed-")
+
+    createEffect(() => {
+        card().session.id
+        setPreview(undefined)
+        setMapView("overview")
+    })
+
+    createEffect(() => {
+        if (!canFollow()) setMapView("overview")
+    })
 
     return (
         <section class="mx-6 mt-6 shrink-0 overflow-hidden rounded border border-line bg-surface">
             <header class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b border-line px-4 py-3">
                 <div class="flex min-w-0 items-baseline gap-3">
-                    <h2 class="truncate font-mono text-lg font-semibold tracking-tight text-ink uppercase">
-                        {trackName(card().session.track)}
-                    </h2>
-                    <Show when={card().trackLengthM}>
+                    <div class="relative min-w-0">
+                        <h2
+                            class="truncate font-mono text-lg font-semibold tracking-tight text-ink uppercase"
+                            aria-hidden={seedDev()}
+                        >
+                            {trackName(shownTrack())}
+                        </h2>
+                        <Show when={seedDev()}>
+                            <select
+                                class="absolute inset-0 w-full cursor-pointer opacity-0"
+                                aria-label={t("app.previewTrack")}
+                                value={shownTrack()}
+                                onChange={event =>
+                                    setPreview(event.currentTarget.value)
+                                }
+                            >
+                                <For each={trackCodes}>
+                                    {code => (
+                                        <option value={code}>
+                                            {trackName(code)}
+                                        </option>
+                                    )}
+                                </For>
+                            </select>
+                        </Show>
+                    </div>
+                    <Show when={ownTrack() && card().trackLengthM}>
                         {length => (
                             <span class="shrink-0 font-mono text-[11px] text-secondary">
                                 {formatMetres(length())}
@@ -74,7 +114,10 @@ export const LiveCard = (props: { card: LiveCardModel }) => {
                 />
                 <div class="relative min-h-72 overflow-hidden border-t border-line lg:border-t-0 lg:border-l">
                     <Show
-                        when={card().road || card().line}
+                        when={
+                            (ownTrack() && (card().road || card().line)) ||
+                            hasAsphalt(shownTrack())
+                        }
                         fallback={
                             <p class="flex h-full min-h-72 items-center justify-center font-mono text-[11px] text-muted">
                                 {t("app.empty")}
@@ -83,15 +126,53 @@ export const LiveCard = (props: { card: LiveCardModel }) => {
                     >
                         <TrackLine
                             class="absolute inset-0 min-h-0"
-                            road={card().road}
-                            line={card().line}
+                            track={shownTrack()}
+                            road={ownTrack() ? card().road : undefined}
+                            line={ownTrack() ? card().line : undefined}
+                            view={mapView()}
                         />
+                        <div class="absolute top-2 right-2 z-10 flex overflow-hidden rounded border border-line bg-surface/90">
+                            <MapViewButton
+                                pressed={mapView() === "overview"}
+                                label={t("app.mapOverview")}
+                                onSelect={() => setMapView("overview")}
+                            />
+                            <MapViewButton
+                                pressed={mapView() === "follow"}
+                                label={t("app.mapFollow")}
+                                disabled={!canFollow()}
+                                onSelect={() => setMapView("follow")}
+                            />
+                        </div>
                     </Show>
                 </div>
             </div>
         </section>
     )
 }
+
+const MapViewButton = (props: {
+    label: string
+    pressed: boolean
+    disabled?: boolean
+    onSelect: () => void
+}) => (
+    <button
+        type="button"
+        aria-pressed={props.pressed}
+        disabled={props.disabled}
+        class={cn(
+            "px-2 py-1 font-mono text-[10px] tracking-wide uppercase",
+            props.pressed
+                ? "bg-ink text-surface"
+                : "text-secondary hover:text-ink",
+            props.disabled && "cursor-not-allowed opacity-40"
+        )}
+        onClick={props.onSelect}
+    >
+        {props.label}
+    </button>
+)
 
 const Summary = (props: {
     label: string
@@ -117,20 +198,12 @@ const Summary = (props: {
     </div>
 )
 
-/** Сколько кругов видно без прокрутки таблицы. */
 const VISIBLE_LAP_ROWS = 7
 
-/** Высота шапки таблицы, rem. Совпадает с `h-8`. */
 const LAP_HEAD_REM = 2
 
-/** Высота строки круга, rem. Совпадает с `h-9`. */
 const LAP_ROW_REM = 2.25
 
-/**
- * Высота окна таблицы: шапка и не больше семи кругов.
- * Лишние круги прокручиваются внутри и не раздвигают карточку.
- * Пиксель сверху закрывает нижнюю границу последней строки.
- */
 const lapTableMaxHeight = (): string =>
     `calc(${LAP_HEAD_REM}rem + ${VISIBLE_LAP_ROWS} * ${LAP_ROW_REM}rem + 1px)`
 

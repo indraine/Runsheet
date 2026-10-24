@@ -1,15 +1,9 @@
 import { createSignal } from "solid-js"
 
-/** Тот же ключ читает скрипт в index.html до первой отрисовки. */
 const THEME_KEY = "runsheet.theme"
 
-/** Свои режимы. Системная на экране становится светлой или тёмной. */
 export const APPEARANCE = ["light", "dark", "system"] as const
 
-/**
- * Именованные схемы. Цвета лежат в index.css на `html[data-theme="…"]`.
- * Точка в меню — тот же акцент, что `--accent` этой схемы.
- */
 export const SCHEMES = [
     "darcula",
     "dracula",
@@ -42,7 +36,6 @@ const COLOR_SCHEME: Record<ResolvedTheme, "light" | "dark"> = {
     "solarized-light": "light",
 }
 
-/** Акцент схемы для точки в меню. Совпадает с `--accent` в index.css. */
 export const THEME_SWATCH: Record<ThemeScheme, string> = {
     darcula: "#6897bb",
     dracula: "#bd93f9",
@@ -55,20 +48,14 @@ export const THEME_SWATCH: Record<ThemeScheme, string> = {
     "solarized-light": "#268bd2",
 }
 
-/** Проверяет, что строка — известный режим или схема. */
 export const isThemePreference = (value: string): value is ThemePreference =>
     (THEMES as readonly string[]).includes(value)
 
-/** Проверяет, что это именованная схема, а не светлая, тёмная или системная. */
 export const isThemeScheme = (
     preference: ThemePreference
 ): preference is ThemeScheme =>
     (SCHEMES as readonly string[]).includes(preference)
 
-/**
- * Системная повторяет тёмную схему ОС.
- * Остальные режимы остаются собой: у Darcula не подменяется своя тёмная.
- */
 export const resolveTheme = (
     preference: ThemePreference,
     systemDark: boolean
@@ -77,7 +64,6 @@ export const resolveTheme = (
     return preference
 }
 
-/** Светлая или тёмная для нативных контролов и полос прокрутки. */
 export const colorSchemeOf = (resolved: ResolvedTheme): "light" | "dark" =>
     COLOR_SCHEME[resolved]
 
@@ -87,7 +73,6 @@ const readPreference = (): ThemePreference => {
         const stored = localStorage.getItem(THEME_KEY)
         if (stored && isThemePreference(stored)) return stored
     } catch {
-        /* хранилище недоступно */
     }
     return "light"
 }
@@ -95,7 +80,6 @@ const readPreference = (): ThemePreference => {
 const systemPrefersDark = (): boolean =>
     window.matchMedia("(prefers-color-scheme: dark)").matches
 
-/** Красит документ уже разрешённой темой, без значения «системная». */
 const applyTheme = (preference: ThemePreference): void => {
     const resolved = resolveTheme(preference, systemPrefersDark())
     const scheme = colorSchemeOf(resolved)
@@ -112,13 +96,11 @@ const applyTheme = (preference: ThemePreference): void => {
 
 const [theme, setThemeSignal] = createSignal<ThemePreference>(readPreference())
 
-/** Запоминает выбор и сразу применяет его к документу. */
 export const setTheme = (preference: ThemePreference): void => {
     setThemeSignal(preference)
     try {
         localStorage.setItem(THEME_KEY, preference)
     } catch {
-        /* хранилище недоступно */
     }
     if (typeof document !== "undefined") applyTheme(preference)
 }

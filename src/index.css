@@ -5,11 +5,6 @@
 @import "@fontsource/hanken-grotesk/400.css";
 @import "tailwindcss";
 
-/*
-  Светлая палитра на :root. Тёмная и именованные схемы — те же имена
-  на html[data-theme="…"]. Экраны остаются на bg-surface, text-muted,
-  border-line, text-gain, text-loss.
-*/
 :root {
     color-scheme: light;
 
@@ -261,7 +256,6 @@ html[data-theme="solarized-light"] {
 }
 
 @theme {
-    /* Hanken Grotesk has no basic Cyrillic; Russian prose falls through to the system sans. */
     --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }

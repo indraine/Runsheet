@@ -1,4 +1,3 @@
-/* @refresh reload */
 import { render } from "solid-js/web"
 import { AppRoutes } from "~/app/routes"
 import "~/app/theme"

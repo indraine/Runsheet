@@ -1,3 +1,4 @@
+import { boundariesFor } from "~/app/track-catalog"
 import {
     TRACE_CHANNELS,
     type Lap,
@@ -18,25 +19,22 @@ const SESSION_MONZA = "seed-monza-practice"
 const SESSION_SPA_PRACTICE = "seed-spa-practice"
 const SESSION_SPA_QUALIFYING = "seed-spa-qualifying"
 
-/** Меняется, когда посев нужно дописать в уже заполненную базу. */
-const SEED_VERSION = "2"
+const SEED_VERSION = "3"
 const SEED_VERSION_KEY = "runsheet.seed"
 
-/** Spa length used by the distance channel. The polyline is not the circuit. */
 const LAP_METRES = 7004
 const S1_END_M = 2340
 const S2_END_M = 5200
-const SAMPLE_COUNT = 33
+const SAMPLE_COUNT = 120
 
-/** Corners of a short ground loop, world x/z. Not Spa. */
-const GROUND: ReadonlyArray<readonly [number, number]> = [
-    [0, 0],
-    [240, 8],
-    [280, 90],
-    [160, 150],
-    [20, 130],
-    [-30, 40],
-]
+const spaOutline = boundariesFor("spa")
+if (!spaOutline) {
+    throw new Error("Spa center line is missing from centerlines")
+}
+
+const GROUND: ReadonlyArray<readonly [number, number]> = spaOutline.center.map(
+    point => [point.x, point.y]
+)
 
 const BRAKE_ZONES = [0.16, 0.38, 0.62, 0.84]
 
@@ -53,11 +51,6 @@ type LapRow = {
     fuel: number
 }
 
-/**
- * Live qualifying table from the timeline mock.
- * L1 is the muted out-lap. L5 is the only personal best.
- * L7 is still in sector 2, so only sector 1 is closed.
- */
 const QUALIFYING_LAPS: readonly LapRow[] = [
     {
         number: 1,
@@ -131,7 +124,6 @@ const QUALIFYING_LAPS: readonly LapRow[] = [
     },
 ]
 
-/** L5 is the reference. L6 is a full lap beside it, so analysis has two lines. */
 const TRACE_LAPS = [
     { id: "seed-spa-q-5", time: "2:17.842", slower: false },
     { id: "seed-spa-q-6", time: "2:18.220", slower: true },
@@ -144,18 +136,10 @@ export type DevDay = {
 }
 
 type SeedOptions = {
-    /** Production builds pass false. Defaults to the Vite dev flag. */
     dev?: boolean
-    /** Local clock that "today" is taken from. Defaults to `Date.now()`. */
     now?: number
 }
 
-/**
- * Today's demo sheet, plus four closed sessions on the next local day.
- * Outing A is a closed solo Monza practice. After a menu exit, outing B is
- * Spa online: a closed practice, then a live qualifying with laps L1–L7.
- * The next day is one outing: two practices, qualifying, and a race.
- */
 export function devDay(now: number): DevDay {
     const monzaStart = localTime(now, 21, 4)
     const practiceStart = localTime(now, 21, 41)
@@ -328,16 +312,15 @@ export function devDay(now: number): DevDay {
     return {
         sessions,
         laps,
-        traces: TRACE_LAPS.map(lap =>
-            lapTrace(lap.id, milliseconds(lap.time), lap.slower)
-        ),
+        traces: [
+            ...TRACE_LAPS.map(lap =>
+                lapTrace(lap.id, milliseconds(lap.time), lap.slower)
+            ),
+            lapTrace("seed-spa-q-7", milliseconds("2:18.000"), false, 0.52),
+        ],
     }
 }
 
-/**
- * Writes `devDay` in dev when the database is empty or the seed version changed.
- * Returns whether this call wrote the sheet.
- */
 export async function seedDevDay(
     database: RunsheetDatabase,
     options: SeedOptions = {}
@@ -374,7 +357,6 @@ const writeSeedVersion = (): void => {
     try {
         localStorage.setItem(SEED_VERSION_KEY, SEED_VERSION)
     } catch {
-        /* приватный режим — посев всё равно уже в базе */
     }
 }
 
@@ -424,10 +406,16 @@ function closedLap(
     }
 }
 
-function lapTrace(lapId: string, lapTimeMs: number, slower: boolean): Trace {
+function lapTrace(
+    lapId: string,
+    lapTimeMs: number,
+    slower: boolean,
+    until = 1
+): Trace {
     const columns = emptyColumns()
-    for (let index = 0; index < SAMPLE_COUNT; index += 1) {
-        const fraction = index / (SAMPLE_COUNT - 1)
+    const count = Math.max(2, Math.round((SAMPLE_COUNT - 1) * until) + 1)
+    for (let index = 0; index < count; index += 1) {
+        const fraction = (index / (SAMPLE_COUNT - 1)) * until
         const brake = brakeAt(fraction)
         const throttle = brake > 0.2 ? 0 : 1
         const speed = (160 + 112 * (1 - brake)) * (slower ? 0.985 : 1)

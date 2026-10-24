@@ -2,51 +2,26 @@ import { fastestValidLap, type Lap } from "~/domain/lap"
 import type { Session } from "~/domain/session"
 import type { Trace } from "~/domain/trace"
 
-/** Строка таблицы кругов живой сессии. */
 export type LiveLapRow = {
     lap: Lap
-    /** Разница с лучшим кругом, мс. Отрицательная — быстрее. */
     deltaMs: number | null
-    /** Этот круг — лучший зачётный. */
     best: boolean
 }
 
-/** Верх таймлайна: одна живая сессия. */
 export type LiveCard = {
     session: Session
-    /**
-     * Размах `distance` самого раннего завершённого круга, у которого есть трейс.
-     * Пока такого круга нет, метры скрыты: открытый круг ещё не проехал всю трассу.
-     */
     trackLengthM: number | undefined
     bestLap: Lap | undefined
-    /** Круг, который ещё не закрыт. */
     currentLap: Lap | undefined
-    /** 1–3, пока есть открытый круг. */
     sector: 1 | 2 | 3 | undefined
-    /** Среднее четырёх давлений на последнем сэмпле, psi. */
     pressurePsi: number | undefined
     rows: LiveLapRow[]
-    /**
-     * Дорога: закрытый круг с наибольшим размахом дистанции.
-     * Пока такого круга нет, это земля открытого — карта растёт вместе с ним.
-     */
     road: Trace | undefined
-    /**
-     * Траектория только открытого круга.
-     * Следующий круг приходит своим трейсом, предыдущая линия на карте не остаётся.
-     */
     line: Trace | undefined
 }
 
 const SECTOR_KEYS = ["s1Ms", "s2Ms", "s3Ms"] as const
 
-/**
- * Живая сессия для карточки.
- * Если статус назвал id и такая строка ещё `live`, берётся она —
- * сид с более поздними часами её не закрывает.
- * Без id остаётся самая поздняя живая. Закрытые выезды не выбираются.
- */
 export const shownLive = (
     sessions: readonly Session[],
     sessionId?: string | null
@@ -66,10 +41,6 @@ export const shownLive = (
     return latest
 }
 
-/**
- * Собирает карточку из сессии, её кругов и трейсов.
- * Круги приходят в любом порядке.
- */
 export const liveCard = (
     session: Session,
     laps: readonly Lap[],
@@ -189,7 +160,6 @@ const hasGround = (trace: Trace): boolean =>
 const hasPoint = (trace: Trace): boolean =>
     Math.min(trace.x.length, trace.z.length) >= 1
 
-/** Закрытый круг, который лучше всего покрывает трассу. */
 const fullestClosed = (
     laps: readonly Lap[],
     byLap: ReadonlyMap<string, Trace>

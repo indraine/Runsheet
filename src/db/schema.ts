@@ -22,7 +22,6 @@ export interface RunsheetSchema extends DBSchema {
 
 export type RunsheetDatabase = IDBPDatabase<RunsheetSchema>
 
-/** Opens version 1. `traces` is keyed by `lapId` because each lap has one document. */
 export function openRunsheetDb(
     name: string = DB_NAME
 ): Promise<RunsheetDatabase> {

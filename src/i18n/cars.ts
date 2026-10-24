@@ -1,11 +1,6 @@
 import type { Locale } from "~/i18n/locale"
 import { locale } from "~/i18n/locale"
 
-/**
- * Human names for `statics.car_model`.
- * Keys are the Kunos ids published in the ACC shared-memory carModel appendix
- * and still written by the game for later cars. An unknown code is shown as-is.
- */
 const en = {
     amr_v12_vantage_gt3: "Aston Martin V12",
     amr_v8_vantage_gt3: "Aston Martin V8",

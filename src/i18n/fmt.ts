@@ -10,7 +10,6 @@ function wholeMilliseconds(value: number): number {
     return Math.round(value)
 }
 
-/** Lap time in milliseconds as `m:ss.sss`. Minutes are not zero-padded. */
 function lap(milliseconds: number): string {
     const total = Math.max(0, wholeMilliseconds(milliseconds))
     const minutes = Math.floor(total / MILLISECONDS_PER_MINUTE)

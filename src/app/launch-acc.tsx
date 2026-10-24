@@ -5,11 +5,6 @@ import { accLink } from "~/app/status"
 import { t } from "~/i18n"
 import { Button } from "~/ui"
 
-/**
- * Если ACC не запущена и установка нашлась, предлагает её открыть.
- * Галочка запоминает ответ: при следующем старте Runsheet игра стартует сама
- * или вопрос больше не показывается.
- */
 export const LaunchAcc = () => {
     const [install, setInstall] = createSignal<string | null>(null)
     const [remember, setRemember] = createSignal(false)
@@ -95,7 +90,6 @@ type CommandBody<T> =
     | { status: "success"; data: T }
     | { status: "error"; message: string; hint: string }
 
-/** Берёт `data` из успешного конверта. Ошибка команды становится исключением с `message`. */
 function unwrap<T>(body: CommandBody<T>): T {
     if (body.status === "success") return body.data
     throw new Error(body.message)

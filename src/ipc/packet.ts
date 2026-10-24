@@ -1,11 +1,5 @@
 import { TRACE_CHANNELS, type Lap, type Trace } from "~/domain"
 
-/**
- * Пачка круга из Rust. Little-endian, тот же порядок, что у упаковщика.
- * Заголовок 76 байт, затем плоскость f32 по каналам, не по сэмплам.
- * Нет времени или границы сектора — `-1` / `-1.0`, здесь это `null`.
- */
-
 const HEADER_LEN = 76
 const MISSING_MS = -1
 const MISSING_M = -1
@@ -27,10 +21,6 @@ export type DecodedLap = {
     trace: Trace
 }
 
-/**
- * Собирает пачку того же вида, что Rust.
- * Каналы трейса должны быть одной длины, `trace.lapId` — id круга.
- */
 export const encodeLapPacket = (lap: Lap, trace: Trace): ArrayBuffer => {
     const count = trace.distance.length
     for (const channel of TRACE_CHANNELS) {

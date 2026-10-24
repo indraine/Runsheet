@@ -9,14 +9,12 @@ import {
 } from "~/domain"
 import type { RunsheetDatabase } from "~/db/schema"
 
-/** A committed session, plus the lap and trace when this write includes them. */
 export type SessionWrite = {
     session: Session
     lap?: Lap
     trace?: Trace
 }
 
-/** The requested lap, its trace, and the reference lap of the same session. */
 export type LapWithReference = {
     lap: Lap
     trace: Trace | undefined
@@ -24,15 +22,8 @@ export type LapWithReference = {
     referenceTrace: Trace | undefined
 }
 
-/**
- * Hides IndexedDB behind the day sheet, a lap with its reference, and upsert.
- * `revision` starts at 0 and grows after each committed write.
- * `lastWrite` is that write. The sheet applies it in place instead of reading
- * the database again: a refetch under Suspense blanks the page on every lap.
- */
 export class SessionRepository {
     readonly revision: Accessor<number>
-    /** Последняя зафиксированная запись. Лист накладывает её сам. */
     readonly lastWrite: Accessor<SessionWrite | undefined>
 
     private readonly database: RunsheetDatabase
@@ -49,12 +40,10 @@ export class SessionRepository {
         this.setLastWrite = setLastWrite
     }
 
-    /** Все сессии, без отбора по дате. */
     async readSessions(): Promise<Session[]> {
         return this.database.getAll("sessions")
     }
 
-    /** Sessions whose local start date is `at`, earliest first, with a menu marker between outings. */
     async readDay(at: number = Date.now()): Promise<DayItem[]> {
         const sessions = await this.database.getAll("sessions")
         const onDay = sessions.filter(session =>
@@ -63,7 +52,6 @@ export class SessionRepository {
         return groupDay(onDay)
     }
 
-    /** Laps of one session, in lap-number order. */
     async readLaps(sessionId: string): Promise<Lap[]> {
         const laps = await this.database.getAllFromIndex(
             "laps",
@@ -73,7 +61,6 @@ export class SessionRepository {
         return laps.sort((left, right) => left.number - right.number)
     }
 
-    /** Трейсы указанных кругов. Круг без документа в карту не попадает. */
     async readTraces(lapIds: readonly string[]): Promise<Map<string, Trace>> {
         const found = new Map<string, Trace>()
         if (lapIds.length === 0) return found
@@ -88,10 +75,6 @@ export class SessionRepository {
         return found
     }
 
-    /**
-     * One lap plus the reference lap. `refLapId` selects a lap of the same session.
-     * An unknown id falls back to the fastest valid lap of that session.
-     */
     async readLap(
         lapId: string,
         refLapId?: string
@@ -116,7 +99,6 @@ export class SessionRepository {
         return { lap, trace, reference, referenceTrace }
     }
 
-    /** Inserts or replaces the session and, when present, its lap and trace. One transaction. */
     async upsert(write: SessionWrite): Promise<void> {
         assertWrite(write)
         const tx = this.database.transaction(

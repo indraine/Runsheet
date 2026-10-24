@@ -1,12 +1,9 @@
 import { isSessionType, type Session } from "~/domain"
 
-/** Имя события Tauri. Совпадает с `ACC_STATUS` в Rust. */
 export const ACC_STATUS_EVENT = "acc-status"
 
-/** Связь с памятью ACC. В JSON — `unavailable`, `linked`, `lost`. */
 export type AccLinkState = "unavailable" | "linked" | "lost"
 
-/** Что машина выезда решила на этом тике. Имена совпадают с `StatusEvent` в Rust. */
 export type AccStatusEvent =
     | { kind: "outingOpened"; outingId: string }
     | { kind: "sessionOpened"; session: Session }
@@ -23,13 +20,8 @@ export type AccStatusEvent =
           endedAt: number
       }
 
-/**
- * Где игрок относительно заезда.
- * `off` — процесса нет. `menu` — игра открыта, заезда нет. `session` — сессия идёт.
- */
 export type AccPresence = "off" | "menu" | "session"
 
-/** Снимок `acc-status` после разбора. Сессия уже в типах листа. */
 export type AccStatus = {
     link: AccLinkState
     presence: AccPresence
@@ -43,7 +35,6 @@ export type AccStatus = {
     events: AccStatusEvent[]
 }
 
-/** Предыдущий пакет, от которого считается частота. */
 export type RateMark = {
     at: number
     packetId: number
@@ -51,10 +42,6 @@ export type RateMark = {
 
 const LINK_STATES = new Set<AccLinkState>(["unavailable", "linked", "lost"])
 
-/**
- * Разбирает JSON события `acc-status`.
- * Чужой `link` — `undefined`. Битая сессия не роняет статус: связь остаётся, сессии нет.
- */
 export const parseAccStatus = (payload: unknown): AccStatus | undefined => {
     if (!isRecord(payload)) return undefined
     if (!isLinkState(payload.link)) return undefined
@@ -76,10 +63,6 @@ export const parseAccStatus = (payload: unknown): AccStatus | undefined => {
     }
 }
 
-/**
- * Частота по приросту `packetId` за прошедшие миллисекунды.
- * Первый замер и шаг часов назад частоту не дают.
- */
 export const packetRate = (
     previous: RateMark | undefined,
     now: number,
@@ -131,7 +114,6 @@ const parseSession = (value: unknown): Session | undefined => {
     }
 }
 
-/** Битый элемент пропускается. Нет массива — событий нет, статус всё равно живой. */
 const parseEvents = (value: unknown): AccStatusEvent[] => {
     if (!Array.isArray(value)) return []
     const events: AccStatusEvent[] = []
@@ -197,7 +179,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const PRESENCE = new Set<AccPresence>(["off", "menu", "session"])
 
-/** Нет поля — по связи: память открыта считается заездом, иначе игра выключена. */
 const parsePresence = (value: unknown, link: AccLinkState): AccPresence => {
     if (typeof value === "string" && PRESENCE.has(value as AccPresence)) {
         return value as AccPresence

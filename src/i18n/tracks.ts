@@ -1,11 +1,6 @@
 import type { Locale } from "~/i18n/locale"
 import { locale } from "~/i18n/locale"
 
-/**
- * Human names for `statics.track`.
- * Keys are the track ids from the ACC server track list.
- * An unknown code is shown as-is.
- */
 const en = {
     barcelona: "Barcelona",
     brands_hatch: "Brands Hatch",
@@ -63,6 +58,8 @@ const ru: typeof en = {
 }
 
 const trackDict: Record<Locale, typeof en> = { en, ru }
+
+export const trackCodes = Object.keys(en) as (keyof typeof en)[]
 
 export function trackName(code: string): string {
     const names: Record<string, string> = trackDict[locale()]

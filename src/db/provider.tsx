@@ -17,7 +17,6 @@ const DbContext = createContext<Resource<RunsheetDatabase>>()
 const RepositoryContext =
     createContext<Accessor<SessionRepository | undefined>>()
 
-/** Dev builds fill an empty database once, before any screen reads it. */
 async function openDatabase(): Promise<RunsheetDatabase> {
     const opened = await openRunsheetDb()
     if (import.meta.env.DEV) {
@@ -27,7 +26,6 @@ async function openDatabase(): Promise<RunsheetDatabase> {
     return opened
 }
 
-/** Opens IndexedDB once. Screens read it with `useDb` and writes go through `useSessionRepository`. */
 export function DatabaseProvider(props: ParentProps) {
     const [database] = createResource(openDatabase)
     const repository = createMemo(() => {
@@ -45,7 +43,6 @@ export function DatabaseProvider(props: ParentProps) {
     )
 }
 
-/** Подписка на ACC. Вне окна Tauri молчит, и dev-сид остаётся на листе. */
 function AccFeed() {
     const repository = useSessionRepository()
     const feed = startAccFeed()
@@ -65,7 +62,6 @@ export function useDb(): Resource<RunsheetDatabase> {
     return database
 }
 
-/** One repository for the open database, so every screen sees the same `revision` signal. */
 export function useSessionRepository(): Accessor<
     SessionRepository | undefined
 > {
