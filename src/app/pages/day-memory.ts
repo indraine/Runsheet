@@ -43,7 +43,7 @@ export const applyDayWrite = (
     sessionId: string | null
 ): DayMemory => {
     if (write.session.status === "closed") return closeSession(memory, write)
-    if (!showsLive(memory, write.session, sessionId)) return memory
+    if (!showsLive(write.session, sessionId)) return memory
     return upsertLive(memory, write)
 }
 
@@ -83,16 +83,8 @@ const readDayMemory = async (
     }
 }
 
-const showsLive = (
-    memory: DayMemory,
-    session: Session,
-    sessionId: string | null
-): boolean => {
-    if (sessionId) return session.id === sessionId
-    const current = memory.live
-    if (!current || current.session.id === session.id) return true
-    return session.startedAt >= current.session.startedAt
-}
+const showsLive = (session: Session, sessionId: string | null): boolean =>
+    sessionId !== null && session.id === sessionId
 
 const upsertLive = (memory: DayMemory, write: SessionWrite): DayMemory => {
     const current = memory.live

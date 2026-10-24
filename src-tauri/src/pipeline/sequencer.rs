@@ -54,7 +54,8 @@ impl Snap {
 pub(crate) struct Outcome {
     pub stale: bool,
     pub emit_status: bool,
-    pub lap: Option<Vec<u8>>,
+    /// Закрытый круг и, сразу за ним, первая пачка следующего.
+    pub laps: Vec<Vec<u8>>,
     pub outing_events: Vec<OutingEvent>,
     /// События круга. Потребитель их в `acc-status` не кладёт: их читает тест прогона.
     #[cfg_attr(not(test), allow(dead_code))]
@@ -111,7 +112,7 @@ impl Sequencer {
         Outcome {
             stale: true,
             emit_status: false,
-            lap: None,
+            laps: Vec::new(),
             outing_events: Vec::new(),
             session_events: Vec::new(),
             snap: Snap::empty(),
@@ -180,23 +181,42 @@ impl Sequencer {
         let emit_status = self
             .clock
             .status_due(moment.mono_ms, !outing_events.is_empty());
-        let lap =
-            match self
-                .clock
-                .preview_due(moment.mono_ms, self.laps.open_id(), packet.is_some())
-            {
-                LapSend::Closed => packet,
-                LapSend::Preview => self.laps.preview(),
-                LapSend::None => None,
-            };
+        let laps = self.take_packets(packet, moment.mono_ms);
         Outcome {
             stale: false,
             emit_status,
-            lap,
+            laps,
             outing_events,
             session_events,
             snap,
         }
+    }
+
+    /// Финиш и первая пачка нового круга уходят одним тиком: строка не ждёт секунду.
+    fn take_packets(&mut self, closed: Option<Vec<u8>>, mono_ms: u64) -> Vec<Vec<u8>> {
+        let mut packets = Vec::new();
+        match self
+            .clock
+            .preview_due(mono_ms, self.laps.open_id(), closed.is_some())
+        {
+            LapSend::Closed => {
+                if let Some(packet) = closed {
+                    packets.push(packet);
+                }
+                if self.clock.preview_due(mono_ms, self.laps.open_id(), false) == LapSend::Preview {
+                    if let Some(preview) = self.laps.preview() {
+                        packets.push(preview);
+                    }
+                }
+            }
+            LapSend::Preview => {
+                if let Some(preview) = self.laps.preview() {
+                    packets.push(preview);
+                }
+            }
+            LapSend::None => {}
+        }
+        packets
     }
 }
 
@@ -382,6 +402,40 @@ mod tests {
         assert!(saw_stale);
         assert_eq!(completed, 1);
         assert_eq!(pits, 1);
+
+        let mut fresh = Sequencer::default();
+        let opened = fresh.on_tick(
+            TickDraft {
+                packet_id: 1,
+                lap_time_ms: Some(80_000),
+                progress: 0.97,
+                ..TickDraft::default()
+            }
+            .build(),
+            false,
+            moment(0),
+        );
+        assert_eq!(opened.laps.len(), 1);
+
+        let crossed = fresh.on_tick(
+            TickDraft {
+                packet_id: 2,
+                completed_lap: 1,
+                lap_time_ms: Some(80),
+                last_time_ms: Some(81_500),
+                progress: 0.01,
+                distance_m: 4_100.0,
+                ..TickDraft::default()
+            }
+            .build(),
+            false,
+            moment(50),
+        );
+        assert_eq!(crossed.laps.len(), 2);
+        assert_eq!(read_i32(&crossed.laps[0], 32), 1);
+        assert_eq!(read_i32(&crossed.laps[0], 40), 81_500);
+        assert_eq!(read_i32(&crossed.laps[1], 32), 2);
+        assert_eq!(read_i32(&crossed.laps[1], 40), -1);
         let mut previous = None;
         for mark in marks {
             if let Some(before) = previous {
@@ -392,5 +446,10 @@ mod tests {
             }
             previous = Some(mark);
         }
+    }
+
+    fn read_i32(bytes: &[u8], at: usize) -> i32 {
+        let raw: [u8; 4] = bytes[at..at + 4].try_into().unwrap();
+        i32::from_le_bytes(raw)
     }
 }

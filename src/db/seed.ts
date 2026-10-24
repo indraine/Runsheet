@@ -19,7 +19,7 @@ const SESSION_MONZA = "seed-monza-practice"
 const SESSION_SPA_PRACTICE = "seed-spa-practice"
 const SESSION_SPA_QUALIFYING = "seed-spa-qualifying"
 
-const SEED_VERSION = "3"
+const SEED_VERSION = "4"
 const SEED_VERSION_KEY = "runsheet.seed"
 
 const LAP_METRES = 7004
@@ -183,13 +183,13 @@ export function devDay(now: number): DevDay {
             id: SESSION_SPA_QUALIFYING,
             outingId: OUTING_SPA,
             startedAt: qualifyingStart,
-            endedAt: null,
+            endedAt: localTime(now, 22, 20),
             online: true,
             track: TRACK_SPA,
             car: CAR_BMW_M4,
             type: "qualifying",
             carCount: 22,
-            status: "live",
+            status: "closed",
             airTemp: 21,
             roadTemp: 28.4,
         },

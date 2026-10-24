@@ -94,8 +94,7 @@ export const startAccFeed = (): AccFeed => {
             mark = undefined
             return {
                 linked: false,
-                presence:
-                    status.presence === "session" ? "menu" : status.presence,
+                presence: status.presence,
                 hz: null,
                 packetId: null,
                 sessionId: null,

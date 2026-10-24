@@ -22,23 +22,15 @@ export type LiveCard = {
 
 const SECTOR_KEYS = ["s1Ms", "s2Ms", "s3Ms"] as const
 
+/** Карточка — сессия, которую ACC держит открытой. Чужой `live` в базе её не включает. */
 export const shownLive = (
     sessions: readonly Session[],
     sessionId?: string | null
 ): Session | undefined => {
-    if (sessionId) {
-        const named = sessions.find(
-            session => session.id === sessionId && session.status === "live"
-        )
-        if (named) return named
-    }
-
-    let latest: Session | undefined
-    for (const session of sessions) {
-        if (session.status !== "live") continue
-        if (!latest || session.startedAt > latest.startedAt) latest = session
-    }
-    return latest
+    if (!sessionId) return undefined
+    return sessions.find(
+        session => session.id === sessionId && session.status === "live"
+    )
 }
 
 export const liveCard = (

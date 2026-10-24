@@ -6,13 +6,14 @@
 
 #![cfg_attr(not(any(windows, test)), allow(dead_code))]
 
-use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use tokio::sync::{Notify, mpsc};
 
 use crate::ingress::CleanTick;
 use crate::ipc::LinkState;
+use crate::platform::game::ProcessSight;
 
 /// Сколько кадров держит очередь, пока потребитель не отстаёт.
 const CAPACITY: usize = 1024;
@@ -36,7 +37,7 @@ pub(crate) enum PipeBody {
 #[derive(Debug)]
 pub(crate) struct Envelope {
     pub link: LinkState,
-    pub process_running: bool,
+    pub process: ProcessSight,
     pub body: PipeBody,
 }
 
@@ -46,7 +47,7 @@ struct Inner {
     notify: Notify,
     coalesced: AtomicU64,
     link: AtomicU8,
-    process: AtomicBool,
+    process: AtomicU8,
 }
 
 /// Общий конец очереди. Поток чтения и задача потребителя держат клон.
@@ -65,15 +66,15 @@ impl TelemetryRing {
                 notify: Notify::new(),
                 coalesced: AtomicU64::new(0),
                 link: AtomicU8::new(link_code(LinkState::Unavailable)),
-                process: AtomicBool::new(false),
+                process: AtomicU8::new(ProcessSight::Unknown as u8),
             }),
         }
     }
 
     /// Связь и процесс, которые уедут со следующим кадром.
-    pub(crate) fn bind(&self, link: LinkState, process_running: bool) {
+    pub(crate) fn bind(&self, link: LinkState, process: ProcessSight) {
         self.inner.link.store(link_code(link), Ordering::Relaxed);
-        self.inner.process.store(process_running, Ordering::Relaxed);
+        self.inner.process.store(process as u8, Ordering::Relaxed);
     }
 
     /// Свежий кадр. Повтор того же пакета сюда не кладёт производитель.
@@ -124,7 +125,7 @@ impl TelemetryRing {
     fn enqueue(&self, body: PipeBody) -> PushResult {
         let envelope = Envelope {
             link: link_from(self.inner.link.load(Ordering::Relaxed)),
-            process_running: self.inner.process.load(Ordering::Relaxed),
+            process: sight_from(self.inner.process.load(Ordering::Relaxed)),
             body,
         };
         let result = {
@@ -159,6 +160,14 @@ fn link_from(code: u8) -> LinkState {
         1 => LinkState::Linked,
         2 => LinkState::Lost,
         _ => LinkState::Unavailable,
+    }
+}
+
+fn sight_from(code: u8) -> ProcessSight {
+    match code {
+        1 => ProcessSight::Running,
+        2 => ProcessSight::Exited,
+        _ => ProcessSight::Unknown,
     }
 }
 
@@ -206,27 +215,27 @@ mod tests {
     #[test]
     fn absent_and_resync_keep_the_link_they_were_bound_with() {
         let ring = TelemetryRing::new();
-        ring.bind(LinkState::Lost, false);
+        ring.bind(LinkState::Lost, ProcessSight::Unknown);
         assert_eq!(ring.push_absent(), PushResult::Fresh);
-        ring.bind(LinkState::Linked, true);
+        ring.bind(LinkState::Linked, ProcessSight::Running);
         assert_eq!(ring.try_push_resync(tick(7)), PushResult::Fresh);
 
         let absent = ring.try_recv().expect("absent");
         assert!(matches!(absent.body, PipeBody::Absent));
         assert_eq!(absent.link, LinkState::Lost);
-        assert!(!absent.process_running);
+        assert_eq!(absent.process, ProcessSight::Unknown);
 
         let resync = ring.try_recv().expect("resync");
         assert!(matches!(resync.body, PipeBody::Resync(_)));
         assert_eq!(resync.link, LinkState::Linked);
-        assert!(resync.process_running);
+        assert_eq!(resync.process, ProcessSight::Running);
         assert_eq!(packet_of(&resync), Some(7));
     }
 
     #[tokio::test]
     async fn recv_waits_until_a_tick_arrives() {
         let ring = TelemetryRing::new();
-        ring.bind(LinkState::Linked, true);
+        ring.bind(LinkState::Linked, ProcessSight::Running);
         assert_eq!(ring.try_push(tick(3)), PushResult::Fresh);
         let envelope = ring.recv().await.expect("tick");
         assert_eq!(packet_of(&envelope), Some(3));

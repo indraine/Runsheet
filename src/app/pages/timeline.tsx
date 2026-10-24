@@ -104,7 +104,13 @@ export function TimelinePage() {
                                 when={sheet().past.length > 0 || sheet().live}
                                 fallback={<SheetMessage text={emptyText()} />}
                             >
-                                <Show when={sheet().live}>
+                                <Show
+                                    when={
+                                        accLink().presence === "session"
+                                            ? sheet().live
+                                            : undefined
+                                    }
+                                >
                                     {card => <LiveCard card={card()} />}
                                 </Show>
                                 <Show when={sheet().past.length > 0}>

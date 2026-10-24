@@ -152,10 +152,16 @@ fn poll(ring: TelemetryRing) -> ! {
         loop {
             match acc.read_shared_memory() {
                 Ok(Some(map)) => {
+                    if release_if_exited(&ring, &mut link, &mut process, &mut seen_packet) {
+                        break;
+                    }
                     push_map(&ring, &link, &mut process, &mut seen_packet, &map, false);
                     std::thread::sleep(SAMPLE_EVERY);
                 }
                 Ok(None) => {
+                    if release_if_exited(&ring, &mut link, &mut process, &mut seen_packet) {
+                        break;
+                    }
                     // Физика замерла (пауза, меню), а статус живёт в другом сегменте.
                     acc.reset();
                     if let Ok(Some(map)) = acc.read_shared_memory() {
@@ -176,6 +182,23 @@ fn poll(ring: TelemetryRing) -> ! {
     }
 }
 
+/// Процесс уже видели живым и он исчез. Память после выхода ещё читается — её отпускаем.
+#[cfg(windows)]
+fn release_if_exited(
+    ring: &TelemetryRing,
+    link: &mut Link,
+    process: &mut ProcessProbe,
+    seen_packet: &mut Option<i32>,
+) -> bool {
+    if process.sight() != game::ProcessSight::Exited {
+        return false;
+    }
+    report(link.note_down());
+    note_absent(ring, link, process, seen_packet);
+    std::thread::sleep(RETRY_AFTER);
+    true
+}
+
 #[cfg(windows)]
 fn note_absent(
     ring: &TelemetryRing,
@@ -184,7 +207,7 @@ fn note_absent(
     seen_packet: &mut Option<i32>,
 ) {
     *seen_packet = None;
-    ring.bind(link.state(), process.get());
+    ring.bind(link.state(), process.sight());
     ring.push_absent();
 }
 
@@ -202,7 +225,7 @@ fn push_map(
         Ok(PageOutcome::Stale) => {}
         Ok(PageOutcome::Fresh(tick)) => {
             *seen_packet = Some(tick.physics.packet_id);
-            ring.bind(link.state(), process.get());
+            ring.bind(link.state(), process.sight());
             if resync {
                 ring.try_push_resync(tick);
             } else {
@@ -213,26 +236,29 @@ fn push_map(
     }
 }
 
-/// Процесс ACC проверяется не на каждом снимке: `tasklist` тяжелее чтения памяти.
+/// Снимок списка процессов реже кадра: он тяжелее чтения памяти.
+#[cfg(windows)]
+const PROBE_EVERY: Duration = Duration::from_millis(400);
+
+/// Процесс ACC проверяется не на каждом снимке.
 #[cfg(windows)]
 #[derive(Default)]
 struct ProcessProbe {
-    running: bool,
+    sight: game::ProcessSight,
     checked: Option<std::time::Instant>,
 }
 
 #[cfg(windows)]
 impl ProcessProbe {
-    fn get(&mut self) -> bool {
-        let fresh = self
-            .checked
-            .is_some_and(|at| at.elapsed() < Duration::from_secs(1));
-        if fresh {
-            return self.running;
+    fn sight(&mut self) -> game::ProcessSight {
+        let fresh = self.checked.is_some_and(|at| at.elapsed() < PROBE_EVERY);
+        if !fresh {
+            if let Some(running) = game::poll_process() {
+                self.sight = self.sight.note_poll(running);
+                self.checked = Some(std::time::Instant::now());
+            }
         }
-        self.running = game::process_running();
-        self.checked = Some(std::time::Instant::now());
-        self.running
+        self.sight
     }
 }
 
