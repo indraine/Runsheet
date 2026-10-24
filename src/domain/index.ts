@@ -11,7 +11,7 @@ export {
     type LiveCard,
     type LiveLapRow,
 } from "~/domain/live"
-export { fastestValidLap, type Lap } from "~/domain/lap"
+export { fastestValidLap, realTimeMs, withRealTimes, type Lap } from "~/domain/lap"
 export {
     SESSION_FILTERS,
     closedSheet,

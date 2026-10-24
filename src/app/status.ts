@@ -2,10 +2,12 @@ import { createSignal } from "solid-js"
 
 export type AccLink = {
     linked: boolean
-    presence: "unknown" | "off" | "menu" | "session"
+    presence: "unknown" | "menu" | "onTrack"
     hz: number | null
     packetId: number | null
     sessionId: string | null
+    speedKmh: number | null
+    inPit: boolean
 }
 
 export type AnalysisHeading = {
@@ -19,6 +21,8 @@ const [accLink, setAccLink] = createSignal<AccLink>({
     hz: null,
     packetId: null,
     sessionId: null,
+    speedKmh: null,
+    inPit: false,
 })
 
 const [analysisHeading, setAnalysisHeading] = createSignal<AnalysisHeading>({

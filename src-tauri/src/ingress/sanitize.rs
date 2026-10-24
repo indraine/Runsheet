@@ -236,9 +236,9 @@ fn checkered_flag(value: i32) -> Result<bool, BoundaryError> {
     Ok(flag == AccFlagType::CheckeredFlag)
 }
 
-/// `-1` у ACC значит «ещё нет». Ноль тоже не время круга.
+/// `-1` и `i32::MAX` у ACC значат «ещё нет». Ноль тоже не время круга.
 fn known_time(ms: i32) -> Option<LapTime> {
-    if ms > 0 {
+    if ms > 0 && ms < i32::MAX {
         Some(LapTime::from_ms_unchecked(ms))
     } else {
         None
@@ -520,6 +520,14 @@ mod tests {
         assert_eq!(clean.last_time, None);
         assert_eq!(clean.last_sector_time, None);
         assert_eq!(clean.current_lap_time, None);
+
+        graphic.last_time = i32::MAX;
+        graphic.last_sector_time = i32::MAX;
+        graphic.current_time = i32::MAX;
+        let sentinel = CleanSessionGraphic::try_from(&graphic).unwrap();
+        assert_eq!(sentinel.last_time, None);
+        assert_eq!(sentinel.last_sector_time, None);
+        assert_eq!(sentinel.current_lap_time, None);
 
         graphic.last_time = 91_234;
         let known = CleanSessionGraphic::try_from(&graphic).unwrap();

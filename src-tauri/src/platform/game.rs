@@ -1,7 +1,7 @@
-//! Где лежит ACC и запущена ли она.
+//! Где лежит ACC.
 //!
-//! Shared memory появляется в заезде. В главном меню процесс уже есть,
-//! а памяти ещё нет — по одному только открытию памяти это не отличить.
+//! Состояние для листа — только по shared memory: заезд есть или его нет.
+//! Процесс игры отдельно не смотрим.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -20,71 +20,21 @@ const PROCESS_NAME: &str = "AC2-Win64-Shipping.exe";
 #[cfg(windows)]
 const GAME_DIR: &str = "Assetto Corsa Competizione";
 
-/// `Off` — процесса нет. `Menu` — игра открыта, заезда нет. `Session` — игрок в сессии.
+/// `Menu` — заезда нет. `OnTrack` — игрок в сессии.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum Presence {
-    Off,
     Menu,
-    Session,
+    OnTrack,
 }
 
-/// Что пробник увидел у процесса ACC. `Unknown` — ещё не видели запущенным.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[repr(u8)]
-pub(crate) enum ProcessSight {
-    #[default]
-    Unknown = 0,
-    Running = 1,
-    Exited = 2,
-}
-
-impl ProcessSight {
-    /// `false` после `Running` — это выход, а не «ещё не смотрели».
-    #[cfg_attr(not(any(windows, test)), allow(dead_code))]
-    pub(crate) fn note_poll(self, running: bool) -> Self {
-        if running {
-            Self::Running
-        } else if self == Self::Running || self == Self::Exited {
-            Self::Exited
-        } else {
-            Self::Unknown
-        }
-    }
-}
-
-/// Меню — только когда процесс точно жив. Мёртвый процесс гасит и залипшую память.
+/// Заезд виден по shared memory. Игру и меню по процессу не отличаем.
 #[cfg_attr(not(windows), allow(dead_code))]
-pub(crate) fn presence(memory_open: bool, in_session: bool, process: ProcessSight) -> Presence {
-    match process {
-        ProcessSight::Exited => Presence::Off,
-        ProcessSight::Running => {
-            if memory_open && in_session {
-                Presence::Session
-            } else {
-                Presence::Menu
-            }
-        }
-        ProcessSight::Unknown => {
-            if memory_open && in_session {
-                Presence::Session
-            } else {
-                Presence::Off
-            }
-        }
-    }
-}
-
-/// `Some` — пробник ответил. `None` — снимок процессов не открылся, прошлое значение живёт.
-#[cfg_attr(not(windows), allow(dead_code))]
-pub(crate) fn poll_process() -> Option<bool> {
-    #[cfg(windows)]
-    {
-        return windows_poll_process();
-    }
-    #[cfg(not(windows))]
-    {
-        Some(false)
+pub(crate) fn presence(in_session: bool) -> Presence {
+    if in_session {
+        Presence::OnTrack
+    } else {
+        Presence::Menu
     }
 }
 
@@ -144,76 +94,6 @@ pub(crate) fn launch() -> Result<(), LaunchError> {
         .spawn()
         .map(|_| ())
         .map_err(LaunchError::spawn)
-}
-
-#[cfg(windows)]
-fn windows_poll_process() -> Option<bool> {
-    use std::ffi::c_void;
-
-    const TH32CS_SNAPPROCESS: u32 = 0x0000_0002;
-    const MAX_PATH: usize = 260;
-
-    #[repr(C)]
-    struct ProcessEntry32W {
-        size: u32,
-        cnt_usage: u32,
-        process_id: u32,
-        default_heap_id: usize,
-        module_id: u32,
-        cnt_threads: u32,
-        parent_process_id: u32,
-        pri_class_base: i32,
-        flags: u32,
-        exe_file: [u16; MAX_PATH],
-    }
-
-    #[link(name = "kernel32")]
-    extern "system" {
-        fn CreateToolhelp32Snapshot(flags: u32, process_id: u32) -> *mut c_void;
-        fn Process32FirstW(snapshot: *mut c_void, entry: *mut ProcessEntry32W) -> i32;
-        fn Process32NextW(snapshot: *mut c_void, entry: *mut ProcessEntry32W) -> i32;
-        fn CloseHandle(handle: *mut c_void) -> i32;
-    }
-
-    unsafe {
-        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-        if snapshot.is_null() || snapshot == usize::MAX as *mut c_void {
-            return None;
-        }
-        let mut entry = ProcessEntry32W {
-            size: std::mem::size_of::<ProcessEntry32W>() as u32,
-            cnt_usage: 0,
-            process_id: 0,
-            default_heap_id: 0,
-            module_id: 0,
-            cnt_threads: 0,
-            parent_process_id: 0,
-            pri_class_base: 0,
-            flags: 0,
-            exe_file: [0; MAX_PATH],
-        };
-        if Process32FirstW(snapshot, &mut entry) == 0 {
-            CloseHandle(snapshot);
-            return None;
-        }
-        let mut found = exe_matches(&entry.exe_file, PROCESS_NAME);
-        while !found && Process32NextW(snapshot, &mut entry) != 0 {
-            found = exe_matches(&entry.exe_file, PROCESS_NAME);
-        }
-        CloseHandle(snapshot);
-        Some(found)
-    }
-}
-
-/// Имя из `PROCESSENTRY32W`: UTF-16 до нуля, без регистра.
-#[cfg_attr(not(any(windows, test)), allow(dead_code))]
-fn exe_matches(file: &[u16], expected: &str) -> bool {
-    let end = file
-        .iter()
-        .position(|unit| *unit == 0)
-        .unwrap_or(file.len());
-    let name = String::from_utf16_lossy(&file[..end]);
-    name.eq_ignore_ascii_case(expected)
 }
 
 #[cfg(windows)]
@@ -321,44 +201,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn menu_is_not_the_same_as_the_game_being_off() {
-        assert_eq!(presence(false, false, ProcessSight::Unknown), Presence::Off);
-        assert_eq!(
-            presence(false, false, ProcessSight::Running),
-            Presence::Menu
-        );
-        assert_eq!(presence(true, false, ProcessSight::Running), Presence::Menu);
-        assert_eq!(
-            presence(true, true, ProcessSight::Running),
-            Presence::Session
-        );
-        assert_eq!(presence(true, true, ProcessSight::Exited), Presence::Off);
-        assert_eq!(presence(true, false, ProcessSight::Unknown), Presence::Off);
-        assert_eq!(
-            presence(true, true, ProcessSight::Unknown),
-            Presence::Session
-        );
-    }
-
-    #[test]
-    fn a_failed_poll_does_not_count_as_the_game_closing() {
-        assert_eq!(
-            ProcessSight::Unknown.note_poll(false),
-            ProcessSight::Unknown
-        );
-        assert_eq!(ProcessSight::Unknown.note_poll(true), ProcessSight::Running);
-        assert_eq!(ProcessSight::Running.note_poll(false), ProcessSight::Exited);
-        assert_eq!(ProcessSight::Exited.note_poll(true), ProcessSight::Running);
-    }
-
-    #[test]
-    fn exe_match_ignores_case_and_stops_at_nul() {
-        let mut file = [0u16; 8];
-        for (index, unit) in "Ac2.exe".encode_utf16().enumerate() {
-            file[index] = unit;
-        }
-        assert!(exe_matches(&file, "ac2.exe"));
-        assert!(!exe_matches(&file, "ac2.exe.old"));
+    fn session_is_on_track_and_everything_else_is_the_menu() {
+        assert_eq!(presence(false), Presence::Menu);
+        assert_eq!(presence(true), Presence::OnTrack);
     }
 
     #[test]

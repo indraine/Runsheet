@@ -2,9 +2,8 @@ import type { Locale } from "~/i18n/locale"
 
 const en = {
     wordmark: "Runsheet",
-    accOffline: "Assetto Corsa Competizione is not running",
-    accMenu: "Assetto Corsa Competizione is in the main menu",
-    accOnline: "Assetto Corsa Competizione is in a session",
+    accMenu: "In menu",
+    accOnTrack: "On track",
     backToTimeline: "To timeline",
     welcomeSlogan: "Drove! Recorded! Reviewed!",
     welcomeBody:
@@ -15,9 +14,8 @@ const en = {
     hz: "Hz",
     empty: "—",
     emptySheet:
-        "While the game is off, the sheet is empty and ACC is not running.",
-    emptyMenu:
-        "The game is open in the main menu. The sheet stays empty until a session starts.",
+        "The sheet stays empty until a session starts.",
+    emptyMenu: "The sheet stays empty until a session starts.",
     previousDay: "Previous day",
     nextDay: "Next day",
     openCalendar: "Choose a day",
@@ -91,9 +89,8 @@ const en = {
 
 const ru: typeof en = {
     wordmark: "Runsheet",
-    accOffline: "Assetto Corsa Competizione не запущена",
-    accMenu: "Assetto Corsa Competizione в главном меню",
-    accOnline: "Assetto Corsa Competizione в заезде",
+    accMenu: "В меню",
+    accOnTrack: "На трассе",
     backToTimeline: "К таймлайну",
     welcomeSlogan: "Проехал! Записал! Разобрал!",
     welcomeBody:
@@ -103,10 +100,8 @@ const ru: typeof en = {
     packet: "Пакет",
     hz: "Гц",
     empty: "—",
-    emptySheet:
-        "Пока игра выключена, на листе пусто и видно, что ACC не запущена.",
-    emptyMenu:
-        "Игра открыта в главном меню. На листе пусто, пока не начался заезд.",
+    emptySheet: "На листе пусто, пока не начался заезд.",
+    emptyMenu: "На листе пусто, пока не начался заезд.",
     previousDay: "Предыдущий день",
     nextDay: "Следующий день",
     openCalendar: "Выбрать день",

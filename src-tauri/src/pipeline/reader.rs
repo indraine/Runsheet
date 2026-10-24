@@ -113,13 +113,14 @@ pub(crate) fn run_without_acc(outbox: ipc::Outbox) -> ! {
         if clock.status_due(now_ms, false) {
             outbox.emit_status(&Status::capture(Capture {
                 link: link.state(),
-                presence: game::Presence::Off,
+                presence: game::Presence::Menu,
                 packet_id: None,
                 outing_id: None,
                 session: None,
                 lap_number: None,
                 sector: None,
                 speed: None,
+                in_pit: false,
                 air_temp: None,
                 road_temp: None,
                 events: &[],
@@ -133,7 +134,6 @@ pub(crate) fn run_without_acc(outbox: ipc::Outbox) -> ! {
 #[cfg(windows)]
 fn poll(ring: TelemetryRing) -> ! {
     let mut link = Link::default();
-    let mut process = ProcessProbe::default();
     let mut seen_packet = None;
 
     loop {
@@ -141,7 +141,7 @@ fn poll(ring: TelemetryRing) -> ! {
             Ok(acc) => acc,
             Err(_) => {
                 report(link.note_down());
-                note_absent(&ring, &link, &mut process, &mut seen_packet);
+                note_absent(&ring, &link, &mut seen_packet);
                 std::thread::sleep(RETRY_AFTER);
                 continue;
             }
@@ -152,29 +152,23 @@ fn poll(ring: TelemetryRing) -> ! {
         loop {
             match acc.read_shared_memory() {
                 Ok(Some(map)) => {
-                    if release_if_exited(&ring, &mut link, &mut process, &mut seen_packet) {
-                        break;
-                    }
-                    push_map(&ring, &link, &mut process, &mut seen_packet, &map, false);
+                    push_map(&ring, &link, &mut seen_packet, &map, false);
                     std::thread::sleep(SAMPLE_EVERY);
                 }
                 Ok(None) => {
-                    if release_if_exited(&ring, &mut link, &mut process, &mut seen_packet) {
-                        break;
-                    }
                     // Физика замерла (пауза, меню), а статус живёт в другом сегменте.
                     acc.reset();
                     if let Ok(Some(map)) = acc.read_shared_memory() {
                         // Идентификатор физики тот же, а пауза и меню живут в графике.
                         // Иначе decode вернёт Stale и выезд не увидит Off.
                         seen_packet = None;
-                        push_map(&ring, &link, &mut process, &mut seen_packet, &map, true);
+                        push_map(&ring, &link, &mut seen_packet, &map, true);
                     }
                     std::thread::sleep(SAMPLE_EVERY);
                 }
                 Err(_) => {
                     report(link.note_down());
-                    note_absent(&ring, &link, &mut process, &mut seen_packet);
+                    note_absent(&ring, &link, &mut seen_packet);
                     break;
                 }
             }
@@ -182,32 +176,10 @@ fn poll(ring: TelemetryRing) -> ! {
     }
 }
 
-/// Процесс уже видели живым и он исчез. Память после выхода ещё читается — её отпускаем.
 #[cfg(windows)]
-fn release_if_exited(
-    ring: &TelemetryRing,
-    link: &mut Link,
-    process: &mut ProcessProbe,
-    seen_packet: &mut Option<i32>,
-) -> bool {
-    if process.sight() != game::ProcessSight::Exited {
-        return false;
-    }
-    report(link.note_down());
-    note_absent(ring, link, process, seen_packet);
-    std::thread::sleep(RETRY_AFTER);
-    true
-}
-
-#[cfg(windows)]
-fn note_absent(
-    ring: &TelemetryRing,
-    link: &Link,
-    process: &mut ProcessProbe,
-    seen_packet: &mut Option<i32>,
-) {
+fn note_absent(ring: &TelemetryRing, link: &Link, seen_packet: &mut Option<i32>) {
     *seen_packet = None;
-    ring.bind(link.state(), process.sight());
+    ring.bind(link.state());
     ring.push_absent();
 }
 
@@ -215,7 +187,6 @@ fn note_absent(
 fn push_map(
     ring: &TelemetryRing,
     link: &Link,
-    process: &mut ProcessProbe,
     seen_packet: &mut Option<i32>,
     map: &ACCMap,
     resync: bool,
@@ -225,7 +196,7 @@ fn push_map(
         Ok(PageOutcome::Stale) => {}
         Ok(PageOutcome::Fresh(tick)) => {
             *seen_packet = Some(tick.physics.packet_id);
-            ring.bind(link.state(), process.sight());
+            ring.bind(link.state());
             if resync {
                 ring.try_push_resync(tick);
             } else {
@@ -233,32 +204,6 @@ fn push_map(
             }
         }
         Err(error) => eprintln!("кадр ACC отвергнут: {error}"),
-    }
-}
-
-/// Снимок списка процессов реже кадра: он тяжелее чтения памяти.
-#[cfg(windows)]
-const PROBE_EVERY: Duration = Duration::from_millis(400);
-
-/// Процесс ACC проверяется не на каждом снимке.
-#[cfg(windows)]
-#[derive(Default)]
-struct ProcessProbe {
-    sight: game::ProcessSight,
-    checked: Option<std::time::Instant>,
-}
-
-#[cfg(windows)]
-impl ProcessProbe {
-    fn sight(&mut self) -> game::ProcessSight {
-        let fresh = self.checked.is_some_and(|at| at.elapsed() < PROBE_EVERY);
-        if !fresh {
-            if let Some(running) = game::poll_process() {
-                self.sight = self.sight.note_poll(running);
-                self.checked = Some(std::time::Instant::now());
-            }
-        }
-        self.sight
     }
 }
 

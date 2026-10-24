@@ -106,7 +106,7 @@ export function TimelinePage() {
                             >
                                 <Show
                                     when={
-                                        accLink().presence === "session"
+                                        accLink().presence === "onTrack"
                                             ? sheet().live
                                             : undefined
                                     }
@@ -283,8 +283,7 @@ function Separator() {
     )
 }
 
-const emptyText = (): string =>
-    accLink().presence === "menu" ? t("app.emptyMenu") : t("app.emptySheet")
+const emptyText = (): string => t("app.emptyMenu")
 
 function SheetMessage(props: { text: string }) {
     return (

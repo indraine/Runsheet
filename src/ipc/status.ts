@@ -20,7 +20,7 @@ export type AccStatusEvent =
           endedAt: number
       }
 
-export type AccPresence = "off" | "menu" | "session"
+export type AccPresence = "menu" | "onTrack"
 
 export type AccStatus = {
     link: AccLinkState
@@ -30,6 +30,7 @@ export type AccStatus = {
     lapNumber: number | null
     sector: number | null
     speed: number | null
+    inPit: boolean
     airTemp: number | null
     roadTemp: number | null
     events: AccStatusEvent[]
@@ -57,6 +58,7 @@ export const parseAccStatus = (payload: unknown): AccStatus | undefined => {
         lapNumber: optionalInt(payload.lapNumber),
         sector: optionalInt(payload.sector),
         speed: optionalNumber(payload.speed),
+        inPit: payload.inPit === true,
         airTemp: optionalNumber(payload.airTemp),
         roadTemp: optionalNumber(payload.roadTemp),
         events: parseEvents(payload.events),
@@ -177,13 +179,13 @@ const parseEvent = (value: unknown): AccStatusEvent | undefined => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null
 
-const PRESENCE = new Set<AccPresence>(["off", "menu", "session"])
+const PRESENCE = new Set<AccPresence>(["menu", "onTrack"])
 
 const parsePresence = (value: unknown, link: AccLinkState): AccPresence => {
     if (typeof value === "string" && PRESENCE.has(value as AccPresence)) {
         return value as AccPresence
     }
-    return link === "linked" ? "session" : "off"
+    return link === "linked" ? "onTrack" : "menu"
 }
 
 const isLinkState = (value: unknown): value is AccLinkState =>

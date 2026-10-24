@@ -197,7 +197,12 @@ impl Collector {
                 return;
             };
             let along_m = sample.distance_m - open.origin_m;
-            let sector = open.note_sector(sample.sector_index, sample.last_sector_time_ms, along_m);
+            let sector = open.note_sector(
+                sample.sector_index,
+                sample.last_sector_time_ms,
+                sample.lap_time_ms,
+                along_m,
+            );
             open.valid = sample.valid;
             open.fuel = sample.fuel;
             open.max_speed = Some(match open.max_speed {
@@ -262,12 +267,15 @@ impl OpenLap {
         }
     }
 
-    /// `last_time` берётся с линии. Зачёт, топливо и трейс — с тика перед ней:
-    /// на границе `is_valid_lap` уже относится к следующему кругу.
+    /// `last_time` берётся с линии. Если ACC ещё держит сторож, берём часы
+    /// прошлого тика: на границе они ещё не сброшены. Зачёт, топливо и трейс —
+    /// с тика перед линией: там `is_valid_lap` ещё про этот круг.
     fn finish(self, boundary: &Sample) -> Finished {
-        let s3_ms = match (self.s1_ms, self.s2_ms) {
-            (Some(s1), Some(s2)) => {
-                Some(boundary.last_time_ms.saturating_sub(s1.saturating_add(s2)))
+        let time_ms = real_ms(boundary.last_time_ms)
+            .or_else(|| self.last_lap_time_ms.and_then(real_ms));
+        let s3_ms = match (time_ms, self.s1_ms, self.s2_ms) {
+            (Some(total), Some(s1), Some(s2)) => {
+                real_ms(total.saturating_sub(s1.saturating_add(s2)))
             }
             _ => None,
         };
@@ -275,7 +283,7 @@ impl OpenLap {
             id: self.id,
             session_id: self.session_id,
             number: self.number,
-            time_ms: Some(boundary.last_time_ms),
+            time_ms,
             s1_ms: self.s1_ms,
             s2_ms: self.s2_ms,
             s3_ms,
@@ -330,22 +338,33 @@ impl OpenLap {
         &mut self,
         sector_index: i32,
         sector_ms: i32,
+        lap_ms: i32,
         along_m: f32,
     ) -> Option<SessionEvent> {
         if sector_index == self.sector {
             return None;
         }
-        if sector_index == 1 && self.s1_ms.is_none() {
-            self.s1_ms = Some(sector_ms);
-            self.s1_end_m = Some(along_m);
+        let recorded = if sector_index == 1 && self.s1_ms.is_none() {
+            let ms = real_ms(sector_ms).or_else(|| real_ms(lap_ms));
+            if let Some(ms) = ms {
+                self.s1_ms = Some(ms);
+                self.s1_end_m = Some(along_m);
+            }
+            ms
         } else if sector_index == 2 && self.s2_ms.is_none() {
-            self.s2_ms = Some(sector_ms);
-            self.s2_end_m = Some(along_m);
-        }
+            let ms = real_ms(sector_ms).or_else(|| split_after(lap_ms, self.s1_ms));
+            if let Some(ms) = ms {
+                self.s2_ms = Some(ms);
+                self.s2_end_m = Some(along_m);
+            }
+            ms
+        } else {
+            None
+        };
         self.sector = sector_index;
-        (sector_ms > 0).then(|| SessionEvent::SectorCompleted {
+        recorded.map(|ms| SessionEvent::SectorCompleted {
             index: sector_index,
-            time: LapTime::from_ms_unchecked(sector_ms),
+            time: LapTime::from_ms_unchecked(ms),
         })
     }
 
@@ -412,6 +431,21 @@ struct Finished {
     fuel: f32,
     max_speed: f32,
     points: Vec<Point>,
+}
+
+/// Дольше двух часов — не круг и не сектор. `i32::MAX` у ACC значит «времени нет».
+const MAX_LAP_MS: i32 = 2 * 60 * 60 * 1000;
+
+fn real_ms(ms: i32) -> Option<i32> {
+    (ms > 0 && ms <= MAX_LAP_MS).then_some(ms)
+}
+
+/// Второй сектор из часов круга, если `last_sector_time` ещё сторож.
+fn split_after(lap_ms: i32, previous: Option<i32>) -> Option<i32> {
+    match (real_ms(lap_ms), previous) {
+        (Some(total), Some(done)) if total > done => Some(total - done),
+        _ => None,
+    }
 }
 
 fn line_crossed(open: &OpenLap, sample: &Sample) -> bool {
@@ -640,5 +674,44 @@ mod tests {
             time: Some(LapTime::from_ms_unchecked(91_234)),
         }));
         assert!(finished.contains(&SessionEvent::LapStarted { lap_number: 2 }));
+    }
+
+    #[test]
+    fn max_sentinel_is_not_a_sector_time() {
+        let mut laps = Collector::default();
+        let mut start = at(0, 0, 0, 100.0);
+        start.lap_time_ms = 1_000;
+        start.last_sector_time_ms = i32::MAX;
+        start.last_time_ms = i32::MAX;
+        assert!(laps.push(&start).is_none());
+
+        let mut first = at(TRACE_GAP_MS, 0, 1, 800.0);
+        first.lap_time_ms = 31_000;
+        first.last_sector_time_ms = i32::MAX;
+        first.last_time_ms = i32::MAX;
+        assert!(laps.push(&first).is_none());
+        let preview = laps.preview().expect("открытый круг");
+        assert_eq!(read_i32(&preview, 44), 31_000);
+
+        let mut second = at(TRACE_GAP_MS * 2, 0, 2, 1_600.0);
+        second.lap_time_ms = 62_000;
+        second.last_sector_time_ms = i32::MAX;
+        assert!(laps.push(&second).is_none());
+        let preview = laps.preview().expect("оба сектора");
+        assert_eq!(read_i32(&preview, 48), 31_000);
+
+        let mut near = at(TRACE_GAP_MS * 3, 0, 2, 2_200.0);
+        near.lap_time_ms = 90_000;
+        near.last_time_ms = i32::MAX;
+        assert!(laps.push(&near).is_none());
+
+        let mut line = at(TRACE_GAP_MS * 4, 1, 0, 2_400.0);
+        line.lap_time_ms = 80;
+        line.last_time_ms = i32::MAX;
+        let closed = laps.push(&line).expect("финиш без last_time");
+        assert_eq!(read_i32(&closed, 40), 90_000);
+        assert_eq!(read_i32(&closed, 44), 31_000);
+        assert_eq!(read_i32(&closed, 48), 31_000);
+        assert_eq!(read_i32(&closed, 52), 28_000);
     }
 }

@@ -1,4 +1,4 @@
-import { fastestValidLap, type Lap } from "~/domain/lap"
+import { fastestValidLap, withRealTimes, type Lap } from "~/domain/lap"
 import type { Session } from "~/domain/session"
 import type { Trace } from "~/domain/trace"
 
@@ -38,7 +38,9 @@ export const liveCard = (
     laps: readonly Lap[],
     traces: readonly Trace[]
 ): LiveCard => {
-    const ordered = [...laps].sort((left, right) => left.number - right.number)
+    const ordered = [...laps]
+        .map(withRealTimes)
+        .sort((left, right) => left.number - right.number)
     const byLap = new Map(traces.map(trace => [trace.lapId, trace]))
     const bestLap = fastestValidLap(ordered)
     const currentLap = findLast(ordered, lap => lap.timeMs === null)

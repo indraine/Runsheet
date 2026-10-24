@@ -1,4 +1,4 @@
-import { TRACE_CHANNELS, type Lap, type Trace } from "~/domain"
+import { TRACE_CHANNELS, realTimeMs, type Lap, type Trace } from "~/domain"
 
 const HEADER_LEN = 76
 const MISSING_MS = -1
@@ -73,10 +73,10 @@ export const decodeLapPacket = (
         id: lapId,
         sessionId: readUuid(view, 16),
         number: view.getInt32(OFF_NUMBER, true),
-        timeMs: optionalMs(view.getInt32(OFF_TIME, true)),
-        s1Ms: optionalMs(view.getInt32(OFF_S1, true)),
-        s2Ms: optionalMs(view.getInt32(OFF_S2, true)),
-        s3Ms: optionalMs(view.getInt32(OFF_S3, true)),
+        timeMs: realTimeMs(view.getInt32(OFF_TIME, true)),
+        s1Ms: realTimeMs(view.getInt32(OFF_S1, true)),
+        s2Ms: realTimeMs(view.getInt32(OFF_S2, true)),
+        s3Ms: realTimeMs(view.getInt32(OFF_S3, true)),
         s1EndM: optionalM(view.getFloat32(OFF_S1_END, true)),
         s2EndM: optionalM(view.getFloat32(OFF_S2_END, true)),
         valid: view.getUint8(OFF_VALID) !== 0,
@@ -119,9 +119,6 @@ const readChannel = (
     }
     return samples
 }
-
-const optionalMs = (value: number): number | null =>
-    value === MISSING_MS ? null : value
 
 const optionalM = (value: number): number | null =>
     value === MISSING_M ? null : value

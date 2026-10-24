@@ -1,6 +1,8 @@
 import { A, useNavigate } from "@solidjs/router"
 import { Check } from "lucide-solid"
 import { createEffect, createSignal, For, Index, Show } from "solid-js"
+import { mapViewFor } from "~/app/map-view"
+import { accLink } from "~/app/status"
 import { hasAsphalt } from "~/app/track-catalog"
 import { TrackLine } from "~/app/track-line"
 import type { LiveCard as LiveCardModel, LiveLapRow } from "~/domain"
@@ -11,23 +13,21 @@ import { cn } from "~/ui"
 export const LiveCard = (props: { card: LiveCardModel }) => {
     const card = () => props.card
     const [preview, setPreview] = createSignal<string>()
-    const [mapView, setMapView] = createSignal<"overview" | "follow">(
-        "overview"
-    )
     const shownTrack = () => preview() ?? card().session.track
     const ownTrack = () => shownTrack() === card().session.track
     const canFollow = () => ownTrack() && (card().line?.x.length ?? 0) >= 2
+    const view = () =>
+        mapViewFor({
+            canFollow: canFollow(),
+            inPit: accLink().inPit,
+            speedKmh: accLink().speedKmh,
+        })
     const seedDev = () =>
         import.meta.env.DEV && card().session.id.startsWith("seed-")
 
     createEffect(() => {
         card().session.id
         setPreview(undefined)
-        setMapView("overview")
-    })
-
-    createEffect(() => {
-        if (!canFollow()) setMapView("overview")
     })
 
     return (
@@ -129,50 +129,14 @@ export const LiveCard = (props: { card: LiveCardModel }) => {
                             track={shownTrack()}
                             road={ownTrack() ? card().road : undefined}
                             line={ownTrack() ? card().line : undefined}
-                            view={mapView()}
+                            view={view()}
                         />
-                        <div class="absolute top-2 right-2 z-10 flex overflow-hidden rounded border border-line bg-surface/90">
-                            <MapViewButton
-                                pressed={mapView() === "overview"}
-                                label={t("app.mapOverview")}
-                                onSelect={() => setMapView("overview")}
-                            />
-                            <MapViewButton
-                                pressed={mapView() === "follow"}
-                                label={t("app.mapFollow")}
-                                disabled={!canFollow()}
-                                onSelect={() => setMapView("follow")}
-                            />
-                        </div>
                     </Show>
                 </div>
             </div>
         </section>
     )
 }
-
-const MapViewButton = (props: {
-    label: string
-    pressed: boolean
-    disabled?: boolean
-    onSelect: () => void
-}) => (
-    <button
-        type="button"
-        aria-pressed={props.pressed}
-        disabled={props.disabled}
-        class={cn(
-            "px-2 py-1 font-mono text-[10px] tracking-wide uppercase",
-            props.pressed
-                ? "bg-ink text-surface"
-                : "text-secondary hover:text-ink",
-            props.disabled && "cursor-not-allowed opacity-40"
-        )}
-        onClick={props.onSelect}
-    >
-        {props.label}
-    </button>
-)
 
 const Summary = (props: {
     label: string

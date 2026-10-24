@@ -70,16 +70,14 @@ function AccStatus() {
 const presenceLabel = (
     presence: ReturnType<typeof accLink>["presence"]
 ): string => {
+    if (presence === "onTrack") return t("app.accOnTrack")
     if (presence === "menu") return t("app.accMenu")
-    if (presence === "session") return t("app.accOnline")
-    if (presence === "off") return t("app.accOffline")
     return t("app.empty")
 }
 
 const presenceDot = (
     presence: ReturnType<typeof accLink>["presence"]
 ): string => {
-    if (presence === "session") return "bg-gain"
-    if (presence === "menu") return "bg-accent"
+    if (presence === "onTrack") return "bg-gain"
     return "bg-muted"
 }

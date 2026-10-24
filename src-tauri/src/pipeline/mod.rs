@@ -28,7 +28,6 @@ pub(crate) async fn run_consumer(ring: TelemetryRing, outbox: ipc::Outbox) {
     let clock = HostClock::start();
     while let Some(envelope) = ring.recv().await {
         let link = envelope.link;
-        let process = envelope.process;
         let moment = Moment {
             mono_ms: clock.mono_ms(),
             wall_ms: wall_ms(),
@@ -37,7 +36,7 @@ pub(crate) async fn run_consumer(ring: TelemetryRing, outbox: ipc::Outbox) {
         if outcome.stale {
             continue;
         }
-        publish(&outbox, link, process, &outcome);
+        publish(&outbox, link, &outcome);
     }
 }
 
@@ -49,12 +48,13 @@ fn step(sequencer: &mut Sequencer, envelope: Envelope, moment: Moment) -> Outcom
     }
 }
 
-fn publish(outbox: &ipc::Outbox, link: LinkState, process: game::ProcessSight, outcome: &Outcome) {
+fn publish(outbox: &ipc::Outbox, link: LinkState, outcome: &Outcome) {
     if outcome.emit_status {
         let snap = &outcome.snap;
         outbox.emit_status(&ipc::Status::capture(Capture {
             link,
-            presence: game::presence(link == LinkState::Linked, snap.in_session, process),
+            presence: game::presence(link == LinkState::Linked && snap.in_session),
+            in_pit: snap.in_pit,
             packet_id: snap.packet_id,
             outing_id: snap.outing_id,
             session: snap.session.as_ref(),
