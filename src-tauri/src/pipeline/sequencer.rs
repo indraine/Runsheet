@@ -185,7 +185,9 @@ impl Sequencer {
             in_pit: self.car == CarState::InPitLane,
             air_c: tick.map(|tick| tick.graphic.air.celsius()),
             road_c: tick.map(|tick| tick.graphic.road.celsius()),
-            in_session: tick.is_some_and(|tick| tick.graphic.status == GameStatus::Live),
+            // «На трассе» — только езда. Live в гараже/меню/боксах — это меню.
+            in_session: self.car == CarState::OnTrack
+                && tick.is_some_and(|tick| tick.graphic.status == GameStatus::Live),
         }
     }
 
@@ -482,6 +484,39 @@ mod tests {
 
         let menu = sequencer.on_tick(draft.build(), true, moment(FROZEN_AFTER_MS));
         assert!(!menu.snap.in_session);
+    }
+
+    #[test]
+    fn garage_and_pit_are_not_on_track() {
+        let mut sequencer = Sequencer::default();
+        let driving = sequencer.on_tick(TickDraft::default().build(), false, moment(0));
+        assert!(driving.snap.in_session);
+
+        let garage = sequencer.on_tick(
+            TickDraft {
+                packet_id: 2,
+                car_state: CarState::InGarage,
+                ..TickDraft::default()
+            }
+            .build(),
+            false,
+            moment(10),
+        );
+        assert!(!garage.snap.in_session);
+        assert!(!garage.snap.in_pit);
+
+        let pit = sequencer.on_tick(
+            TickDraft {
+                packet_id: 3,
+                car_state: CarState::InPitLane,
+                ..TickDraft::default()
+            }
+            .build(),
+            false,
+            moment(20),
+        );
+        assert!(!pit.snap.in_session);
+        assert!(pit.snap.in_pit);
     }
 
     fn read_i32(bytes: &[u8], at: usize) -> i32 {

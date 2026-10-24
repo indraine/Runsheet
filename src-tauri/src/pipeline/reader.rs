@@ -33,6 +33,12 @@ const RETRY_AFTER: Duration = Duration::from_millis(500);
 #[cfg(windows)]
 const SAMPLE_EVERY: Duration = Duration::from_millis(3);
 
+/// Сколько `Stale` подряд считаем меню/паузой. Совпадает с `sequencer::FROZEN_AFTER_MS`.
+/// Библиотека иногда отдаёт `Some` с тем же `packet_id` вместо `None` — без этого
+/// статус «На трассе» залипает, а графика с Off/меню не доходит.
+#[cfg(windows)]
+const FROZEN_AFTER: Duration = Duration::from_millis(1_000);
+
 /// Что сказать в лог при смене связи. Повтор того же состояния молчит.
 #[derive(Debug, PartialEq, Eq)]
 enum LinkNotice {
@@ -151,12 +157,21 @@ fn poll(ring: TelemetryRing) -> ! {
 
         report(link.note_up());
         let mut last_push = Instant::now();
+        let mut last_fresh = Instant::now();
 
         loop {
             match acc.read_shared_memory() {
                 Ok(Some(map)) => {
-                    push_map(&ring, &link, &mut seen_packet, &map, false);
-                    last_push = Instant::now();
+                    // Свежий id — снова едем. Долгий Stale — меню: графику всё равно
+                    // нужно протащить, иначе «На трассе» залипает.
+                    if push_map(&ring, &link, &mut seen_packet, &map, false) {
+                        last_fresh = Instant::now();
+                        last_push = Instant::now();
+                    } else if last_fresh.elapsed() >= FROZEN_AFTER
+                        && push_map(&ring, &link, &mut seen_packet, &map, true)
+                    {
+                        last_push = Instant::now();
+                    }
                     std::thread::sleep(SAMPLE_EVERY);
                 }
                 Ok(None) => {
@@ -166,8 +181,9 @@ fn poll(ring: TelemetryRing) -> ! {
                         // Идентификатор физики тот же, а пауза и меню живут в графике.
                         // Иначе decode вернёт Stale и выезд не увидит Off.
                         seen_packet = None;
-                        push_map(&ring, &link, &mut seen_packet, &map, true);
-                        last_push = Instant::now();
+                        if push_map(&ring, &link, &mut seen_packet, &map, true) {
+                            last_push = Instant::now();
+                        }
                     } else if last_push.elapsed() >= RETRY_AFTER {
                         // В меню `packet_id` бывает нулём: кадров нет, а статус нужен.
                         note_absent(&ring, &link, &mut seen_packet);
@@ -207,6 +223,7 @@ fn note_absent(ring: &TelemetryRing, link: &Link, seen_packet: &mut Option<i32>)
     ring.push_absent();
 }
 
+/// `true` — кадр ушёл в кольцо. `false` — повтор пакета или брак.
 #[cfg(windows)]
 fn push_map(
     ring: &TelemetryRing,
@@ -214,10 +231,10 @@ fn push_map(
     seen_packet: &mut Option<i32>,
     map: &ACCMap,
     resync: bool,
-) {
+) -> bool {
     let previous = if resync { None } else { *seen_packet };
     match decode(previous, map) {
-        Ok(PageOutcome::Stale) => {}
+        Ok(PageOutcome::Stale) => false,
         Ok(PageOutcome::Fresh(tick)) => {
             *seen_packet = Some(tick.physics.packet_id);
             ring.bind(link.state());
@@ -226,8 +243,12 @@ fn push_map(
             } else {
                 ring.try_push(tick);
             }
+            true
         }
-        Err(error) => eprintln!("кадр ACC отвергнут: {error}"),
+        Err(error) => {
+            eprintln!("кадр ACC отвергнут: {error}");
+            false
+        }
     }
 }
 

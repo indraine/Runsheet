@@ -105,16 +105,11 @@ export function TimelinePage() {
                         const records = createMemo(() =>
                             trackRecords(sheet().past)
                         )
-                        /** Live — только когда реально едешь; иначе шахматка трасс. */
-                        const liveOnTrack = () => {
-                            if (
-                                accLink().presence !== "onTrack" ||
-                                accLink().inPit
-                            ) {
-                                return undefined
-                            }
-                            return sheet().live
-                        }
+                        /** Live — только «На трассе»; меню/боксы → шахматка. */
+                        const liveOnTrack = () =>
+                            accLink().presence === "onTrack"
+                                ? sheet().live
+                                : undefined
                         return (
                             <>
                                 <Show
