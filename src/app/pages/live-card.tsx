@@ -15,12 +15,14 @@ export const LiveCard = (props: { card: LiveCardModel }) => {
     const [preview, setPreview] = createSignal<string>()
     const shownTrack = () => preview() ?? card().session.track
     const ownTrack = () => shownTrack() === card().session.track
-    const canFollow = () => ownTrack() && (card().line?.x.length ?? 0) >= 2
+    const canFollow = () =>
+        accLink().presence === "onTrack" &&
+        ownTrack() &&
+        (card().line?.x.length ?? 0) >= 2
     const view = () =>
         mapViewFor({
             canFollow: canFollow(),
             inPit: accLink().inPit,
-            speedKmh: accLink().speedKmh,
         })
     const seedDev = () =>
         import.meta.env.DEV && card().session.id.startsWith("seed-")

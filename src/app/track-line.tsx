@@ -2,7 +2,6 @@ import { Application, Graphics } from "pixi.js"
 import { createEffect, onCleanup, onMount } from "solid-js"
 import {
     fitFrame,
-    fitPixelsPerMeter,
     followFrame,
     followPixelsPerMeter,
     type GroundPoint,
@@ -28,9 +27,13 @@ const ROAD_EDGE = 18
 const ROAD_FILL = 11
 const SCHEMATIC_WIDTH = 5
 const SCHEMATIC_OUTLINE = 1
-const FOLLOW_AHEAD_M = 50
-const FOLLOW_OUTLINE = 4
-const FOLLOW_CAR_SCALE = 4
+/** Сколько метров трассы видно от машины до верхнего края. */
+const FOLLOW_AHEAD_M = 90
+/** Ширина полотна, если в каталоге трассы её нет. Типичный трек ACC. */
+const TRACK_WIDTH_M = 12
+const EDGE_WIDTH = 1.5
+/** Край короче этого — ширины в каталоге нет, край совпал с осью. */
+const MIN_EDGE_M = 0.5
 const LINE_WIDTH = 1.5
 const FALLBACK_ACCENT = 0x2a6fc9
 const FALLBACK_EDGE = 0x475569
@@ -81,21 +84,26 @@ export const TrackLine = (props: {
                 view.clientHeight,
                 props.view === "follow"
             )
-            const ribbon = ribbonPixels(
-                SCHEMATIC_WIDTH,
-                SCHEMATIC_OUTLINE,
-                laid.zoom
-            )
-            strokeClosed(road, laid.center, ribbon.outer, edge)
-            strokeClosed(road, laid.center, ribbon.fill, fill)
+            if (laid.metersToPixels === undefined) {
+                strokeClosed(
+                    road,
+                    laid.center,
+                    SCHEMATIC_WIDTH + SCHEMATIC_OUTLINE * 2,
+                    edge
+                )
+                strokeClosed(road, laid.center, SCHEMATIC_WIDTH, fill)
+            } else if (laid.edges) {
+                fillAsphalt(road, laid.edges.left, laid.edges.right, fill)
+                strokeClosed(road, laid.edges.left, EDGE_WIDTH, edge)
+                strokeClosed(road, laid.edges.right, EDGE_WIDTH, edge)
+            } else {
+                const width = TRACK_WIDTH_M * laid.metersToPixels
+                strokeClosed(road, laid.center, width + EDGE_WIDTH * 2, edge)
+                strokeClosed(road, laid.center, width, fill)
+            }
             if (projected) {
                 strokePath(line, laid.line, LINE_WIDTH, accent)
-                drawCar(
-                    car,
-                    laid.line,
-                    accent,
-                    laid.zoom > 1 ? FOLLOW_CAR_SCALE : 1
-                )
+                drawCar(car, laid.line, accent)
             }
             return
         }
@@ -117,13 +125,6 @@ export const TrackLine = (props: {
                       FOLLOW_AHEAD_M
                   )
                 : undefined
-        const zoom = followed
-            ? ribbonZoom(
-                  [roadSeries, lineSeries],
-                  view.clientWidth,
-                  view.clientHeight
-              )
-            : 1
         const [roadPoints, linePoints] =
             followed ??
             fitFrame(
@@ -132,15 +133,17 @@ export const TrackLine = (props: {
                 view.clientHeight,
                 PADDING
             )
-        const ribbon = ribbonPixels(
-            ROAD_FILL,
-            (ROAD_EDGE - ROAD_FILL) / 2,
-            zoom
-        )
-        strokePath(road, roadPoints, ribbon.outer, edge)
-        strokePath(road, roadPoints, ribbon.fill, fill)
+        const fillWidth = followed
+            ? TRACK_WIDTH_M *
+              followPixelsPerMeter(view.clientHeight, FOLLOW_AHEAD_M)
+            : ROAD_FILL
+        const outerWidth = followed
+            ? fillWidth + EDGE_WIDTH * 2
+            : ROAD_EDGE
+        strokePath(road, roadPoints, outerWidth, edge)
+        strokePath(road, roadPoints, fillWidth, fill)
         strokePath(line, linePoints, LINE_WIDTH, accent)
-        drawCar(car, linePoints, accent, zoom > 1 ? FOLLOW_CAR_SCALE : 1)
+        drawCar(car, linePoints, accent)
     }
 
     onMount(() => {
@@ -267,17 +270,25 @@ const asGround = (points: readonly PlanarPoint[]): GroundSeries => ({
     z: Float32Array.from(points, point => point.y),
 })
 
+/** `metersToPixels` есть только в режиме «за машиной»: там полотно в реальном масштабе. */
+type TrackLayout = {
+    center: GroundPoint[]
+    line: GroundPoint[]
+    edges?: { left: GroundPoint[]; right: GroundPoint[] }
+    metersToPixels?: number
+}
+
 const layoutTrack = (
     bounds: TrackBoundaries,
     projected: GroundSeries | undefined,
     width: number,
     height: number,
     follow: boolean
-): { center: GroundPoint[]; line: GroundPoint[]; zoom: number } => {
+): TrackLayout => {
     const center = asGround(bounds.center)
     if (follow && projected) {
         const followed = followFrame(
-            [center, projected],
+            [center, asGround(bounds.left), asGround(bounds.right), projected],
             width,
             height,
             FOLLOW_AHEAD_M
@@ -285,8 +296,11 @@ const layoutTrack = (
         if (followed) {
             return {
                 center: followed[0] ?? [],
-                line: followed[1] ?? [],
-                zoom: ribbonZoom([center], width, height),
+                line: followed[3] ?? [],
+                edges: hasEdges(bounds)
+                    ? { left: followed[1] ?? [], right: followed[2] ?? [] }
+                    : undefined,
+                metersToPixels: followPixelsPerMeter(height, FOLLOW_AHEAD_M),
             }
         }
     }
@@ -296,28 +310,44 @@ const layoutTrack = (
     return {
         center: fitted[0] ?? [],
         line: fitted[1] ?? [],
-        zoom: 1,
     }
 }
 
-const ribbonPixels = (
-    fillPx: number,
-    outlinePx: number,
-    zoom: number
-): { outer: number; fill: number } => {
-    const fill = fillPx * zoom
-    const outline = zoom > 1 ? FOLLOW_OUTLINE : outlinePx
-    return { outer: fill + outline * 2, fill }
-}
-const ribbonZoom = (
-    frame: readonly GroundSeries[],
-    width: number,
-    height: number
-): number => {
-    const overview = fitPixelsPerMeter(frame, width, height, PADDING)
-    const close = followPixelsPerMeter(height, FOLLOW_AHEAD_M)
-    if (overview <= 0 || close <= 0) return 1
-    return Math.max(close / overview, 1)
+const hasEdges = (bounds: TrackBoundaries): boolean =>
+    bounds.left.some((point, index) => {
+        const middle = bounds.center[index]
+        return (
+            middle !== undefined &&
+            Math.hypot(point.x - middle.x, point.y - middle.y) > MIN_EDGE_M
+        )
+    })
+
+/** Полотно — четырёхугольники между соседними точками левого и правого края. */
+const fillAsphalt = (
+    graphics: Graphics,
+    left: readonly GroundPoint[],
+    right: readonly GroundPoint[],
+    color: number
+) => {
+    const count = Math.min(left.length, right.length)
+    if (count < 2) return
+    for (let index = 0; index < count; index += 1) {
+        const next = (index + 1) % count
+        graphics.poly(
+            [
+                left[index].x,
+                left[index].y,
+                left[next].x,
+                left[next].y,
+                right[next].x,
+                right[next].y,
+                right[index].x,
+                right[index].y,
+            ],
+            true
+        )
+    }
+    graphics.fill({ color })
 }
 
 const strokeClosed = (
@@ -352,8 +382,7 @@ const strokePath = (
 const drawCar = (
     graphics: Graphics,
     points: readonly GroundPoint[],
-    color: number,
-    scale = 1
+    color: number
 ) => {
     const tip = points[points.length - 1]
     if (!tip) return
@@ -367,12 +396,12 @@ const drawCar = (
         x: tip.x + cos * along - sin * side,
         y: tip.y + sin * along + cos * side,
     })
-    const nose = at(9 * scale, 0)
-    const frontLeft = at(3 * scale, 5 * scale)
-    const rearLeft = at(-7 * scale, 5 * scale)
-    const tail = at(-8 * scale, 0)
-    const rearRight = at(-7 * scale, -5 * scale)
-    const frontRight = at(3 * scale, -5 * scale)
+    const nose = at(9, 0)
+    const frontLeft = at(3, 5)
+    const rearLeft = at(-7, 5)
+    const tail = at(-8, 0)
+    const rearRight = at(-7, -5)
+    const frontRight = at(3, -5)
     graphics.moveTo(nose.x, nose.y)
     graphics.lineTo(frontLeft.x, frontLeft.y)
     graphics.lineTo(rearLeft.x, rearLeft.y)

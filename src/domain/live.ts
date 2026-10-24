@@ -43,11 +43,15 @@ export const liveCard = (
         .sort((left, right) => left.number - right.number)
     const byLap = new Map(traces.map(trace => [trace.lapId, trace]))
     const bestLap = fastestValidLap(ordered)
-    const currentLap = findLast(ordered, lap => lap.timeMs === null)
+    const currentLap =
+        session.status === "live"
+            ? findLast(ordered, lap => lap.timeMs === null)
+            : undefined
     const openTrace = currentLap ? byLap.get(currentLap.id) : undefined
     const road =
-        fullestClosed(ordered, byLap) ??
-        (openTrace && hasGround(openTrace) ? openTrace : undefined)
+        fullestTrace(ordered, byLap, lap => lap.timeMs !== null) ??
+        (openTrace && hasGround(openTrace) ? openTrace : undefined) ??
+        fullestTrace(ordered, byLap, () => true)
     const line = openTrace && hasPoint(openTrace) ? openTrace : undefined
     const pressureTrace = pressureSource(currentLap, ordered, byLap)
 
@@ -154,14 +158,15 @@ const hasGround = (trace: Trace): boolean =>
 const hasPoint = (trace: Trace): boolean =>
     Math.min(trace.x.length, trace.z.length) >= 1
 
-const fullestClosed = (
+const fullestTrace = (
     laps: readonly Lap[],
-    byLap: ReadonlyMap<string, Trace>
+    byLap: ReadonlyMap<string, Trace>,
+    accept: (lap: Lap) => boolean
 ): Trace | undefined => {
     let best: Trace | undefined
     let bestSpan = -1
     for (const lap of laps) {
-        if (lap.timeMs === null) continue
+        if (!accept(lap)) continue
         const trace = byLap.get(lap.id)
         if (!trace || !hasGround(trace)) continue
         const span = spanOf(trace.distance) ?? 0

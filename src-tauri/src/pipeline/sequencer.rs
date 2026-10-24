@@ -15,6 +15,10 @@ use crate::services::outing::{OutingMachine, Sight, Tick};
 
 use super::broadcast::{LapSend, UiClock};
 
+/// Физика без нового пакета дольше этого — игрок не едет: меню или пауза.
+/// В меню ACC оставляет в памяти последний кадр со статусом `Live`.
+const FROZEN_AFTER_MS: u64 = 1_000;
+
 /// Часы. Секвенсор сам время не читает.
 pub(crate) struct Moment {
     pub mono_ms: u64,
@@ -73,6 +77,8 @@ pub(crate) struct Sequencer {
     clock: UiClock,
     car: CarState,
     seen_packet: Option<i32>,
+    /// Когда физика последний раз принесла новый пакет, а не повтор.
+    last_fresh_ms: Option<u64>,
 }
 
 impl Sequencer {
@@ -80,6 +86,11 @@ impl Sequencer {
     pub(crate) fn on_tick(&mut self, tick: CleanTick, resync: bool, moment: Moment) -> Outcome {
         if !resync && self.seen_packet == Some(tick.physics.packet_id) {
             return self.stale();
+        }
+        if !resync {
+            self.last_fresh_ms = Some(moment.mono_ms);
+        } else if tick.graphic.status == GameStatus::Live && self.frozen(moment.mono_ms) {
+            return self.on_absent(moment);
         }
         self.seen_packet = Some(tick.physics.packet_id);
 
@@ -158,6 +169,11 @@ impl Sequencer {
         events
     }
 
+    fn frozen(&self, mono_ms: u64) -> bool {
+        self.last_fresh_ms
+            .is_none_or(|fresh| mono_ms.saturating_sub(fresh) >= FROZEN_AFTER_MS)
+    }
+
     fn snap(&self, tick: Option<&CleanTick>) -> Snap {
         Snap {
             packet_id: tick.map(|tick| tick.physics.packet_id),
@@ -169,7 +185,7 @@ impl Sequencer {
             in_pit: self.car == CarState::InPitLane,
             air_c: tick.map(|tick| tick.graphic.air.celsius()),
             road_c: tick.map(|tick| tick.graphic.road.celsius()),
-            in_session: tick.is_some_and(|tick| tick.graphic.status != GameStatus::Off),
+            in_session: tick.is_some_and(|tick| tick.graphic.status == GameStatus::Live),
         }
     }
 
@@ -449,6 +465,23 @@ mod tests {
             }
             previous = Some(mark);
         }
+    }
+
+    #[test]
+    fn frozen_physics_with_a_live_status_is_the_menu() {
+        let mut sequencer = Sequencer::default();
+        let draft = TickDraft {
+            packet_id: 1,
+            ..TickDraft::default()
+        };
+        let driving = sequencer.on_tick(draft.clone().build(), false, moment(0));
+        assert!(driving.snap.in_session);
+
+        let echo = sequencer.on_tick(draft.clone().build(), true, moment(500));
+        assert!(echo.snap.in_session);
+
+        let menu = sequencer.on_tick(draft.build(), true, moment(FROZEN_AFTER_MS));
+        assert!(!menu.snap.in_session);
     }
 
     fn read_i32(bytes: &[u8], at: usize) -> i32 {

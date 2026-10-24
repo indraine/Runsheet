@@ -6,7 +6,6 @@ export type AccLink = {
     hz: number | null
     packetId: number | null
     sessionId: string | null
-    speedKmh: number | null
     inPit: boolean
 }
 
@@ -21,7 +20,6 @@ const [accLink, setAccLink] = createSignal<AccLink>({
     hz: null,
     packetId: null,
     sessionId: null,
-    speedKmh: null,
     inPit: false,
 })
 

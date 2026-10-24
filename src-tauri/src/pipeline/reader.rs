@@ -5,6 +5,8 @@
 //! статус «недоступна» уходит не чаще 30 Гц, круги не пишутся.
 
 use std::time::Duration;
+#[cfg(windows)]
+use std::time::Instant;
 
 #[cfg(windows)]
 use acc_shared_memory_rs::ACCSharedMemory;
@@ -148,11 +150,13 @@ fn poll(ring: TelemetryRing) -> ! {
         };
 
         report(link.note_up());
+        let mut last_push = Instant::now();
 
         loop {
             match acc.read_shared_memory() {
                 Ok(Some(map)) => {
                     push_map(&ring, &link, &mut seen_packet, &map, false);
+                    last_push = Instant::now();
                     std::thread::sleep(SAMPLE_EVERY);
                 }
                 Ok(None) => {
@@ -163,6 +167,11 @@ fn poll(ring: TelemetryRing) -> ! {
                         // Иначе decode вернёт Stale и выезд не увидит Off.
                         seen_packet = None;
                         push_map(&ring, &link, &mut seen_packet, &map, true);
+                        last_push = Instant::now();
+                    } else if last_push.elapsed() >= RETRY_AFTER {
+                        // В меню `packet_id` бывает нулём: кадров нет, а статус нужен.
+                        note_absent(&ring, &link, &mut seen_packet);
+                        last_push = Instant::now();
                     }
                     std::thread::sleep(SAMPLE_EVERY);
                 }

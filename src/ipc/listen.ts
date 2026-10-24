@@ -83,7 +83,6 @@ export const startAccFeed = (): AccFeed => {
             current.hz === next.hz &&
             current.packetId === next.packetId &&
             current.sessionId === next.sessionId &&
-            current.speedKmh === next.speedKmh &&
             current.inPit === next.inPit
         ) {
             return
@@ -100,7 +99,6 @@ export const startAccFeed = (): AccFeed => {
                 hz: null,
                 packetId: null,
                 sessionId: null,
-                speedKmh: null,
                 inPit: false,
             }
         }
@@ -120,7 +118,6 @@ export const startAccFeed = (): AccFeed => {
             hz,
             packetId,
             sessionId: status.session?.id ?? null,
-            speedKmh: status.speed,
             inPit: status.inPit,
         }
     }

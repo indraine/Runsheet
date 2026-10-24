@@ -104,13 +104,7 @@ export function TimelinePage() {
                                 when={sheet().past.length > 0 || sheet().live}
                                 fallback={<SheetMessage text={emptyText()} />}
                             >
-                                <Show
-                                    when={
-                                        accLink().presence === "onTrack"
-                                            ? sheet().live
-                                            : undefined
-                                    }
-                                >
+                                <Show when={sheet().live}>
                                     {card => <LiveCard card={card()} />}
                                 </Show>
                                 <Show when={sheet().past.length > 0}>
