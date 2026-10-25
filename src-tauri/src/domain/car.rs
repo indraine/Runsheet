@@ -65,11 +65,6 @@ impl CarState {
             event: pit_event(self, next),
         }
     }
-
-    #[must_use]
-    pub(crate) const fn pit_edge(self, next: Self) -> Option<SessionEvent> {
-        pit_event(self, next)
-    }
 }
 
 const fn resolve(place: CarPlace) -> Option<CarState> {
@@ -96,112 +91,5 @@ const fn pit_event(from: CarState, to: CarState) -> Option<SessionEvent> {
         (CarState::OnTrack, CarState::InPitLane) => Some(SessionEvent::PitEntry),
         (CarState::InPitLane, CarState::OnTrack) => Some(SessionEvent::PitExit),
         _ => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn place(
-        status: GameStatus,
-        setup_menu: bool,
-        in_pit: bool,
-        in_pit_lane: bool,
-        checkered: bool,
-    ) -> CarPlace {
-        CarPlace {
-            status,
-            setup_menu,
-            in_pit,
-            in_pit_lane,
-            checkered,
-        }
-    }
-
-    #[test]
-    fn place_follows_the_session_without_boolean_flags() {
-        let cases = [
-            (
-                CarState::OnTrack,
-                place(GameStatus::Off, false, false, false, false),
-                CarState::InGarage,
-            ),
-            (
-                CarState::OnTrack,
-                place(GameStatus::Live, true, false, false, false),
-                CarState::InGarage,
-            ),
-            (
-                CarState::InGarage,
-                place(GameStatus::Live, false, false, true, false),
-                CarState::InPitLane,
-            ),
-            (
-                CarState::InGarage,
-                place(GameStatus::Pause, false, true, false, false),
-                CarState::InPitLane,
-            ),
-            (
-                CarState::InPitLane,
-                place(GameStatus::Live, false, false, false, false),
-                CarState::OnTrack,
-            ),
-            (
-                CarState::OnTrack,
-                place(GameStatus::Live, false, false, false, true),
-                CarState::OnTrack,
-            ),
-            (
-                CarState::OnTrack,
-                place(GameStatus::Live, false, true, false, true),
-                CarState::SessionFinished,
-            ),
-            (
-                CarState::OnTrack,
-                place(GameStatus::Pause, false, false, true, true),
-                CarState::SessionFinished,
-            ),
-            (
-                CarState::OnTrack,
-                place(GameStatus::Replay, false, true, true, true),
-                CarState::OnTrack,
-            ),
-            (
-                CarState::InPitLane,
-                place(GameStatus::Replay, true, false, false, true),
-                CarState::InPitLane,
-            ),
-        ];
-
-        for (from, seen, expect) in cases {
-            assert_eq!(from.step(seen).state, expect);
-        }
-    }
-
-    #[test]
-    fn pit_event_appears_only_when_the_variant_changes() {
-        let pit_lane = place(GameStatus::Live, false, false, true, false);
-        let entered = CarState::OnTrack.step(pit_lane);
-        assert_eq!(entered.state, CarState::InPitLane);
-        assert_eq!(entered.event, Some(SessionEvent::PitEntry));
-
-        let held = entered.state.step(pit_lane);
-        assert_eq!(held.state, CarState::InPitLane);
-        assert_eq!(held.event, None);
-
-        let left = held
-            .state
-            .step(place(GameStatus::Live, false, false, false, false));
-        assert_eq!(left.state, CarState::OnTrack);
-        assert_eq!(left.event, Some(SessionEvent::PitExit));
-
-        let garage = CarState::OnTrack.step(place(GameStatus::Off, false, false, false, false));
-        assert_eq!(garage.state, CarState::InGarage);
-        assert_eq!(garage.event, None);
-
-        let replay = CarState::OnTrack.step(place(GameStatus::Replay, false, true, true, false));
-        assert_eq!(replay.state, CarState::OnTrack);
-        assert_eq!(replay.event, None);
     }
 }

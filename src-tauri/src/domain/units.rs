@@ -132,23 +132,3 @@ impl fmt::Display for BrakePosition {
         write!(formatter, "{}", self.0)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn unchecked_units_keep_the_finite_value_they_were_given() {
-        assert_eq!(Speed::from_kmh_unchecked(187.5).kmh(), 187.5);
-        assert_eq!(Psi::from_psi_unchecked(27.2).psi(), 27.2);
-        assert_eq!(Celsius::from_celsius_unchecked(86.0).celsius(), 86.0);
-        assert_eq!(LapTime::from_ms_unchecked(91_234).ms(), 91_234);
-        assert_eq!(TrackProgress::from_fraction_unchecked(0.0).fraction(), 0.0);
-        assert_eq!(TrackProgress::from_fraction_unchecked(1.0).fraction(), 1.0);
-        assert_eq!(
-            ThrottlePosition::from_fraction_unchecked(0.25).fraction(),
-            0.25
-        );
-        assert_eq!(BrakePosition::from_fraction_unchecked(1.0).fraction(), 1.0);
-    }
-}

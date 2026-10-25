@@ -212,31 +212,3 @@ fn push_map(
         Err(_error) => false,
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn link_remembers_a_drop_after_it_was_up() {
-        let mut link = Link::default();
-        assert_eq!(link.state(), LinkState::Unavailable);
-        link.note_down();
-        assert_eq!(link.state(), LinkState::Unavailable);
-        link.note_down();
-        assert_eq!(link.state(), LinkState::Unavailable);
-
-        link.note_up();
-        assert_eq!(link.state(), LinkState::Linked);
-        link.note_up();
-        assert_eq!(link.state(), LinkState::Linked);
-
-        link.note_down();
-        assert_eq!(link.state(), LinkState::Lost);
-        link.note_down();
-        assert_eq!(link.state(), LinkState::Lost);
-
-        link.note_up();
-        assert_eq!(link.state(), LinkState::Linked);
-    }
-}

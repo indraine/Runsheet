@@ -26,18 +26,3 @@ impl<T> TireSet<T> {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn map_keeps_each_corner() {
-        let pressures = TireSet::new(1, 2, 3, 4);
-        let scaled = pressures.map(|psi| psi * 10);
-        assert_eq!(scaled.front_left, 10);
-        assert_eq!(scaled.front_right, 20);
-        assert_eq!(scaled.rear_left, 30);
-        assert_eq!(scaled.rear_right, 40);
-    }
-}

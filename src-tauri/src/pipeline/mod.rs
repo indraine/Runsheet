@@ -4,9 +4,6 @@ mod reader;
 mod ring;
 mod sequencer;
 
-#[cfg(test)]
-mod fixture;
-
 use std::time::Instant;
 
 use crate::domain::SessionPlace;

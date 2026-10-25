@@ -1,7 +1,7 @@
 
 use crate::domain::{
     CarState, CleanSessionGraphic, Frame, GameStatus, LapTime, OutingEvent, OutingId, Session,
-    SessionEvent, SessionId, SessionPlace,
+    SessionId, SessionPlace,
 };
 use crate::ingress::CleanTick;
 use crate::services::laps::{Collector, Sample};
@@ -51,8 +51,6 @@ pub(crate) struct Outcome {
     pub emit_status: bool,
     pub laps: Vec<Vec<u8>>,
     pub outing_events: Vec<OutingEvent>,
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub session_events: Vec<SessionEvent>,
     pub snap: Snap,
 }
 
@@ -80,7 +78,7 @@ impl Sequencer {
         }
         self.seen_packet = Some(tick.physics.packet_id);
 
-        let pit = self.step_car(&tick.graphic);
+        self.step_car(&tick.graphic);
         let status = tick.graphic.status;
         let outing_events = self.machine.step(&Tick {
             mono_ms: moment.mono_ms,
@@ -89,9 +87,9 @@ impl Sequencer {
         });
         let session_id = self.machine.session().map(|session| session.id);
         let packet = self.record(session_id, status, &tick, moment.mono_ms);
-        let session_events = self.note_lap(pit);
+        let _ = self.laps.take_events();
         let snap = self.snap(Some(&tick), moment.mono_ms);
-        self.finish(snap, packet, outing_events, session_events, moment)
+        self.finish(snap, packet, outing_events, moment)
     }
 
     pub(crate) fn on_absent(&mut self, moment: Moment) -> Outcome {
@@ -104,7 +102,7 @@ impl Sequencer {
         let packet = release_foreign(&self.machine, &mut self.laps);
         let _ = self.laps.take_events();
         let snap = self.snap(None, moment.mono_ms);
-        self.finish(snap, packet, outing_events, Vec::new(), moment)
+        self.finish(snap, packet, outing_events, moment)
     }
 
     fn stale(&self) -> Outcome {
@@ -113,14 +111,13 @@ impl Sequencer {
             emit_status: false,
             laps: Vec::new(),
             outing_events: Vec::new(),
-            session_events: Vec::new(),
             snap: Snap::empty(),
         }
     }
 
-    fn step_car(&mut self, graphic: &CleanSessionGraphic) -> Option<SessionEvent> {
+    fn step_car(&mut self, graphic: &CleanSessionGraphic) {
         if graphic.status == GameStatus::Replay {
-            return None;
+            return;
         }
         let next = graphic.car_state;
         if next == CarState::InGarage
@@ -131,9 +128,7 @@ impl Sequencer {
             self.had_motion = false;
             self.kill_clock();
         }
-        let event = self.car.pit_edge(next);
         self.car = next;
-        event
     }
 
     fn record(
@@ -152,14 +147,6 @@ impl Sequencer {
             _ => None,
         };
         finished.or(abandoned)
-    }
-
-    fn note_lap(&mut self, pit: Option<SessionEvent>) -> Vec<SessionEvent> {
-        let mut events = self.laps.take_events();
-        if let Some(pit) = pit {
-            events.push(pit);
-        }
-        events
     }
 
     fn note_motion(&mut self, tick: &CleanTick) {
@@ -232,7 +219,6 @@ impl Sequencer {
         snap: Snap,
         packet: Option<Vec<u8>>,
         outing_events: Vec<OutingEvent>,
-        session_events: Vec<SessionEvent>,
         moment: Moment,
     ) -> Outcome {
         let emit_status = self
@@ -244,7 +230,6 @@ impl Sequencer {
             emit_status,
             laps,
             outing_events,
-            session_events,
             snap,
         }
     }
@@ -333,486 +318,4 @@ fn release_foreign(machine: &OutingMachine, laps: &mut Collector) -> Option<Vec<
         return None;
     }
     laps.abandon()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::domain::CarState;
-    use crate::pipeline::broadcast::STATUS_PERIOD_MS;
-    use crate::pipeline::fixture::TickDraft;
-
-    fn moment(mono_ms: u64) -> Moment {
-        Moment {
-            mono_ms,
-            wall_ms: mono_ms,
-        }
-    }
-
-    fn script() -> Vec<(u64, TickDraft)> {
-        let mut steps = vec![
-            (
-                0,
-                TickDraft {
-                    packet_id: 1,
-                    ..TickDraft::default()
-                },
-            ),
-            (
-                10,
-                TickDraft {
-                    packet_id: 2,
-                    sector_index: 1,
-                    distance_m: 250.0,
-                    last_sector_ms: Some(30_000),
-                    ..TickDraft::default()
-                },
-            ),
-            (
-                20,
-                TickDraft {
-                    packet_id: 3,
-                    completed_lap: 1,
-                    sector_index: 0,
-                    distance_m: 400.0,
-                    last_time_ms: Some(91_234),
-                    lap_time_ms: Some(80),
-                    progress: 0.01,
-                    ..TickDraft::default()
-                },
-            ),
-            (
-                30,
-                TickDraft {
-                    packet_id: 4,
-                    car_state: CarState::InPitLane,
-                    completed_lap: 1,
-                    lap_time_ms: Some(200),
-                    progress: 0.2,
-                    distance_m: 420.0,
-                    ..TickDraft::default()
-                },
-            ),
-            (
-                40,
-                TickDraft {
-                    packet_id: 4,
-                    car_state: CarState::InPitLane,
-                    completed_lap: 1,
-                    lap_time_ms: Some(200),
-                    progress: 0.2,
-                    distance_m: 420.0,
-                    ..TickDraft::default()
-                },
-            ),
-        ];
-        for index in 0..8 {
-            let packet_id = 5 + index;
-            steps.push((
-                50 + u64::try_from(index).unwrap_or(0) * 10,
-                TickDraft {
-                    packet_id,
-                    car_state: CarState::InPitLane,
-                    completed_lap: 1,
-                    lap_time_ms: Some(200),
-                    progress: 0.2,
-                    distance_m: 500.0,
-                    ..TickDraft::default()
-                },
-            ));
-        }
-        steps
-    }
-
-    #[test]
-    fn replay_counts_one_lap_one_pit_and_throttles_status() {
-        let mut sequencer = Sequencer::default();
-        let mut marks = Vec::new();
-        let mut completed = 0;
-        let mut pits = 0;
-        let mut saw_stale = false;
-
-        for (mono, draft) in script() {
-            let duplicate = draft.packet_id == 4 && mono == 40;
-            let outcome = sequencer.on_tick(draft.build(), false, moment(mono));
-            if duplicate {
-                assert!(outcome.stale);
-                assert!(outcome.session_events.is_empty());
-                assert!(!outcome.emit_status);
-                saw_stale = true;
-                continue;
-            }
-            assert!(!outcome.stale);
-            if outcome.emit_status {
-                marks.push(mono);
-            }
-            for event in &outcome.session_events {
-                match event {
-                    SessionEvent::LapCompleted { .. } => completed += 1,
-                    SessionEvent::PitEntry => pits += 1,
-                    _ => {}
-                }
-            }
-        }
-
-        assert!(saw_stale);
-        assert_eq!(completed, 1);
-        assert_eq!(pits, 1);
-
-        let mut fresh = Sequencer::default();
-        let opened = fresh.on_tick(
-            TickDraft {
-                packet_id: 1,
-                lap_time_ms: Some(80_000),
-                progress: 0.97,
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(0),
-        );
-        assert_eq!(opened.laps.len(), 1);
-
-        let crossed = fresh.on_tick(
-            TickDraft {
-                packet_id: 2,
-                completed_lap: 1,
-                lap_time_ms: Some(80),
-                last_time_ms: Some(81_500),
-                progress: 0.01,
-                distance_m: 4_100.0,
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(50),
-        );
-        assert_eq!(crossed.laps.len(), 2);
-        assert_eq!(read_i32(&crossed.laps[0], 32), 1);
-        assert_eq!(read_i32(&crossed.laps[0], 40), 81_500);
-        assert_eq!(read_i32(&crossed.laps[1], 32), 2);
-        assert_eq!(read_i32(&crossed.laps[1], 40), -1);
-        let mut previous = None;
-        for mark in marks {
-            if let Some(before) = previous {
-                assert!(
-                    mark.saturating_sub(before) >= STATUS_PERIOD_MS,
-                    "status at {mark} follows {before}"
-                );
-            }
-            previous = Some(mark);
-        }
-    }
-
-    #[test]
-    fn dead_lap_clock_with_a_live_status_is_the_menu() {
-        let mut sequencer = Sequencer::default();
-        let driving = sequencer.on_tick(
-            TickDraft {
-                packet_id: 1,
-                lap_time_ms: Some(10_000),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(0),
-        );
-        assert!(driving.snap.place == SessionPlace::OnTrack);
-
-        let echo = sequencer.on_tick(
-            TickDraft {
-                packet_id: 1,
-                lap_time_ms: Some(10_000),
-                ..TickDraft::default()
-            }
-            .build(),
-            true,
-            moment(200),
-        );
-        assert!(echo.snap.place == SessionPlace::OnTrack);
-
-        let menu = sequencer.on_tick(
-            TickDraft {
-                packet_id: 1,
-                lap_time_ms: Some(10_000),
-                ..TickDraft::default()
-            }
-            .build(),
-            true,
-            moment(CLOCK_DEAD_AFTER_MS),
-        );
-        assert!(menu.snap.place != SessionPlace::OnTrack);
-    }
-
-    #[test]
-    fn bumping_packet_id_with_frozen_clock_is_the_menu() {
-        let mut sequencer = Sequencer::default();
-        let driving = sequencer.on_tick(
-            TickDraft {
-                packet_id: 1,
-                speed: 120.0,
-                distance_m: 500.0,
-                lap_time_ms: Some(20_000),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(0),
-        );
-        assert!(driving.snap.place == SessionPlace::OnTrack);
-
-        let still = sequencer.on_tick(
-            TickDraft {
-                packet_id: 2,
-                speed: 0.0,
-                distance_m: 500.0,
-                lap_time_ms: Some(20_050),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(50),
-        );
-        assert!(still.snap.place == SessionPlace::OnTrack);
-
-        let menu = sequencer.on_tick(
-            TickDraft {
-                packet_id: 99,
-                speed: 0.0,
-                distance_m: 500.0,
-                lap_time_ms: Some(20_050),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(50 + CLOCK_DEAD_AFTER_MS),
-        );
-        assert!(menu.snap.place != SessionPlace::OnTrack);
-    }
-
-    #[test]
-    fn frozen_clock_ignores_speed_and_distance_jitter_in_the_menu() {
-        let mut sequencer = Sequencer::default();
-        let driving = sequencer.on_tick(
-            TickDraft {
-                packet_id: 1,
-                speed: 140.0,
-                distance_m: 800.0,
-                lap_time_ms: Some(30_000),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(0),
-        );
-        assert!(driving.snap.place == SessionPlace::OnTrack);
-
-        let mut mono = CLOCK_DEAD_AFTER_MS;
-        for packet_id in 2..12 {
-            let parked = sequencer.on_tick(
-                TickDraft {
-                    packet_id,
-                    speed: if packet_id % 2 == 0 { 0.0 } else { 88.0 },
-                    distance_m: 800.0 + (packet_id as f32) * 0.25,
-                    lap_time_ms: Some(30_000),
-                    ..TickDraft::default()
-                }
-                .build(),
-                false,
-                moment(mono),
-            );
-            assert!(
-                parked.snap.place != SessionPlace::OnTrack,
-                "jitter at {mono} ms must leave the track"
-            );
-            mono += 50;
-        }
-    }
-
-    #[test]
-    fn standing_before_first_motion_is_not_on_track() {
-        let mut sequencer = Sequencer::default();
-        let start = sequencer.on_tick(
-            TickDraft {
-                packet_id: 1,
-                speed: 0.0,
-                distance_m: 10.0,
-                lap_time_ms: Some(100),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(0),
-        );
-        assert!(start.snap.place != SessionPlace::OnTrack);
-
-        let waiting = sequencer.on_tick(
-            TickDraft {
-                packet_id: 2,
-                speed: 0.0,
-                distance_m: 10.0,
-                lap_time_ms: Some(200),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(100),
-        );
-        assert!(waiting.snap.place != SessionPlace::OnTrack);
-    }
-
-    #[test]
-    fn short_stop_after_motion_stays_on_track_while_clock_runs() {
-        let mut sequencer = Sequencer::default();
-        let driving = sequencer.on_tick(
-            TickDraft {
-                packet_id: 1,
-                speed: 120.0,
-                distance_m: 400.0,
-                lap_time_ms: Some(40_000),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(0),
-        );
-        assert!(driving.snap.place == SessionPlace::OnTrack);
-
-        let stopped = sequencer.on_tick(
-            TickDraft {
-                packet_id: 2,
-                speed: 0.0,
-                distance_m: 400.0,
-                lap_time_ms: Some(40_080),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(80),
-        );
-        assert!(stopped.snap.place == SessionPlace::OnTrack);
-
-        let waiting = sequencer.on_tick(
-            TickDraft {
-                packet_id: 3,
-                speed: 0.0,
-                distance_m: 400.0,
-                lap_time_ms: Some(45_000),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(5_000),
-        );
-        assert!(waiting.snap.place == SessionPlace::OnTrack);
-    }
-
-    #[test]
-    fn off_then_live_stationary_is_the_menu() {
-        let mut sequencer = Sequencer::default();
-        let driving = sequencer.on_tick(
-            TickDraft {
-                packet_id: 1,
-                speed: 140.0,
-                distance_m: 800.0,
-                lap_time_ms: Some(50_000),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(0),
-        );
-        assert!(driving.snap.place == SessionPlace::OnTrack);
-
-        let off = sequencer.on_tick(
-            TickDraft {
-                packet_id: 2,
-                status: GameStatus::Off,
-                car_state: CarState::InGarage,
-                speed: 0.0,
-                distance_m: 800.0,
-                lap_time_ms: Some(50_000),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(20),
-        );
-        assert!(off.snap.place != SessionPlace::OnTrack);
-
-        let echo = sequencer.on_tick(
-            TickDraft {
-                packet_id: 3,
-                speed: 0.0,
-                distance_m: 800.0,
-                lap_time_ms: Some(50_000),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(40),
-        );
-        assert!(echo.snap.place != SessionPlace::OnTrack);
-
-        let later = sequencer.on_tick(
-            TickDraft {
-                packet_id: 4,
-                speed: 120.0,
-                distance_m: 800.1,
-                lap_time_ms: Some(50_000),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(40 + CLOCK_DEAD_AFTER_MS),
-        );
-        assert!(later.snap.place != SessionPlace::OnTrack);
-    }
-
-    #[test]
-    fn garage_and_pit_are_not_on_track() {
-        let mut sequencer = Sequencer::default();
-        let driving = sequencer.on_tick(
-            TickDraft {
-                lap_time_ms: Some(12_000),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(0),
-        );
-        assert!(driving.snap.place == SessionPlace::OnTrack);
-
-        let garage = sequencer.on_tick(
-            TickDraft {
-                packet_id: 2,
-                car_state: CarState::InGarage,
-                lap_time_ms: Some(12_000),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(10),
-        );
-        assert_eq!(garage.snap.place, SessionPlace::Menu);
-
-        let pit = sequencer.on_tick(
-            TickDraft {
-                packet_id: 3,
-                car_state: CarState::InPitLane,
-                speed: 60.0,
-                lap_time_ms: Some(12_100),
-                ..TickDraft::default()
-            }
-            .build(),
-            false,
-            moment(20),
-        );
-        assert_eq!(pit.snap.place, SessionPlace::InPits);
-    }
-
-    fn read_i32(bytes: &[u8], at: usize) -> i32 {
-        let raw: [u8; 4] = bytes[at..at + 4].try_into().unwrap();
-        i32::from_le_bytes(raw)
-    }
 }

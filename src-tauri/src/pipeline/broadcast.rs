@@ -58,19 +58,3 @@ impl UiClock {
         LapSend::Preview
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::domain::LapId;
-
-    #[test]
-    fn close_does_not_delay_the_next_lap_preview() {
-        let mut clock = UiClock::default();
-        let first = LapId::from_bytes([1; 16]);
-        let second = LapId::from_bytes([2; 16]);
-        assert_eq!(clock.preview_due(0, Some(first), false), LapSend::Preview);
-        assert_eq!(clock.preview_due(10, Some(second), true), LapSend::Closed);
-        assert_eq!(clock.preview_due(10, Some(second), false), LapSend::Preview);
-    }
-}

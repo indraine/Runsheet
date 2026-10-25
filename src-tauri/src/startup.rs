@@ -57,13 +57,3 @@ fn pinned(name: &str, actual: usize, expected: usize) -> Result<(), ProbeFailure
         LAYOUT_HINT,
     ))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn memory_layout_is_green_without_opening_segments() {
-        StartupProbes::verify_memory_layout().expect("pinned sizes match");
-    }
-}

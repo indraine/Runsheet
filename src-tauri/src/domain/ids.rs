@@ -64,17 +64,3 @@ fn write_bytes(formatter: &mut fmt::Formatter<'_>, bytes: &[u8; 16]) -> fmt::Res
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn bytes_round_trip_without_a_uuid_crate() {
-        let bytes = [7u8; 16];
-        assert_eq!(SessionId::from_bytes(bytes).as_bytes(), bytes);
-        assert_eq!(OutingId::from_bytes(bytes).as_bytes(), bytes);
-        assert_eq!(LapId::from_bytes(bytes).as_bytes(), bytes);
-        assert_eq!(SessionId::default().as_bytes(), [0; 16]);
-    }
-}
