@@ -13,18 +13,18 @@
   <img src="https://img.shields.io/badge/Tauri_2-SolidJS-24C8DB" alt="Tauri 2 · SolidJS" />
 </p>
 
-Десктопный лист сессии для **Assetto Corsa Competizione**. Всё автоматически: открыл приложение, поехал — Runsheet сам пишет сессии, круги, секторы (S1–S3), топливо и валидность. Кнопки «начать запись» нет.
+Лист заездов для **Assetto Corsa Competizione**. Открыл программу, поехал — круги, секторы (S1–S3), топливо и зачёт пишутся сами. Кнопки «начать запись» нет.
 
-> Продуктовая концепция и модель заезда: **[docs/CONCEPT.ru.md](docs/CONCEPT.ru.md)**
+> Идея продукта и модель заезда: **[docs/CONCEPT.ru.md](docs/CONCEPT.ru.md)**
 
-## Демонстрация работы
+## Демо
 
 <!--
   Если ролик загружен через GitHub Issues или Release, замените ссылку
   на CDN-адрес: https://github.com/user-attachments/assets/...
 -->
 
-[![Демонстрация работы Runsheet](docs/demo.webp)](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
+[![Демо Runsheet](docs/demo.webp)](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
 
 > 💡 [Смотреть MP4 на GitHub](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
 
@@ -36,57 +36,67 @@
 
 ![Каталог трасс — Dark](docs/screenshots/01_tracks_dark.png)
 
-### Live Card
+### Живая карточка
 
-Спа · таблица кругов с S1/S2/S3, топливом, дельтой и миникартой.
+Спа · таблица кругов с S1/S2/S3, топливом, дельтой и мини-картой.
 
 | Dark | Light |
 |:----:|:-----:|
-| ![Live Card — Dark](docs/screenshots/01_spa_livecard_dark.png) | ![Live Card — Light](docs/screenshots/01_spa_livecard_light.png) |
+| ![Живая карточка — Dark](docs/screenshots/01_spa_livecard_dark.png) | ![Живая карточка — Light](docs/screenshots/01_spa_livecard_light.png) |
 
 | Dracula | Nord |
 |:-------:|:----:|
-| ![Live Card — Dracula](docs/screenshots/02_spa_livecard_dracula.png) | ![Live Card — Nord](docs/screenshots/03_spa_livecard_nord.png) |
+| ![Живая карточка — Dracula](docs/screenshots/02_spa_livecard_dracula.png) | ![Живая карточка — Nord](docs/screenshots/03_spa_livecard_nord.png) |
 
 ---
 
-## Возможности (v1.0.0)
+## Что умеет сейчас (v1.0.0)
 
-- [x] Автоматический трекинг кругов, секторов (S1, S2, S3), расхода топлива и валидности
-- [x] Каталог 25 трасс Assetto Corsa Competizione (фильтры Recent, Popular, A–Z, рекорды PB, счётчик попыток)
-- [x] Журнал сессий с группировкой по дням и типам (Practice, Qualifying, Race / Solo, Online)
-- [x] Live Card с погодными условиями (Air, Asphalt), давлением в шинах (psi) и векторной картой трассы
+- [x] Сам пишет круги, секторы (S1 / S2 / S3), расход топлива и зачёт круга
+- [x] Каталог 25 трасс ACC — фильтры «недавние», «популярные», A–Z; личные рекорды и число попыток
+- [x] Журнал заездов по дням и типам (тренировка, квалификация, гонка / одиночная, онлайн)
+- [x] Живая карточка: воздух и асфальт, давление в шинах (psi), векторная карта трассы
 - [x] 11 тем оформления (Dark, Light, Dracula, Nord, Monokai, Gruvbox, Mocha, Solarized и др.)
-- [x] Мультиязычный интерфейс (EN / RU)
+- [x] Два языка интерфейса (EN / RU)
 
 ---
 
-## Roadmap (v1.1.0+)
+## Планы
 
-- [ ] 2D-сцена геометрии трассы с границами полотна
-- [ ] Траектории на карте
-- [ ] Графики телеметрии (Speed, Throttle, Brake, Gear)
-- [ ] Экспорт в MoTeC / CSV
+### v1.1.0 — Разбор и траектории
+- [ ] Плоская сцена трассы с границами полотна
+- [ ] Траектории и сравнение гоночных линий на карте
+- [ ] Графики (скорость, газ, тормоз, передача, руль)
+- [ ] Выгрузка сессии в CSV / MoTeC
+
+### v2.0.0 — iRacing
+- [ ] Чтение телеметрии через iRacing SDK / общую память
+- [ ] Автоматическая фиксация сессий и заездов в iRacing
+- [ ] Каталоги машин и трасс iRacing
+
+### v3.0.0 — Automobilista 2
+- [ ] Чтение общей памяти AMS2
+- [ ] Учёт сессий и приведение телеметрии AMS2 к общим типам
 
 ---
 
-## Установка / Development build
+## Установка и сборка
 
-**Требования**
+**Что нужно**
 
 - [Bun](https://bun.sh/)
 - [Rust](https://www.rust-lang.org/tools/install) (stable)
 - [Предварительные требования Tauri 2](https://v2.tauri.app/start/prerequisites/)
-- **Windows** для живой ACC Shared Memory (на macOS/Linux ридер недоступен)
+- **Windows** для живого чтения общей памяти ACC (на macOS/Linux чтение недоступно)
 
 ```bash
 # Зависимости
 bun install
 
-# Только фронтенд (Vite, в dev — seed-данные)
+# Только интерфейс (Vite; в разработке — тестовые данные)
 bun run dev
 
-# Полное десктопное приложение
+# Полное приложение
 bun run tauri dev
 
 # Релизная сборка
@@ -104,30 +114,47 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 ## Стек
 
-| Слой | Стек |
-|------|------|
+| Слой | Чем собран |
+|------|------------|
 | Оболочка | Tauri 2 |
-| Бэкенд | Rust, ACC Shared Memory (`acc_shared_memory_rs`) |
-| Фронтенд | SolidJS, TypeScript, Vite 8 |
-| UI | Tailwind CSS 4, Ark UI, Lucide |
+| Серверная часть | Rust; сейчас — чтение общей памяти ACC (`acc_shared_memory_rs`) |
+| Клиент | SolidJS, TypeScript, Vite 8 |
+| Интерфейс | Tailwind CSS 4, Ark UI, Lucide |
 | Карта | PixiJS |
 | Хранение | IndexedDB (`idb`) |
-| i18n | `@solid-primitives/i18n` (EN / RU) |
+| Языки | `@solid-primitives/i18n` (EN / RU) |
 
 ---
 
-## Contributing
+## Архитектура
 
-1. Сделайте fork и ветку под задачу.
-2. Держите обработчики тонкими; доменную логику — в сервисах / domain.
-3. Перед PR прогоните `bun run test` и Rust-тесты.
-4. Предпочтительны небольшие PR с коротким «зачем» в описании.
+Данные из симулятора проходят одну границу приёма: сырой буфер общей памяти не покидает `src-tauri/src/ingress/`, а сразу приводится к доменным типам. Дальше — конвейер чтения, сервисы заездов и кругов, интерфейс — без привязки к конкретной игре.
 
-Инварианты и раскладка: [AGENTS.md](AGENTS.md) · концепция продукта: [docs/CONCEPT.ru.md](docs/CONCEPT.ru.md).
+В v1.0.0 подключён только ACC. Через ту же границу позже добавятся iRacing (v2.0.0) и Automobilista 2 (v3.0.0), без смены логики сессий.
+
+| Путь | Роль |
+|------|------|
+| `src-tauri/src/ingress/` | Чтение конкретной игры и однократная нормализация на границе |
+| `src-tauri/src/domain/` | Чистые типы и состояния машины (`CarState`), без внешних SDK |
+| `src-tauri/src/pipeline/` · `services/` | Частый опрос, сбор заездов и кругов |
+| `src-tauri/src/ipc/` + `src/` | Тонкий мост и интерфейс листа сессии |
+
+Правила и раскладка: [AGENTS.md](AGENTS.md).
 
 ---
 
-## License
+## Участие
+
+1. Сделайте копию репозитория и ветку под задачу.
+2. Обработчики держите короткими; логику заезда — в сервисах и `domain`.
+3. Перед PR прогоните `bun run test` и тесты на Rust.
+4. Лучше небольшие PR с коротким «зачем» в описании.
+
+Правила и раскладка: [AGENTS.md](AGENTS.md) · идея продукта: [docs/CONCEPT.ru.md](docs/CONCEPT.ru.md).
+
+---
+
+## Лицензия
 
 Copyright (C) 2026 indrane
 
