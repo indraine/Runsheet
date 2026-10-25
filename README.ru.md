@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Tauri_2-SolidJS-24C8DB" alt="Tauri 2 · SolidJS" />
 </p>
 
-Десктопный лист сессии для **Assetto Corsa Competizione**. Открыл приложение, поехал — круги, секторы, топливо и валидность пишутся сами. Кнопки «начать запись» нет.
+Десктопный лист сессии для **Assetto Corsa Competizione**. Всё автоматически: открыл приложение, поехал — Runsheet сам пишет сессии, круги, секторы (S1–S3), топливо и валидность. Кнопки «начать запись» нет.
 
 > Продуктовая концепция и модель заезда: **[docs/CONCEPT.ru.md](docs/CONCEPT.ru.md)**
 
@@ -47,26 +47,6 @@
 - [x] Live Card с погодными условиями (Air, Asphalt), давлением в шинах (psi) и векторной картой трассы
 - [x] 11 тем оформления (Dark, Light, Dracula, Nord, Monokai, Gruvbox, Mocha, Solarized и др.)
 - [x] Мультиязычный интерфейс (EN / RU)
-
----
-
-## Темы
-
-| Тема | Режим |
-|------|--------|
-| Dark | Тёмная |
-| Light | Светлая |
-| Darcula | Тёмная |
-| Dracula | Тёмная |
-| Monokai | Тёмная |
-| Nord | Тёмная |
-| Mocha | Тёмная |
-| Gruvbox | Тёмная |
-| One Dark | Тёмная |
-| Solarized Dark | Тёмная |
-| Solarized Light | Светлая |
-
-Вариант `system` следует системной светлой/тёмной теме ОС.
 
 ---
 

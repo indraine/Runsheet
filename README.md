@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Tauri_2-SolidJS-24C8DB" alt="Tauri 2 · SolidJS" />
 </p>
 
-Desktop session sheet for **Assetto Corsa Competizione**. Open the app, drive — laps, sectors, fuel, and validity are recorded automatically. No “start recording” button.
+Desktop session sheet for **Assetto Corsa Competizione**. Everything is automatic: open the app, drive, and Runsheet captures sessions, laps, sectors (S1–S3), fuel, and validity on its own — no “start recording” button.
 
 > Product concept and session model: **[docs/CONCEPT.md](docs/CONCEPT.md)**
 
@@ -47,26 +47,6 @@ Spa · lap table with S1/S2/S3, fuel, delta, and track minimap.
 - [x] Live Card with weather (Air, Asphalt), tyre pressure (psi), and vector track map
 - [x] 11 appearance themes (Dark, Light, Dracula, Nord, Monokai, Gruvbox, Mocha, Solarized, …)
 - [x] Multilingual UI (EN / RU)
-
----
-
-## Themes
-
-| Theme | Mode |
-|-------|------|
-| Dark | Dark |
-| Light | Light |
-| Darcula | Dark |
-| Dracula | Dark |
-| Monokai | Dark |
-| Nord | Dark |
-| Mocha | Dark |
-| Gruvbox | Dark |
-| One Dark | Dark |
-| Solarized Dark | Dark |
-| Solarized Light | Light |
-
-System preference (`system`) follows the OS light/dark setting.
 
 ---
 
