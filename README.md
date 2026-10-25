@@ -17,6 +17,19 @@ Desktop session sheet for **Assetto Corsa Competizione**. Everything is automati
 
 > Product concept and session model: **[docs/CONCEPT.md](docs/CONCEPT.md)**
 
+## Demo
+
+<!--
+  If the clip is uploaded through GitHub Issues or a Release, replace src
+  with the CDN URL: https://github.com/user-attachments/assets/...
+-->
+
+<div align="center">
+  <video src="docs/demo.mp4" autoplay loop muted playsinline width="100%"></video>
+</div>
+
+> 💡 Video not playing? Watch the [demo as a GIF](docs/demo.gif) or download the [MP4](docs/demo.mp4).
+
 ---
 
 ## Screenshots

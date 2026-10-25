@@ -17,6 +17,19 @@
 
 > Продуктовая концепция и модель заезда: **[docs/CONCEPT.ru.md](docs/CONCEPT.ru.md)**
 
+## Демонстрация работы
+
+<!--
+  Если ролик загружен через GitHub Issues или Release, замените src
+  на CDN-адрес: https://github.com/user-attachments/assets/...
+-->
+
+<div align="center">
+  <video src="docs/demo.mp4" autoplay loop muted playsinline width="100%"></video>
+</div>
+
+> 💡 Не проигрывается видео? Посмотрите [демо-ролик в формате GIF](docs/demo.gif) или скачайте [MP4](docs/demo.mp4).
+
 ---
 
 ## Скриншоты
