@@ -1,0 +1,83 @@
+# Builds Windows MSI + portable .exe and publishes a GitHub Release on version tags.
+# macOS/Linux are omitted: ACC Shared Memory (live telemetry) is Windows-only.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish-tauri:
+    permissions:
+      contents: write
+
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      # MSI only (no NSIS *-setup.exe — easy to confuse with the portable app).
+      - name: Build and publish MSI to GitHub Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Runsheet v__VERSION__'
+          releaseBody: |
+            ## Runsheet v1.0.0 — Initial Release 🏁
+
+            Desktop session sheet for **Assetto Corsa Competizione**.
+            Open the app, drive — sessions, laps, sectors, fuel, and validity are captured automatically.
+
+            ### What's included
+            - Automatic session / lap / sector (S1–S3) tracking with fuel and validity
+            - Catalog of **25 ACC tracks** (Recent, Popular, A–Z; personal bests & attempt counts)
+            - Session journal grouped by day and type (Practice, Qualifying, Race / Solo, Online)
+            - **Live Card** with weather, tyre pressure (psi), splits, fuel, and vector track map
+            - **11** appearance themes (Dark, Light, Dracula, Nord, Monokai, Gruvbox, Mocha, Solarized, …)
+            - Multilingual UI (EN / RU)
+
+            ### Download (Windows x64) — pick one
+            | File | What it is |
+            |------|------------|
+            | `Runsheet-*-windows-x64-portable.exe` | **Portable app** — download and run, no install |
+            | `Runsheet-*-windows-x64-installer.msi` | **Installer** — installs via Windows Installer |
+
+            > Live ACC Shared Memory requires Windows. See the [README](https://github.com/indraine/Runsheet#readme) for details.
+          releaseDraft: false
+          prerelease: false
+          args: '--bundles msi'
+          assetNamePattern: 'Runsheet-[version]-windows-[arch]-installer[ext]'
+
+      - name: Upload portable executable
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $src = "src-tauri/target/release/runsheet.exe"
+          if (-not (Test-Path $src)) {
+            throw "Portable binary not found at $src"
+          }
+          $dst = "Runsheet-$version-windows-x64-portable.exe"
+          Copy-Item -Path $src -Destination $dst -Force
+          gh release upload "${{ github.ref_name }}" $dst --clobber
