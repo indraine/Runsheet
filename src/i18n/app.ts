@@ -97,6 +97,9 @@ const en = {
     launchMissing: "ACC was not found in Steam libraries",
     settings: "Settings",
     resetSettings: "Reset settings",
+    exportData: "Export data",
+    importData: "Import data",
+    importFailed: "Could not import the file",
     github: "GitHub repository",
 }
 
@@ -197,6 +200,9 @@ const ru: typeof en = {
     launchMissing: "ACC не найдена в библиотеках Steam",
     settings: "Настройки",
     resetSettings: "Сбросить настройки",
+    exportData: "Экспорт данных",
+    importData: "Импорт данных",
+    importFailed: "Не удалось импортировать файл",
     github: "Репозиторий на GitHub",
 }
 

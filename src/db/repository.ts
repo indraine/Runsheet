@@ -8,6 +8,7 @@ import {
     type Trace,
 } from "~/domain"
 import type { RunsheetDatabase } from "~/db/schema"
+import { readDump, writeDump, type RunsheetDump } from "~/db/transfer"
 
 export type SessionWrite = {
     session: Session
@@ -115,6 +116,17 @@ export class SessionRepository {
             this.setLastWrite(write)
             this.setRevision(current => current + 1)
         })
+    }
+
+    /** Полный снимок IndexedDB для обмена между гонщиками. */
+    async exportAll(): Promise<RunsheetDump> {
+        return readDump(this.database)
+    }
+
+    /** Merge-импорт снимка; поднимает revision, чтобы таймлайн перечитал день. */
+    async importAll(dump: RunsheetDump): Promise<void> {
+        await writeDump(this.database, dump)
+        this.setRevision(current => current + 1)
     }
 }
 

@@ -25,6 +25,7 @@ use sequencer::{Moment, Outcome, Sequencer};
 #[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) async fn run_consumer(ring: TelemetryRing, outbox: ipc::Outbox) {
     let mut sequencer = Sequencer::default();
+    let mut last_presence = None;
     let clock = HostClock::start();
     while let Some(envelope) = ring.recv().await {
         let link = envelope.link;
@@ -37,7 +38,13 @@ pub(crate) async fn run_consumer(ring: TelemetryRing, outbox: ipc::Outbox) {
         if outcome.stale {
             continue;
         }
-        publish(&outbox, link, game_running, &outcome);
+        publish(
+            &outbox,
+            link,
+            game_running,
+            &outcome,
+            &mut last_presence,
+        );
     }
 }
 
@@ -49,13 +56,24 @@ fn step(sequencer: &mut Sequencer, envelope: Envelope, moment: Moment) -> Outcom
     }
 }
 
-fn publish(outbox: &ipc::Outbox, link: LinkState, game_running: bool, outcome: &Outcome) {
-    if outcome.emit_status {
-        let snap = &outcome.snap;
-        let in_session = link == LinkState::Linked && snap.in_session;
+fn publish(
+    outbox: &ipc::Outbox,
+    link: LinkState,
+    game_running: bool,
+    outcome: &Outcome,
+    last_presence: &mut Option<game::Presence>,
+) {
+    let snap = &outcome.snap;
+    let in_session = link == LinkState::Linked && snap.in_session;
+    let presence = game::presence(in_session, game_running);
+    let presence_changed = last_presence.is_some_and(|previous| previous != presence)
+        || last_presence.is_none();
+    // Смена меню/трассы/выкл не ждёт 30 Гц: иначе «На трассе» залипает на секунду.
+    if outcome.emit_status || (presence_changed && last_presence.is_some()) {
+        *last_presence = Some(presence);
         outbox.emit_status(&ipc::Status::capture(Capture {
             link,
-            presence: game::presence(in_session, game_running),
+            presence,
             in_pit: snap.in_pit,
             packet_id: snap.packet_id,
             outing_id: snap.outing_id,

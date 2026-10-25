@@ -29,11 +29,13 @@ pub(crate) enum Presence {
     OnTrack,
 }
 
-/// Заезд важнее процесса: живая сессия — это трасса, даже если `tasklist` опоздал.
+/// Процесс важнее залипшей памяти: без exe это `Off`, даже если shared memory
+/// ещё отдаёт последний Live. Пока exe есть, а заезда нет — меню.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn presence(in_session: bool, game_running: bool) -> Presence {
     match (in_session, game_running) {
-        (true, _) => Presence::OnTrack,
+        (true, true) => Presence::OnTrack,
+        (true, false) => Presence::Off,
         (false, true) => Presence::Menu,
         (false, false) => Presence::Off,
     }
@@ -235,8 +237,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn session_wins_then_the_process_splits_menu_from_off() {
-        assert_eq!(presence(true, false), Presence::OnTrack);
+    fn process_gates_off_then_session_marks_the_track() {
+        assert_eq!(presence(true, false), Presence::Off);
         assert_eq!(presence(true, true), Presence::OnTrack);
         assert_eq!(presence(false, true), Presence::Menu);
         assert_eq!(presence(false, false), Presence::Off);
