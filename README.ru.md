@@ -24,7 +24,7 @@
   на CDN-адрес: https://github.com/user-attachments/assets/...
 -->
 
-[![Демонстрация работы Runsheet](docs/demo.gif)](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
+[![Демонстрация работы Runsheet](docs/demo.webp)](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
 
 > 💡 [Смотреть MP4 на GitHub](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
 

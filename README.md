@@ -24,7 +24,7 @@ Desktop session sheet for **Assetto Corsa Competizione**. Everything is automati
   with the CDN URL: https://github.com/user-attachments/assets/...
 -->
 
-[![Runsheet demo](docs/demo.gif)](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
+[![Runsheet demo](docs/demo.webp)](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
 
 > 💡 [Watch the MP4 on GitHub](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
 
