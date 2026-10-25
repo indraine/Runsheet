@@ -13,7 +13,7 @@ export type Lap = {
     fuel: number
 }
 
-/** Дольше двух часов — не время круга. `2_147_483_647` у ACC значит «времени нет». */
+
 const MAX_LAP_MS = 2 * 60 * 60 * 1000
 
 export const realTimeMs = (ms: number | null | undefined): number | null => {
@@ -23,11 +23,20 @@ export const realTimeMs = (ms: number | null | undefined): number | null => {
     return ms
 }
 
-/** Сторож в третьем секторе заменяется остатком круга, если первые два живые. */
+
 export const withRealTimes = (lap: Lap): Lap => {
     const timeMs = realTimeMs(lap.timeMs)
     const s1Ms = realTimeMs(lap.s1Ms)
-    const s2Ms = realTimeMs(lap.s2Ms)
+    let s2Ms = realTimeMs(lap.s2Ms)
+    if (
+        timeMs != null &&
+        s1Ms != null &&
+        s2Ms != null &&
+        s2Ms > s1Ms &&
+        s1Ms + s2Ms > timeMs
+    ) {
+        s2Ms = realTimeMs(s2Ms - s1Ms)
+    }
     const stored = realTimeMs(lap.s3Ms)
     const repaired =
         stored ??

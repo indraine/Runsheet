@@ -1,8 +1,3 @@
-//! Поток чтения shared memory ACC.
-//!
-//! На Windows опрос каждые 3 мс. Поток не пишет на диск и не шлёт события:
-//! свежий кадр уходит в кольцо через `try_send`. На не-Windows памяти нет,
-//! статус «недоступна» уходит не чаще 30 Гц, круги не пишутся.
 
 use std::time::Duration;
 #[cfg(windows)]
@@ -25,41 +20,18 @@ use super::broadcast::{STATUS_PERIOD_MS, UiClock};
 #[cfg(windows)]
 use super::ring::TelemetryRing;
 
-/// Пауза между попытками открыть память, пока ACC не запущена.
 #[cfg(windows)]
 const RETRY_AFTER: Duration = Duration::from_millis(500);
 
-/// Пауза между снимками. Верхние ~333 Гц. Повтор пакета отсекает `decode`.
 #[cfg(windows)]
 const SAMPLE_EVERY: Duration = Duration::from_millis(3);
 
-/// Сколько `Stale` подряд считаем меню/паузой. Совпадает с `sequencer::FROZEN_AFTER_MS`.
-/// Библиотека иногда отдаёт `Some` с тем же `packet_id` вместо `None` — без этого
-/// статус «На трассе» залипает, а графика с Off/меню не доходит.
+#[cfg(windows)]
+const READ_ERRORS_BEFORE_DROP: u32 = 50;
+
 #[cfg(windows)]
 const FROZEN_AFTER: Duration = Duration::from_millis(1_000);
 
-/// Что сказать в лог при смене связи. Повтор того же состояния молчит.
-#[derive(Debug, PartialEq, Eq)]
-enum LinkNotice {
-    Unavailable,
-    /// На этой системе память не открывается, поэтому ветка есть только в тесте и на Windows.
-    #[cfg_attr(not(any(windows, test)), allow(dead_code))]
-    Linked,
-    Lost,
-}
-
-impl LinkNotice {
-    const fn line(self) -> &'static str {
-        match self {
-            Self::Unavailable => "ACC недоступна",
-            Self::Linked => "ACC на связи",
-            Self::Lost => "связь с ACC потеряна",
-        }
-    }
-}
-
-/// Край связи. Пока состояние не меняется, новых строк нет.
 #[derive(Debug, Default)]
 struct Link {
     phase: LinkState,
@@ -67,28 +39,25 @@ struct Link {
 }
 
 impl Link {
-    /// На этой системе память не открывается, поэтому переход есть только в тесте и на Windows.
     #[cfg_attr(not(any(windows, test)), allow(dead_code))]
-    fn note_up(&mut self) -> Option<LinkNotice> {
+    fn note_up(&mut self) {
         if self.phase == LinkState::Linked {
-            return None;
+            return;
         }
         self.phase = LinkState::Linked;
         self.told_down = false;
-        Some(LinkNotice::Linked)
     }
 
-    fn note_down(&mut self) -> Option<LinkNotice> {
+    fn note_down(&mut self) {
         if self.phase == LinkState::Linked {
             self.phase = LinkState::Lost;
             self.told_down = true;
-            return Some(LinkNotice::Lost);
+            return;
         }
         if self.told_down {
-            return None;
+            return;
         }
         self.told_down = true;
-        Some(LinkNotice::Unavailable)
     }
 
     fn state(&self) -> LinkState {
@@ -96,24 +65,15 @@ impl Link {
     }
 }
 
-fn report(notice: Option<LinkNotice>) {
-    if let Some(notice) = notice {
-        eprintln!("{}", notice.line());
-    }
-}
-
-/// Память ACC есть только на Windows.
 #[cfg(windows)]
 pub(crate) fn run(ring: TelemetryRing) -> ! {
     poll(ring);
 }
 
-/// Памяти нет, поэтому круг не пишется. Статус «недоступна» всё равно уходит,
-/// не чаще 30 Гц: страница может подписаться уже после старта потока.
 #[cfg(not(windows))]
 pub(crate) fn run_without_acc(outbox: ipc::Outbox) -> ! {
     let mut link = Link::default();
-    report(link.note_down());
+    link.note_down();
     let mut clock = UiClock::default();
     let start = std::time::Instant::now();
     loop {
@@ -128,7 +88,6 @@ pub(crate) fn run_without_acc(outbox: ipc::Outbox) -> ! {
                 lap_number: None,
                 sector: None,
                 speed: None,
-                in_pit: false,
                 air_temp: None,
                 road_temp: None,
                 events: &[],
@@ -148,22 +107,22 @@ fn poll(ring: TelemetryRing) -> ! {
         let mut acc = match ACCSharedMemory::new() {
             Ok(acc) => acc,
             Err(_) => {
-                report(link.note_down());
+                link.note_down();
                 note_absent(&ring, &link, &mut seen_packet);
                 std::thread::sleep(RETRY_AFTER);
                 continue;
             }
         };
 
-        report(link.note_up());
+        link.note_up();
         let mut last_push = Instant::now();
         let mut last_fresh = Instant::now();
+        let mut read_errors = 0u32;
 
         loop {
             match acc.read_shared_memory() {
                 Ok(Some(map)) => {
-                    // Свежий id — снова едем. Долгий Stale — меню: графику всё равно
-                    // нужно протащить, иначе «На трассе» залипает.
+                    read_errors = 0;
                     if push_map(&ring, &link, &mut seen_packet, &map, false) {
                         last_fresh = Instant::now();
                         last_push = Instant::now();
@@ -175,25 +134,28 @@ fn poll(ring: TelemetryRing) -> ! {
                     std::thread::sleep(SAMPLE_EVERY);
                 }
                 Ok(None) => {
-                    // Физика замерла (пауза, меню), а статус живёт в другом сегменте.
+                    read_errors = 0;
                     acc.reset();
                     if let Ok(Some(map)) = acc.read_shared_memory() {
-                        // Идентификатор физики тот же, а пауза и меню живут в графике.
-                        // Иначе decode вернёт Stale и выезд не увидит Off.
                         seen_packet = None;
                         if push_map(&ring, &link, &mut seen_packet, &map, true) {
                             last_push = Instant::now();
                         }
                     } else if last_push.elapsed() >= RETRY_AFTER {
-                        // В меню `packet_id` бывает нулём: кадров нет, а статус нужен.
                         note_absent(&ring, &link, &mut seen_packet);
                         last_push = Instant::now();
                     }
                     std::thread::sleep(SAMPLE_EVERY);
                 }
-                Err(_) => {
-                    report(link.note_down());
+                Err(_error) => {
+                    read_errors += 1;
+                    if read_errors < READ_ERRORS_BEFORE_DROP {
+                        std::thread::sleep(SAMPLE_EVERY);
+                        continue;
+                    }
+                    link.note_down();
                     note_absent(&ring, &link, &mut seen_packet);
+                    std::thread::sleep(RETRY_AFTER);
                     break;
                 }
             }
@@ -201,16 +163,19 @@ fn poll(ring: TelemetryRing) -> ! {
     }
 }
 
-/// Как часто смотреть `tasklist`. Команда тяжелее чтения памяти, поэтому свой поток.
 #[cfg(windows)]
 const PROBE_EVERY: Duration = Duration::from_secs(2);
 
-/// Отдельный поток: `tasklist` не задерживает чтение кадров.
 #[cfg(windows)]
 pub(crate) fn probe_game(ring: TelemetryRing) -> ! {
+    let mut was_running = None;
     loop {
         if let Some(running) = game::is_game_running() {
             ring.note_game_running(running);
+            if was_running == Some(true) && !running {
+                ring.push_absent();
+            }
+            was_running = Some(running);
         }
         std::thread::sleep(PROBE_EVERY);
     }
@@ -223,7 +188,6 @@ fn note_absent(ring: &TelemetryRing, link: &Link, seen_packet: &mut Option<i32>)
     ring.push_absent();
 }
 
-/// `true` — кадр ушёл в кольцо. `false` — повтор пакета или брак.
 #[cfg(windows)]
 fn push_map(
     ring: &TelemetryRing,
@@ -245,10 +209,7 @@ fn push_map(
             }
             true
         }
-        Err(error) => {
-            eprintln!("кадр ACC отвергнут: {error}");
-            false
-        }
+        Err(_error) => false,
     }
 }
 
@@ -260,19 +221,22 @@ mod tests {
     fn link_remembers_a_drop_after_it_was_up() {
         let mut link = Link::default();
         assert_eq!(link.state(), LinkState::Unavailable);
-        assert_eq!(link.note_down(), Some(LinkNotice::Unavailable));
-        assert_eq!(link.note_down(), None);
+        link.note_down();
+        assert_eq!(link.state(), LinkState::Unavailable);
+        link.note_down();
         assert_eq!(link.state(), LinkState::Unavailable);
 
-        assert_eq!(link.note_up(), Some(LinkNotice::Linked));
-        assert_eq!(link.note_up(), None);
+        link.note_up();
+        assert_eq!(link.state(), LinkState::Linked);
+        link.note_up();
         assert_eq!(link.state(), LinkState::Linked);
 
-        assert_eq!(link.note_down(), Some(LinkNotice::Lost));
-        assert_eq!(link.note_down(), None);
+        link.note_down();
+        assert_eq!(link.state(), LinkState::Lost);
+        link.note_down();
         assert_eq!(link.state(), LinkState::Lost);
 
-        assert_eq!(link.note_up(), Some(LinkNotice::Linked));
+        link.note_up();
         assert_eq!(link.state(), LinkState::Linked);
     }
 }

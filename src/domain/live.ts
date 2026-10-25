@@ -17,13 +17,13 @@ export type LiveCard = {
     pressurePsi: number | undefined
     rows: LiveLapRow[]
     road: Trace | undefined
-    /** Открытый круг: его последний сэмпл — где машина сейчас. */
+    
     car: Trace | undefined
 }
 
 const SECTOR_KEYS = ["s1Ms", "s2Ms", "s3Ms"] as const
 
-/** Карточка — сессия, которую ACC держит открытой. Чужой `live` в базе её не включает. */
+
 export const shownLive = (
     sessions: readonly Session[],
     sessionId?: string | null

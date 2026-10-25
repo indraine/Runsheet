@@ -1,7 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core"
 import { createEffect, createSignal, onMount, Show } from "solid-js"
 import { readLaunchChoice, writeLaunchChoice } from "~/app/launch-choice"
-import { accLink } from "~/app/status"
+import { accPresence } from "~/app/status"
 import { t } from "~/i18n"
 import { Button } from "~/ui"
 
@@ -12,9 +12,9 @@ type CommandBody<T> =
 const [install, setInstall] = createSignal<string | null>(null)
 const [launching, setLaunching] = createSignal(false)
 
-export const isGameOff = () => accLink().presence === "off"
+export const isGameOff = () => accPresence() === "off"
 
-/** Запускает ACC один раз, пока игра не появилась в статусе. */
+
 const launchAcc = (): void => {
     if (launching()) return
     setLaunching(true)
@@ -26,7 +26,7 @@ const launchAcc = (): void => {
         })
 }
 
-/** Спрашивает при каждом старте Runsheet, пока выбор не запомнен. */
+
 export const LaunchAcc = () => {
     const [remember, setRemember] = createSignal(false)
     const [answered, setAnswered] = createSignal(false)
@@ -108,7 +108,7 @@ export const LaunchAcc = () => {
     )
 }
 
-/** Кнопка в шапке вместо статуса, пока игра не запущена. */
+
 export const LaunchAccButton = () => (
     <Button
         size="sm"

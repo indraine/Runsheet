@@ -1,4 +1,4 @@
 [[permission]]
 identifier = "allow-listen-laps"
-description = "Подписка на сырые пачки круга."
-commands.allow = ["listen_laps"]
+description = "Подписка на пачки круга и снимок статуса ACC."
+commands.allow = ["listen_laps", "listen_status"]

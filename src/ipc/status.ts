@@ -1,7 +1,5 @@
 import { isSessionType, type Session } from "~/domain"
 
-export const ACC_STATUS_EVENT = "acc-status"
-
 export type AccLinkState = "unavailable" | "linked" | "lost"
 
 export type AccStatusEvent =
@@ -20,7 +18,7 @@ export type AccStatusEvent =
           endedAt: number
       }
 
-export type AccPresence = "off" | "menu" | "onTrack"
+export type AccPresence = "off" | "menu" | "inPits" | "onTrack"
 
 export type AccStatus = {
     link: AccLinkState
@@ -30,7 +28,6 @@ export type AccStatus = {
     lapNumber: number | null
     sector: number | null
     speed: number | null
-    inPit: boolean
     airTemp: number | null
     roadTemp: number | null
     events: AccStatusEvent[]
@@ -44,24 +41,22 @@ export type RateMark = {
 const LINK_STATES = new Set<AccLinkState>(["unavailable", "linked", "lost"])
 
 export const parseAccStatus = (payload: unknown): AccStatus | undefined => {
-    if (!isRecord(payload)) return undefined
-    if (!isLinkState(payload.link)) return undefined
+    const body = unwrapEnvelope(payload)
+    if (!isRecord(body)) return undefined
+    if (!isLinkState(body.link)) return undefined
 
     return {
-        link: payload.link,
-        presence: parsePresence(payload.presence, payload.link),
-        packetId: optionalInt(payload.packetId),
+        link: body.link,
+        presence: parsePresence(body.presence, body.link),
+        packetId: optionalInt(body.packetId),
         session:
-            payload.session == null
-                ? null
-                : (parseSession(payload.session) ?? null),
-        lapNumber: optionalInt(payload.lapNumber),
-        sector: optionalInt(payload.sector),
-        speed: optionalNumber(payload.speed),
-        inPit: payload.inPit === true,
-        airTemp: optionalNumber(payload.airTemp),
-        roadTemp: optionalNumber(payload.roadTemp),
-        events: parseEvents(payload.events),
+            body.session == null ? null : (parseSession(body.session) ?? null),
+        lapNumber: optionalInt(body.lapNumber),
+        sector: optionalInt(body.sector),
+        speed: optionalNumber(body.speed),
+        airTemp: optionalNumber(body.airTemp),
+        roadTemp: optionalNumber(body.roadTemp),
+        events: parseEvents(body.events),
     }
 }
 
@@ -176,16 +171,22 @@ const parseEvent = (value: unknown): AccStatusEvent | undefined => {
     }
 }
 
+const unwrapEnvelope = (value: unknown): unknown => {
+    if (!isRecord(value)) return value
+    if (value.status === "success" && "data" in value) return value.data
+    return value
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null
 
-const PRESENCE = new Set<AccPresence>(["off", "menu", "onTrack"])
+const PRESENCE = new Set<AccPresence>(["off", "menu", "inPits", "onTrack"])
 
 const parsePresence = (value: unknown, link: AccLinkState): AccPresence => {
     if (typeof value === "string" && PRESENCE.has(value as AccPresence)) {
         return value as AccPresence
     }
-    return link === "linked" ? "onTrack" : "off"
+    return link === "linked" ? "menu" : "off"
 }
 
 const isLinkState = (value: unknown): value is AccLinkState =>

@@ -1,8 +1,3 @@
-//! Пробы до воркера телеметрии.
-//!
-//! Сессии и круги пишет фронт в IndexedDB. Здесь размеры shared memory
-//! сверяются с крейтом.
-
 use std::fmt;
 
 use crate::ingress::layout::{
@@ -16,7 +11,6 @@ const PINNED_PHYSICS_BYTES: usize = 800;
 const PINNED_GRAPHICS_BYTES: usize = 1_588;
 const PINNED_STATICS_BYTES: usize = 784;
 
-/// Почему старт остановился до воркера.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProbeFailure {
     pub message: String,
@@ -40,21 +34,9 @@ impl fmt::Display for ProbeFailure {
 
 impl std::error::Error for ProbeFailure {}
 
-/// Проверки, без которых поток чтения не запускается.
 pub struct StartupProbes;
 
 impl StartupProbes {
-    /// Сверяет 800 / 1588 / 784 с `ingress::layout`.
-    ///
-    /// На не-Windows сегменты `Local\acpmf_*` не открываются. На Windows короткий
-    /// `MapView` уже существующего сегмента останавливает старт; отсутствие сегмента — нет.
-    ///
-    /// # Example
-    /// ```
-    /// use runsheet_lib::startup::StartupProbes;
-    ///
-    /// StartupProbes::verify_memory_layout().expect("размеры сегментов совпадают");
-    /// ```
     pub fn verify_memory_layout() -> Result<(), ProbeFailure> {
         pinned("physics", PHYSICS_SEGMENT_BYTES, PINNED_PHYSICS_BYTES)?;
         pinned("graphics", GRAPHICS_SEGMENT_BYTES, PINNED_GRAPHICS_BYTES)?;
@@ -82,7 +64,6 @@ mod tests {
 
     #[test]
     fn memory_layout_is_green_without_opening_segments() {
-        // На этой ОС (не Windows) `ensure_mapped_views` не вызывает `SharedMemoryReader`.
         StartupProbes::verify_memory_layout().expect("pinned sizes match");
     }
 }

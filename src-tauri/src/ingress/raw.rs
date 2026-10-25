@@ -1,4 +1,3 @@
-//! Сырые страницы крейта. Из `ingress` они не реэкспортируются.
 
 use acc_shared_memory_rs::maps::{GraphicsMap, PhysicsMap, StaticsMap};
 

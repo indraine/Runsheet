@@ -1,8 +1,5 @@
-//! Единицы измерения.
-
 use std::fmt;
 
-/// Скорость, км/ч.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub(crate) struct Speed(f32);
 
@@ -22,7 +19,6 @@ impl fmt::Display for Speed {
     }
 }
 
-/// Давление шины, psi.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub(crate) struct Psi(f32);
 
@@ -42,7 +38,6 @@ impl fmt::Display for Psi {
     }
 }
 
-/// Температура, градусы Цельсия.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub(crate) struct Celsius(f32);
 
@@ -62,7 +57,6 @@ impl fmt::Display for Celsius {
     }
 }
 
-/// Известное время круга или сектора, миллисекунды.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct LapTime(i32);
 
@@ -82,7 +76,6 @@ impl fmt::Display for LapTime {
     }
 }
 
-/// Доля длины трассы, `0.0..=1.0`.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub(crate) struct TrackProgress(f32);
 
@@ -102,7 +95,6 @@ impl fmt::Display for TrackProgress {
     }
 }
 
-/// Положение газа, `0.0..=1.0`.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub(crate) struct ThrottlePosition(f32);
 
@@ -122,7 +114,6 @@ impl fmt::Display for ThrottlePosition {
     }
 }
 
-/// Положение тормоза, `0.0..=1.0`.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub(crate) struct BrakePosition(f32);
 

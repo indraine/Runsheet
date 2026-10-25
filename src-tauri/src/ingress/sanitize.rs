@@ -1,7 +1,3 @@
-//! Единственное место, где сырой пакет становится доменным кадром.
-//!
-//! Конечность, диапазон педалей и неизвестный дискриминатор проверяются здесь.
-//! Деления нет: производное отношение, если появится, тоже считается на этой границе.
 
 use std::fmt;
 
@@ -18,7 +14,6 @@ use crate::domain::{
 
 use super::raw::{RawGraphicPage, RawPhysicsPage, RawStaticPage};
 
-/// Кадр не прошёл границу. Домен его не увидит.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BoundaryError {
     NonFinite { field: &'static str },
@@ -38,24 +33,18 @@ impl fmt::Display for BoundaryError {
 
 impl std::error::Error for BoundaryError {}
 
-/// Повтор уже принятого `packet_id` или новый чистый кадр.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum PageOutcome {
     Stale,
     Fresh(CleanTick),
 }
 
-/// Физика и графика одного свежего пакета.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct CleanTick {
     pub physics: CleanTelemetryFrame,
     pub graphic: CleanSessionGraphic,
 }
 
-/// Свежий пакет или повтор того же `physics.packet_id`.
-///
-/// Откат идентификатора назад — новый поток, не ошибка.
-/// Неконечное обязательное поле отвергает кадр целиком.
 #[must_use]
 pub(crate) fn decode(
     previous_packet_id: Option<i32>,
@@ -89,7 +78,6 @@ impl TryFrom<&RawPhysicsPage> for CleanTelemetryFrame {
         let g_lat = finite("g_force.x", page.g_force.x)?;
         let g_long = finite("g_force.z", page.g_force.z)?;
         finite("g_force.y", page.g_force.y)?;
-        // Позиция и земля живут на странице графики. Ноль заменяется в `place_on_track`.
         Ok(Self {
             packet_id: page.packet_id,
             speed: Speed::from_kmh_unchecked(finite("speed_kmh", page.speed_kmh)?),
@@ -121,8 +109,6 @@ impl TryFrom<&RawGraphicPage> for CleanSessionGraphic {
             in_pit_lane: page.is_in_pit_lane,
             checkered: checkered_flag(page.flag as i32)?,
         };
-        // У страницы нет предыдущего места. Replay его не задаёт и остаётся гаражом.
-        // Шаг с историей делает секвенсор, когда у него есть прошлый `CarState`.
         let car_state = CarState::InGarage.step(place).state;
         Ok(Self {
             status,
@@ -148,7 +134,6 @@ impl TryFrom<&RawGraphicPage> for CleanSessionGraphic {
     }
 }
 
-/// `normalized_car_position` и земля игрока лежат на графике, а в домене — на физике.
 fn place_on_track(
     frame: &mut CleanTelemetryFrame,
     graphic: &RawGraphicPage,
@@ -163,7 +148,6 @@ fn place_on_track(
     Ok(())
 }
 
-/// Трасса, машина и температуры приходят с других страниц того же пакета.
 fn apply_session_context(
     graphic: &mut CleanSessionGraphic,
     statics: &RawStaticPage,
@@ -177,7 +161,6 @@ fn apply_session_context(
     Ok(())
 }
 
-/// Слот ищется по идентификатору, не по индексу. Нет слота — земля `(0, 0)`, кадр живой.
 fn player_ground(graphic: &RawGraphicPage) -> Result<(f32, f32), BoundaryError> {
     let Some(slot) = graphic
         .car_id
@@ -236,7 +219,6 @@ fn checkered_flag(value: i32) -> Result<bool, BoundaryError> {
     Ok(flag == AccFlagType::CheckeredFlag)
 }
 
-/// `-1` и `i32::MAX` у ACC значат «ещё нет». Ноль тоже не время круга.
 fn known_time(ms: i32) -> Option<LapTime> {
     if ms > 0 && ms < i32::MAX {
         Some(LapTime::from_ms_unchecked(ms))
@@ -253,7 +235,6 @@ fn finite(field: &'static str, value: f32) -> Result<f32, BoundaryError> {
     }
 }
 
-/// Сначала конечность: `clamp` у NaN остаётся NaN.
 fn unit_interval(field: &'static str, value: f32) -> Result<f32, BoundaryError> {
     Ok(finite(field, value)?.clamp(0.0, 1.0))
 }

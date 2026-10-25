@@ -55,10 +55,7 @@ export const encodeLapPacket = (lap: Lap, trace: Trace): ArrayBuffer => {
     return buffer
 }
 
-/**
- * Разбирает пачку в круг и трейс.
- * Короткий или несовпадающий по длине буфер — `undefined`.
- */
+
 export const decodeLapPacket = (
     buffer: ArrayBuffer
 ): DecodedLap | undefined => {

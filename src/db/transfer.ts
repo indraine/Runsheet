@@ -1,3 +1,4 @@
+import { invoke, isTauri } from "@tauri-apps/api/core"
 import {
     isSessionType,
     TRACE_CHANNELS,
@@ -12,7 +13,7 @@ import { DB_VERSION, type RunsheetDatabase } from "~/db/schema"
 export const DUMP_FORMAT = "runsheet.dump" as const
 export const DUMP_VERSION = 1 as const
 
-/** JSON-снимок IndexedDB: сессии, круги и трейсы с каналами как number[]. */
+
 export type RunsheetDump = {
     format: typeof DUMP_FORMAT
     version: typeof DUMP_VERSION
@@ -25,15 +26,7 @@ export type RunsheetDump = {
 
 export type EncodedTrace = { lapId: string } & Record<TraceChannel, number[]>
 
-/**
- * Читает все store'ы и кодирует трейсы для JSON.
- *
- * # Example
- * ```ts
- * const dump = await readDump(db)
- * assert(dump.format === "runsheet.dump")
- * ```
- */
+
 export async function readDump(db: RunsheetDatabase): Promise<RunsheetDump> {
     const [sessions, laps, traces] = await Promise.all([
         db.getAll("sessions"),
@@ -51,15 +44,7 @@ export async function readDump(db: RunsheetDatabase): Promise<RunsheetDump> {
     }
 }
 
-/**
- * Пишет снимок поверх текущих записей (merge по id). Существующие ключи
- * перезаписываются, чужие локальные записи остаются.
- *
- * # Example
- * ```ts
- * await writeDump(db, dump)
- * ```
- */
+
 export async function writeDump(
     db: RunsheetDatabase,
     dump: RunsheetDump
@@ -77,7 +62,7 @@ export async function writeDump(
     ])
 }
 
-/** Разбирает JSON-файл экспорта; на битом вводе — Error с понятным текстом. */
+
 export async function parseDumpFile(file: File): Promise<RunsheetDump> {
     let raw: unknown
     try {
@@ -88,7 +73,7 @@ export async function parseDumpFile(file: File): Promise<RunsheetDump> {
     return parseDump(raw)
 }
 
-/** Валидация на периметре: только канонический RunsheetDump. */
+
 export function parseDump(raw: unknown): RunsheetDump {
     if (!isRecord(raw)) throw new Error("Снимок должен быть объектом")
     if (raw.format !== DUMP_FORMAT) {
@@ -128,18 +113,35 @@ export function parseDump(raw: unknown): RunsheetDump {
     }
 }
 
-/** Скачивает снимок как `runsheet-YYYY-MM-DD.json`. */
-export function downloadDump(dump: RunsheetDump): void {
-    const blob = new Blob([JSON.stringify(dump)], {
-        type: "application/json",
-    })
+
+export async function downloadDump(dump: RunsheetDump): Promise<void> {
+    const contents = JSON.stringify(dump)
+    const name = dumpFileName(dump.exportedAt)
+    if (isTauri()) {
+        const body = await invoke<CommandBody<boolean>>("save_text_file", {
+            defaultName: name,
+            contents,
+        })
+        if (body.status === "error") {
+            throw new Error(body.message)
+        }
+        return
+    }
+    const blob = new Blob([contents], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement("a")
     anchor.href = url
-    anchor.download = dumpFileName(dump.exportedAt)
+    anchor.download = name
+    anchor.rel = "noopener"
+    document.body.appendChild(anchor)
     anchor.click()
-    URL.revokeObjectURL(url)
+    anchor.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
 }
+
+type CommandBody<T> =
+    | { status: "success"; data: T }
+    | { status: "error"; message: string; hint: string }
 
 export function dumpFileName(exportedAt: number): string {
     const day = new Date(exportedAt)

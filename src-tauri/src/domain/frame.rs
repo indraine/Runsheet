@@ -1,4 +1,3 @@
-//! Чистый кадр телеметрии.
 
 use super::tires::TireSet;
 use super::units::{BrakePosition, Celsius, LapTime, Psi, Speed, ThrottlePosition, TrackProgress};
@@ -18,7 +17,6 @@ pub(crate) struct CleanTelemetryFrame {
     pub ground_x: f32,
     pub ground_z: f32,
     pub pressure: TireSet<Psi>,
-    /// Передние `physics.brake_temp`.
     pub brake_temp_fl: Celsius,
     pub brake_temp_fr: Celsius,
 }

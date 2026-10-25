@@ -1,30 +1,23 @@
-//! Снимок `acc-status`. Имена JSON совпадают с разбором на фронте.
 
 use serde::Serialize;
 
 use crate::domain::{OutingEvent, OutingId, Session, SessionKind};
 use crate::platform::game::Presence;
 
-/// Имя события Tauri со снимком связи и открытой сессии.
-pub(crate) const ACC_STATUS: &str = "acc-status";
-
 const LIVE: &str = "live";
 
-/// Связь с памятью ACC. В JSON — `unavailable`, `linked`, `lost`.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum LinkState {
     #[default]
     Unavailable,
-    /// На не-Windows память не открывается, поэтому ветка жива в тесте и на Windows.
     #[cfg_attr(not(any(windows, test)), allow(dead_code))]
     Linked,
     #[cfg_attr(not(any(windows, test)), allow(dead_code))]
     Lost,
 }
 
-/// Снимок для `acc-status`. Поля названы так же, как сессия на фронте.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Status {
     pub link: LinkState,
@@ -35,14 +28,12 @@ pub(crate) struct Status {
     pub lap_number: Option<i32>,
     pub sector: Option<i32>,
     pub speed: Option<f32>,
-    pub in_pit: bool,
     pub air_temp: Option<f32>,
     pub road_temp: Option<f32>,
     pub events: Vec<StatusEvent>,
 }
 
-/// Открытая сессия внутри статуса. `status` здесь всегда `live`.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SessionBody {
     pub id: String,
@@ -60,8 +51,7 @@ pub(crate) struct SessionBody {
     pub road_temp: f32,
 }
 
-/// Что машина выезда решила на этом тике.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(
     tag = "kind",
     rename_all = "camelCase",
@@ -86,7 +76,6 @@ pub(crate) enum StatusEvent {
     },
 }
 
-/// Поля одного тика, из которых собирается статус.
 pub(crate) struct Capture<'a> {
     pub link: LinkState,
     pub presence: Presence,
@@ -96,7 +85,6 @@ pub(crate) struct Capture<'a> {
     pub lap_number: Option<i32>,
     pub sector: Option<i32>,
     pub speed: Option<f32>,
-    pub in_pit: bool,
     pub air_temp: Option<f32>,
     pub road_temp: Option<f32>,
     pub events: &'a [OutingEvent],
@@ -113,7 +101,6 @@ impl Status {
             lap_number: input.lap_number,
             sector: input.sector,
             speed: input.speed,
-            in_pit: input.in_pit,
             air_temp: input.air_temp,
             road_temp: input.road_temp,
             events: input.events.iter().map(StatusEvent::from_event).collect(),
@@ -171,7 +158,6 @@ impl StatusEvent {
     }
 }
 
-/// Текстовый UUID для фронта. В домене идентификатор — шестнадцать байт.
 fn id_text(bytes: [u8; 16]) -> String {
     uuid::Uuid::from_bytes(bytes).to_string()
 }
@@ -238,7 +224,6 @@ mod tests {
             lap_number: Some(3),
             sector: Some(1),
             speed: Some(120.0),
-            in_pit: false,
             air_temp: Some(session.air_c),
             road_temp: Some(session.road_c),
             events: &events,

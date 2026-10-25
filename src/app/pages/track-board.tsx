@@ -14,12 +14,12 @@ import { fmt, t, trackCodes, trackName } from "~/i18n"
 import { locale } from "~/i18n/locale"
 import { buttonVariants, cn, Tabs } from "~/ui"
 
-/** Страница — одна строка из четырёх трасс. */
+
 const PAGE_SIZE = 4
 const OUTLINE_BOX = 100
-/** Меньше полей — схема занимает почти всю плитку. */
+
 const OUTLINE_PADDING = 4
-/** Схема в плитке ~320 px — больше точек глаз не различит. */
+
 const OUTLINE_POINTS = 360
 
 const iconProps = {
@@ -27,7 +27,7 @@ const iconProps = {
     strokeWidth: 1.75,
 } as const
 
-/** Все трассы ACC: вместо Live-карточки, пока не едешь по трассе. */
+
 export const TrackBoard = (props: {
     records: ReadonlyMap<string, TrackRecord>
 }) => {

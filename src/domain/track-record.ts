@@ -3,7 +3,6 @@ import type { Session } from "~/domain/session"
 
 export type TrackRecord = {
     sessions: number
-    /** Самый свежий `startedAt` среди заездов на этой трассе. */
     lastStartedAt: number
     bestLap: Lap | undefined
 }
@@ -15,13 +14,7 @@ export type TrackSort = (typeof TRACK_SORTS)[number]
 export const isTrackSort = (value: string): value is TrackSort =>
     (TRACK_SORTS as readonly string[]).includes(value)
 
-/**
- * Число заездов, последний выезд и лучший зачётный круг по каждой трассе.
- *
- * @example
- * trackRecords([{ session: spaSession, bestLap: spaLap }]).get("spa")
- * // → { sessions: 1, lastStartedAt: spaSession.startedAt, bestLap: spaLap }
- */
+
 export const trackRecords = (
     rows: readonly { session: Session; bestLap: Lap | undefined }[]
 ): ReadonlyMap<string, TrackRecord> => {
@@ -54,13 +47,7 @@ export const trackRecords = (
     )
 }
 
-/**
- * Порядок плиток слева направо: недавние / частые / по имени каталога.
- * Трассы без заездов всегда в конце (кроме сортировки по имени).
- *
- * @example
- * sortTracks(["spa", "monza"], records, "popular")
- */
+
 export const sortTracks = (
     codes: readonly string[],
     records: ReadonlyMap<string, TrackRecord>,

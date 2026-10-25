@@ -1,7 +1,3 @@
-//! Где лежит ACC и запущена ли она.
-//!
-//! Заезд виден по shared memory. Запущена ли игра — по `tasklist`: в главном
-//! меню памяти ещё нет, а процесс уже есть.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -14,34 +10,32 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-/// Имя exe ACC: и для поиска в Steam, и для `tasklist`.
 const PROCESS_NAME: &str = "AC2-Win64-Shipping.exe";
 
 #[cfg(windows)]
 const GAME_DIR: &str = "Assetto Corsa Competizione";
 
-/// `Off` — игра не запущена. `Menu` — запущена, заезда нет. `OnTrack` — игрок в сессии.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum Presence {
     Off,
     Menu,
+    InPits,
     OnTrack,
 }
 
-/// Процесс важнее залипшей памяти: без exe это `Off`, даже если shared memory
-/// ещё отдаёт последний Live. Пока exe есть, а заезда нет — меню.
 #[cfg_attr(not(windows), allow(dead_code))]
-pub(crate) fn presence(in_session: bool, game_running: bool) -> Presence {
-    match (in_session, game_running) {
-        (true, true) => Presence::OnTrack,
-        (true, false) => Presence::Off,
-        (false, true) => Presence::Menu,
-        (false, false) => Presence::Off,
+pub(crate) fn presence(running: bool, place: crate::domain::SessionPlace) -> Presence {
+    if !running {
+        return Presence::Off;
+    }
+    match place {
+        crate::domain::SessionPlace::Menu => Presence::Menu,
+        crate::domain::SessionPlace::InPits => Presence::InPits,
+        crate::domain::SessionPlace::OnTrack => Presence::OnTrack,
     }
 }
 
-/// `Some` — `tasklist` ответил. `None` — команда не отработала, прошлое значение живёт.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn is_game_running() -> Option<bool> {
     #[cfg(windows)]
@@ -63,7 +57,6 @@ pub(crate) fn is_game_running() -> Option<bool> {
     }
 }
 
-/// В CSV `tasklist` имя процесса — первая колонка в кавычках.
 #[cfg_attr(not(any(windows, test)), allow(dead_code))]
 fn lists_process(csv: &str) -> bool {
     let quoted = format!("\"{PROCESS_NAME}\"");
@@ -74,7 +67,6 @@ fn lists_process(csv: &str) -> bool {
     })
 }
 
-/// Каталог установки, если он нашёлся в обычных местах Steam.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn find_executable() -> Option<PathBuf> {
     #[cfg(windows)]
@@ -87,14 +79,12 @@ pub(crate) fn find_executable() -> Option<PathBuf> {
     }
 }
 
-/// Почему запуск не удался. `hint` говорит, куда смотреть.
 #[derive(Debug)]
 pub(crate) struct LaunchError {
     pub message: String,
     pub hint: String,
 }
 
-/// Где ищем exe. На не-Windows файла нет, места поиска те же.
 const STEAM_SEARCH_HINT: &str = "\
 Искали AC2-Win64-Shipping.exe в библиотеках Steam: реестр HKCU\\Software\\Valve\\Steam, \
 libraryfolders.vdf, C:\\Program Files (x86)\\Steam и C:\\Program Files\\Steam.";
@@ -117,7 +107,6 @@ impl LaunchError {
     }
 }
 
-/// Запускает найденный exe. Рабочий каталог — папка бинарника.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn launch() -> Result<(), LaunchError> {
     let exe = find_executable().ok_or_else(LaunchError::missing)?;
@@ -188,7 +177,6 @@ fn steam_install() -> Option<PathBuf> {
     path.is_dir().then_some(path)
 }
 
-/// Значение `REG_SZ` на строке `name`. Путь с пробелами не режется.
 #[cfg_attr(not(windows), allow(dead_code))]
 fn reg_sz<'a>(text: &'a str, name: &str) -> Option<&'a str> {
     let line = text.lines().find(|line| line.contains(name))?;
@@ -196,7 +184,6 @@ fn reg_sz<'a>(text: &'a str, name: &str) -> Option<&'a str> {
     (!value.is_empty()).then_some(value)
 }
 
-/// Пути библиотек из `libraryfolders.vdf`. Ключ `"path"`, кавычки и `\\` снимаются.
 #[cfg_attr(not(windows), allow(dead_code))]
 fn vdf_paths(text: &str) -> Vec<PathBuf> {
     let mut paths = Vec::new();
@@ -238,10 +225,12 @@ mod tests {
 
     #[test]
     fn process_gates_off_then_session_marks_the_track() {
-        assert_eq!(presence(true, false), Presence::Off);
-        assert_eq!(presence(true, true), Presence::OnTrack);
-        assert_eq!(presence(false, true), Presence::Menu);
-        assert_eq!(presence(false, false), Presence::Off);
+        use crate::domain::SessionPlace;
+        assert_eq!(presence(false, SessionPlace::OnTrack), Presence::Off);
+        assert_eq!(presence(true, SessionPlace::OnTrack), Presence::OnTrack);
+        assert_eq!(presence(true, SessionPlace::Menu), Presence::Menu);
+        assert_eq!(presence(true, SessionPlace::InPits), Presence::InPits);
+        assert_eq!(presence(false, SessionPlace::InPits), Presence::Off);
     }
 
     #[test]

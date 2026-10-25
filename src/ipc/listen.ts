@@ -1,10 +1,8 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core"
-import { listen, type UnlistenFn } from "@tauri-apps/api/event"
-import { accLink, setAccLink, type AccLink } from "~/app/status"
+import { applyAccLink, type AccLink } from "~/app/status"
 import type { SessionRepository } from "~/db"
 import { createAccIngest } from "~/ipc/ingest"
 import {
-    ACC_STATUS_EVENT,
     packetRate,
     parseAccStatus,
     type AccStatus,
@@ -16,20 +14,42 @@ export type AccFeed = {
     stop: () => void
 }
 
+let feed: AccFeed | undefined
+
 export const startAccFeed = (): AccFeed => {
     if (!isTauri()) {
         return { attach: () => undefined, stop: () => undefined }
     }
+    if (!feed) {
+        feed = createFeed()
+    }
+    return feed
+}
 
+const createFeed = (): AccFeed => {
     const ingest = createAccIngest()
     let repo: SessionRepository | undefined
     let queuedStatus: AccStatus | undefined
     let queuedPacket: ArrayBuffer | undefined
     let mark: RateMark | undefined
-    let stopped = false
-    let unlisten: UnlistenFn | undefined
 
-    const channel = new Channel<unknown>(message => {
+    const applyUi = (status: AccStatus): void => {
+        applyAccLink(linkOf(status))
+        const current = repo
+        if (!current) {
+            queuedStatus = status
+            return
+        }
+        void ingest.applyStatus(current, status).catch(report)
+    }
+
+    const statusChannel = new Channel<unknown>(message => {
+        const status = parseAccStatus(message)
+        if (!status) return
+        applyUi(status)
+    })
+
+    const lapChannel = new Channel<unknown>(message => {
         const buffer = bytesOf(message)
         if (!buffer) return
         const current = repo
@@ -40,23 +60,8 @@ export const startAccFeed = (): AccFeed => {
         void ingest.applyPacket(current, buffer).catch(report)
     })
 
-    void invoke("listen_laps", { channel }).catch(report)
-    void listen(ACC_STATUS_EVENT, event => {
-        const status = parseAccStatus(event.payload)
-        if (!status) return
-        publishLink(status)
-        const current = repo
-        if (!current) {
-            queuedStatus = status
-            return
-        }
-        void ingest.applyStatus(current, status).catch(report)
-    })
-        .then(stop => {
-            if (stopped) stop()
-            else unlisten = stop
-        })
-        .catch(report)
+    void invoke("listen_laps", { channel: lapChannel }).catch(report)
+    void invoke("listen_status", { channel: statusChannel }).catch(report)
 
     const attach = (next: SessionRepository): void => {
         repo = next
@@ -64,30 +69,11 @@ export const startAccFeed = (): AccFeed => {
         const packet = queuedPacket
         queuedStatus = undefined
         queuedPacket = undefined
-        if (status) void ingest.applyStatus(next, status).catch(report)
-        if (packet) void ingest.applyPacket(next, packet).catch(report)
-    }
-
-    const stop = (): void => {
-        stopped = true
-        unlisten?.()
-        unlisten = undefined
-    }
-
-    const publishLink = (status: AccStatus): void => {
-        const next = linkOf(status)
-        const current = accLink()
-        if (
-            current.linked === next.linked &&
-            current.presence === next.presence &&
-            current.hz === next.hz &&
-            current.packetId === next.packetId &&
-            current.sessionId === next.sessionId &&
-            current.inPit === next.inPit
-        ) {
-            return
+        if (status) {
+            applyAccLink(linkOf(status))
+            void ingest.applyStatus(next, status).catch(report)
         }
-        setAccLink(next)
+        if (packet) void ingest.applyPacket(next, packet).catch(report)
     }
 
     const linkOf = (status: AccStatus): AccLink => {
@@ -99,7 +85,6 @@ export const startAccFeed = (): AccFeed => {
                 hz: null,
                 packetId: null,
                 sessionId: null,
-                inPit: false,
             }
         }
 
@@ -118,11 +103,10 @@ export const startAccFeed = (): AccFeed => {
             hz,
             packetId,
             sessionId: status.session?.id ?? null,
-            inPit: status.inPit,
         }
     }
 
-    return { attach, stop }
+    return { attach, stop: () => undefined }
 }
 
 const bytesOf = (message: unknown): ArrayBuffer | undefined => {

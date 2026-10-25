@@ -1,7 +1,3 @@
-//! Кадры от shared memory до UI.
-//!
-//! Производитель — отдельный поток. Потребитель — задача `tauri::async_runtime`.
-//! Сессии и круги пишет фронт в IndexedDB после `listen_laps`.
 
 mod broadcast;
 mod reader;
@@ -13,6 +9,7 @@ mod fixture;
 
 use std::time::Instant;
 
+use crate::domain::SessionPlace;
 use crate::ipc::{self, Capture, LinkState};
 use crate::platform::game;
 
@@ -21,11 +18,11 @@ pub(crate) use ring::TelemetryRing;
 use ring::{Envelope, PipeBody};
 use sequencer::{Moment, Outcome, Sequencer};
 
-/// Забирает кольцо: выезд, круг, `acc-status` и пачка `listen_laps`.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) async fn run_consumer(ring: TelemetryRing, outbox: ipc::Outbox) {
     let mut sequencer = Sequencer::default();
     let mut last_presence = None;
+    let mut last_place = SessionPlace::Menu;
     let clock = HostClock::start();
     while let Some(envelope) = ring.recv().await {
         let link = envelope.link;
@@ -36,8 +33,18 @@ pub(crate) async fn run_consumer(ring: TelemetryRing, outbox: ipc::Outbox) {
         };
         let outcome = step(&mut sequencer, envelope, moment);
         if outcome.stale {
+            publish_status(
+                &outbox,
+                link,
+                game_running,
+                last_place,
+                None,
+                &mut last_presence,
+                true,
+            );
             continue;
         }
+        last_place = outcome.snap.place;
         publish(
             &outbox,
             link,
@@ -63,29 +70,15 @@ fn publish(
     outcome: &Outcome,
     last_presence: &mut Option<game::Presence>,
 ) {
-    let snap = &outcome.snap;
-    let in_session = link == LinkState::Linked && snap.in_session;
-    let presence = game::presence(in_session, game_running);
-    let presence_changed = last_presence.is_some_and(|previous| previous != presence)
-        || last_presence.is_none();
-    // Смена меню/трассы/выкл не ждёт 30 Гц: иначе «На трассе» залипает на секунду.
-    if outcome.emit_status || (presence_changed && last_presence.is_some()) {
-        *last_presence = Some(presence);
-        outbox.emit_status(&ipc::Status::capture(Capture {
-            link,
-            presence,
-            in_pit: snap.in_pit,
-            packet_id: snap.packet_id,
-            outing_id: snap.outing_id,
-            session: snap.session.as_ref(),
-            lap_number: snap.lap_number,
-            sector: snap.sector,
-            speed: snap.speed,
-            air_temp: snap.air_c,
-            road_temp: snap.road_c,
-            events: &outcome.outing_events,
-        }));
-    }
+    publish_status(
+        outbox,
+        link,
+        game_running,
+        outcome.snap.place,
+        Some(outcome),
+        last_presence,
+        outcome.emit_status,
+    );
     if outcome.laps.is_empty() {
         outbox.drain();
     } else {
@@ -93,6 +86,39 @@ fn publish(
             outbox.send_lap(bytes.clone());
         }
     }
+}
+
+fn publish_status(
+    outbox: &ipc::Outbox,
+    link: LinkState,
+    game_running: bool,
+    place: SessionPlace,
+    outcome: Option<&Outcome>,
+    last_presence: &mut Option<game::Presence>,
+    periodic: bool,
+) {
+    let presence = game::presence(game_running, place);
+    let changed = last_presence.is_none_or(|previous| previous != presence);
+    if !changed && !periodic {
+        return;
+    }
+    *last_presence = Some(presence);
+    let snap = outcome.map(|outcome| &outcome.snap);
+    outbox.emit_status(&ipc::Status::capture(Capture {
+        link,
+        presence,
+        packet_id: snap.and_then(|snap| snap.packet_id),
+        outing_id: snap.and_then(|snap| snap.outing_id),
+        session: snap.and_then(|snap| snap.session.as_ref()),
+        lap_number: snap.and_then(|snap| snap.lap_number),
+        sector: snap.and_then(|snap| snap.sector),
+        speed: snap.and_then(|snap| snap.speed),
+        air_temp: snap.and_then(|snap| snap.air_c),
+        road_temp: snap.and_then(|snap| snap.road_c),
+        events: outcome
+            .map(|outcome| outcome.outing_events.as_slice())
+            .unwrap_or(&[]),
+    }));
 }
 
 struct HostClock {
@@ -118,7 +144,6 @@ fn wall_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// Точка входа потока чтения. На не-Windows круги не пишутся.
 pub(crate) fn spawn_reader(outbox: ipc::Outbox) {
     #[cfg(windows)]
     {

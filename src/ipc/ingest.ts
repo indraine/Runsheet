@@ -1,5 +1,5 @@
 import type { SessionRepository } from "~/db"
-import type { Session } from "~/domain"
+import { withRealTimes, type Session } from "~/domain"
 import { decodeLapPacket, type DecodedLap } from "~/ipc/packet"
 import type { AccStatus, AccStatusEvent } from "~/ipc/status"
 
@@ -143,7 +143,8 @@ export const createAccIngest = (): AccIngest => {
         const unfinished =
             stored.status === "closed" && decoded.lap.timeMs === null
         if (unfinished && !hasSamples(decoded)) return
-        const lap = unfinished ? { ...decoded.lap, valid: false } : decoded.lap
+        const raw = unfinished ? { ...decoded.lap, valid: false } : decoded.lap
+        const lap = withRealTimes(raw)
 
         await repo.upsert({
             session: stored,
@@ -161,11 +162,15 @@ export const createAccIngest = (): AccIngest => {
             .filter(item => item.lap.sessionId === session.id)
             .sort((left, right) => left.lap.number - right.lap.number)
         for (const item of ready) {
-            const lap =
+            const raw =
                 session.status === "closed" && item.lap.timeMs === null
                     ? { ...item.lap, valid: false }
                     : item.lap
-            await repo.upsert({ session, lap, trace: item.trace })
+            await repo.upsert({
+                session,
+                lap: withRealTimes(raw),
+                trace: item.trace,
+            })
             pending.delete(item.lap.id)
         }
     }

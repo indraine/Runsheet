@@ -3,7 +3,6 @@ import {
     createEffect,
     createMemo,
     createResource,
-    onCleanup,
     useContext,
     type Accessor,
     type ParentProps,
@@ -46,7 +45,6 @@ export function DatabaseProvider(props: ParentProps) {
 function AccFeed() {
     const repository = useSessionRepository()
     const feed = startAccFeed()
-    onCleanup(() => feed.stop())
     createEffect(() => {
         const repo = repository()
         if (repo) feed.attach(repo)

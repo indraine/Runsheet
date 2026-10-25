@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-save-text-file"
+description = "Диалог сохранения и запись JSON-экспорта на диск."
+commands.allow = ["save_text_file"]

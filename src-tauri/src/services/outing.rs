@@ -1,28 +1,14 @@
-//! Машина состояний выезда и сессии.
-//!
-//! На вход подаётся снимок полей, не shared memory. Часы тоже снаружи:
-//! разрыв считается по монотонным миллисекундам, метки начала и конца — по локальным.
-//! Идентификаторы создаются здесь, байтами, без текстового UUID.
-//!
-//! `Off` или отсутствие памяти дольше [`OUTING_GAP_MS`] закрывает выезд.
-//! Пауза и повтор выезд не закрывают. Повтор сессию не открывает.
-//! Боксы остаются `Live`, отдельного входа у них нет.
-//! Смена машины, трассы, соло/онлайн, типа или индекса сессии открывает новую сессию того же выезда.
 
 use crate::domain::{Frame, GameStatus, OutingEvent, OutingId, Session, SessionId, SessionKind};
 
-/// Сколько миллисекунд `Off` или пустой памяти держатся, прежде чем выезд закроется.
-/// Ровно этот порог уже закрывает.
 pub(crate) const OUTING_GAP_MS: u64 = 500;
 
-/// Что видно на этом тике. Пустая память — тоже снимок.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Sight {
     Absent,
     Frame(Frame),
 }
 
-/// Один шаг машины. `mono_ms` — монотонные миллисекунды, `wall_ms` — локальные часы, epoch.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Tick {
     pub mono_ms: u64,
@@ -65,7 +51,6 @@ struct OpenSession {
     session: Session,
 }
 
-/// Состояние между снимками. Само время не читает.
 #[derive(Debug, Default)]
 pub(crate) struct OutingMachine {
     outing_id: Option<OutingId>,
@@ -74,7 +59,6 @@ pub(crate) struct OutingMachine {
 }
 
 impl OutingMachine {
-    /// Переход по одному снимку.
     #[must_use]
     pub(crate) fn step(&mut self, tick: &Tick) -> Vec<OutingEvent> {
         react(self, tick)
@@ -92,7 +76,6 @@ impl OutingMachine {
         let Some(started) = self.gap_from_ms else {
             return false;
         };
-        // Шаг часов назад разрыв не закрывает.
         mono_ms.saturating_sub(started) >= OUTING_GAP_MS
     }
 

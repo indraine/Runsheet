@@ -1,8 +1,6 @@
-//! Типы выезда и сессии.
 
 use super::{OutingId, SessionId};
 
-/// `graphics.status`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum GameStatus {
     #[default]
@@ -12,7 +10,6 @@ pub(crate) enum GameStatus {
     Pause,
 }
 
-/// `graphics.session_type`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum SessionKind {
     #[default]
@@ -57,7 +54,6 @@ pub(crate) struct Session {
     pub road_c: f32,
 }
 
-/// Что изменилось в выезде на этом снимке.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum OutingEvent {
     OutingOpened {
@@ -73,7 +69,6 @@ pub(crate) enum OutingEvent {
     },
     OutingClosed {
         outing_id: OutingId,
-        /// Сессия, которая ещё была открыта. Прошлые уже закрыты событием смены.
         session_id: Option<SessionId>,
         ended_at_ms: u64,
     },

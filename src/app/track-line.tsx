@@ -25,10 +25,7 @@ const FALLBACK_EDGE = 0x475569
 const FALLBACK_FILL = 0x94a3b8
 const FALLBACK_SURFACE = 0xffffff
 
-/**
- * Схема трассы и точка машины.
- * `road` — заезд, по которому схема совмещается с каталогом; `car` — текущий круг, точка в его последнем сэмпле.
- */
+
 export const TrackLine = (props: {
     track?: string
     road?: Trace
@@ -154,7 +151,7 @@ type TrackLayout = {
 
 type Viewport = { clientWidth: number; clientHeight: number }
 
-/** Схема из каталога; точка встаёт на неё, только когда заезд совмещён с осью трассы. */
+
 const layoutCatalog = (
     bounds: TrackBoundaries,
     placement: Placement | undefined,
@@ -176,7 +173,7 @@ const layoutCatalog = (
     return { road: fitted[0] ?? [], car: fitted[1]?.[0], closed: true }
 }
 
-/** Трассы нет в каталоге — схема рисуется по самому полному записанному кругу. */
+
 const layoutTrace = (
     road: Trace | undefined,
     car: Trace | undefined,

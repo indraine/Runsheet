@@ -1,4 +1,3 @@
-//! Общий кадр для тестов пайплайна. В сборку без `cfg(test)` не входит.
 
 use crate::domain::{
     BrakePosition, CarState, Celsius, CleanSessionGraphic, CleanTelemetryFrame, GameStatus, Psi,

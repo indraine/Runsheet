@@ -1,8 +1,3 @@
-//! Кольцо кадров между потоком чтения и потребителем.
-//!
-//! Очередь — `tokio::sync::mpsc` на 1024 кадра. Поток чтения только кладёт.
-//! Если места нет, самый старый кадр вытесняется: UI должен видеть последний пакет.
-//! На не-Windows производитель кольцо не открывает: методы записи живут для Windows и тестов.
 
 #![cfg_attr(not(any(windows, test)), allow(dead_code))]
 
@@ -14,17 +9,14 @@ use tokio::sync::{Notify, mpsc};
 use crate::ingress::CleanTick;
 use crate::ipc::LinkState;
 
-/// Сколько кадров держит очередь, пока потребитель не отстаёт.
 const CAPACITY: usize = 1024;
 
-/// Кадр принят в хвост или встал на место вытесненного старого.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PushResult {
     Fresh,
     Coalesced,
 }
 
-/// Что лежит в очереди. `Resync` — тот же `packet_id`, но графика уже другая.
 #[derive(Debug)]
 pub(crate) enum PipeBody {
     Tick(CleanTick),
@@ -32,7 +24,6 @@ pub(crate) enum PipeBody {
     Absent,
 }
 
-/// Кадр вместе со связью на момент чтения.
 #[derive(Debug)]
 pub(crate) struct Envelope {
     pub link: LinkState,
@@ -49,7 +40,6 @@ struct Inner {
     game_running: AtomicBool,
 }
 
-/// Общий конец очереди. Поток чтения и задача потребителя держат клон.
 #[derive(Clone)]
 pub(crate) struct TelemetryRing {
     inner: Arc<Inner>,
@@ -70,27 +60,22 @@ impl TelemetryRing {
         }
     }
 
-    /// Связь, которая уедет со следующим кадром.
     pub(crate) fn bind(&self, link: LinkState) {
         self.inner.link.store(link_code(link), Ordering::Relaxed);
     }
 
-    /// Запущена ли игра. Пишет поток пробника процесса.
     pub(crate) fn note_game_running(&self, running: bool) {
         self.inner.game_running.store(running, Ordering::Relaxed);
     }
 
-    /// Свежий кадр. Повтор того же пакета сюда не кладёт производитель.
     pub(crate) fn try_push(&self, tick: CleanTick) -> PushResult {
         self.enqueue(PipeBody::Tick(tick))
     }
 
-    /// Тот же `packet_id`, который нельзя считать устаревшим: пауза и меню живут в графике.
     pub(crate) fn try_push_resync(&self, tick: CleanTick) -> PushResult {
         self.enqueue(PipeBody::Resync(tick))
     }
 
-    /// Памяти нет. Машина выезда считает разрыв по таким тикам.
     pub(crate) fn push_absent(&self) -> PushResult {
         self.enqueue(PipeBody::Absent)
     }
@@ -100,7 +85,6 @@ impl TelemetryRing {
         self.inner.coalesced.load(Ordering::Relaxed)
     }
 
-    /// Следующий кадр. Пустая очередь ждёт `notify`, разрешение не теряется.
     pub(crate) async fn recv(&self) -> Option<Envelope> {
         loop {
             {
@@ -132,7 +116,6 @@ impl TelemetryRing {
             body,
         };
         let result = {
-            // Замок короткий и без `.await`: на время вытеснения потребитель не забирает кадр.
             let mut rx = self.inner.rx.lock().expect("очередь кадров");
             match self.inner.tx.try_send(envelope) {
                 Ok(()) => PushResult::Fresh,

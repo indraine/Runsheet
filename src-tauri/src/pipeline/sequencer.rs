@@ -1,13 +1,7 @@
-//! Единственный владелец машины выезда и сборщика круга.
-//!
-//! На каждый свежий кадр: шаг выезда, точка только в `Live` (включая пит-лейн),
-//! события круга из сборщика.
-//! Повтор `packet_id` — `Stale`: ни точки, ни события круга.
-//! Тот же id с `resync` обрабатывается: так пауза догоняет графику.
 
 use crate::domain::{
     CarState, CleanSessionGraphic, Frame, GameStatus, LapTime, OutingEvent, OutingId, Session,
-    SessionEvent, SessionId,
+    SessionEvent, SessionId, SessionPlace,
 };
 use crate::ingress::CleanTick;
 use crate::services::laps::{Collector, Sample};
@@ -15,20 +9,15 @@ use crate::services::outing::{OutingMachine, Sight, Tick};
 
 use super::broadcast::{LapSend, UiClock};
 
-/// Картина заезда не меняется дольше этого — меню, пауза или выключенная игра.
-/// В меню ACC часто крутит `packet_id`, оставляя те же speed/distance и `Live`.
-const FROZEN_AFTER_MS: u64 = 1_000;
+const CLOCK_DEAD_AFTER_MS: u64 = 1_000;
 
-/// Ниже этого считаем машину стоящей. После езды стоянка = уже не «На трассе».
 const MOTION_SPEED_KMH: f32 = 5.0;
 
-/// Часы. Секвенсор сам время не читает.
 pub(crate) struct Moment {
     pub mono_ms: u64,
     pub wall_ms: u64,
 }
 
-/// Снимок для `acc-status`. Связь прикладывает потребитель.
 pub(crate) struct Snap {
     pub packet_id: Option<i32>,
     pub outing_id: Option<OutingId>,
@@ -36,10 +25,9 @@ pub(crate) struct Snap {
     pub lap_number: Option<i32>,
     pub sector: Option<i32>,
     pub speed: Option<f32>,
-    pub in_pit: bool,
+    pub place: SessionPlace,
     pub air_c: Option<f32>,
     pub road_c: Option<f32>,
-    pub in_session: bool,
 }
 
 impl Snap {
@@ -51,28 +39,23 @@ impl Snap {
             lap_number: None,
             sector: None,
             speed: None,
-            in_pit: false,
+            place: SessionPlace::Menu,
             air_c: None,
             road_c: None,
-            in_session: false,
         }
     }
 }
 
-/// Что делать потребителю после одного тика.
 pub(crate) struct Outcome {
     pub stale: bool,
     pub emit_status: bool,
-    /// Закрытый круг и, сразу за ним, первая пачка следующего.
     pub laps: Vec<Vec<u8>>,
     pub outing_events: Vec<OutingEvent>,
-    /// События круга. Потребитель их в `acc-status` не кладёт: их читает тест прогона.
     #[cfg_attr(not(test), allow(dead_code))]
     pub session_events: Vec<SessionEvent>,
     pub snap: Snap,
 }
 
-/// Машина выезда, сборщик и часы UI.
 #[derive(Default)]
 pub(crate) struct Sequencer {
     machine: OutingMachine,
@@ -80,31 +63,18 @@ pub(crate) struct Sequencer {
     clock: UiClock,
     car: CarState,
     seen_packet: Option<i32>,
-    /// Когда speed/distance/status последний раз реально сдвинулись.
-    last_change_ms: Option<u64>,
-    last_content: Option<ContentKey>,
-    /// Уже ехали в этом выезде на трассу. Без этого стоянка на старте не = меню.
     had_motion: bool,
-}
-
-/// Картина кадра без `packet_id`: меню ACC часто крутит id при той же телеметрии.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct ContentKey {
-    speed_x10: i32,
-    distance_x2: i32,
-    status: GameStatus,
-    car: CarState,
+    last_lap_time_ms: Option<i32>,
+    last_clock_ms: Option<u64>,
 }
 
 impl Sequencer {
-    /// Свежий кадр. `resync` проводит повтор того же `packet_id`.
     pub(crate) fn on_tick(&mut self, tick: CleanTick, resync: bool, moment: Moment) -> Outcome {
         if !resync && self.seen_packet == Some(tick.physics.packet_id) {
             return self.stale();
         }
-        self.note_content(&tick, moment.mono_ms);
-        // Застывший Live после езды: не пишем круг и не держим «На трассе».
-        // `had_motion` не сбрасываем — иначе следующий такой же кадр снова станет OnTrack.
+        self.note_motion(&tick);
+        self.note_clock(&tick, moment.mono_ms);
         if self.parked_on_track(&tick, moment.mono_ms) {
             return self.on_absent(moment);
         }
@@ -124,8 +94,8 @@ impl Sequencer {
         self.finish(snap, packet, outing_events, session_events, moment)
     }
 
-    /// Памяти нет. Круг не пишется. Разрыв выезда считает машина.
     pub(crate) fn on_absent(&mut self, moment: Moment) -> Outcome {
+        self.kill_clock();
         let outing_events = self.machine.step(&Tick {
             mono_ms: moment.mono_ms,
             wall_ms: moment.wall_ms,
@@ -149,15 +119,17 @@ impl Sequencer {
     }
 
     fn step_car(&mut self, graphic: &CleanSessionGraphic) -> Option<SessionEvent> {
-        // Replay место не двигает. У ingress нет истории, поэтому его `car_state` тут врёт.
         if graphic.status == GameStatus::Replay {
             return None;
         }
         let next = graphic.car_state;
-        if next == CarState::InGarage || graphic.status == GameStatus::Off {
+        if next == CarState::InGarage
+            || next == CarState::InPitLane
+            || graphic.status == GameStatus::Off
+            || graphic.status == GameStatus::Pause
+        {
             self.had_motion = false;
-            self.last_content = None;
-            self.last_change_ms = None;
+            self.kill_clock();
         }
         let event = self.car.pit_edge(next);
         self.car = next;
@@ -190,42 +162,58 @@ impl Sequencer {
         events
     }
 
-    fn note_content(&mut self, tick: &CleanTick, mono_ms: u64) {
-        let speed = tick.physics.speed.kmh();
-        if speed >= MOTION_SPEED_KMH {
+    fn note_motion(&mut self, tick: &CleanTick) {
+        if tick.physics.speed.kmh() >= MOTION_SPEED_KMH {
             self.had_motion = true;
         }
-        let key = ContentKey {
-            speed_x10: (speed * 10.0).round() as i32,
-            distance_x2: (tick.graphic.distance_m * 2.0).round() as i32,
-            status: tick.graphic.status,
-            car: tick.graphic.car_state,
-        };
-        if self.last_content != Some(key) {
-            self.last_content = Some(key);
-            self.last_change_ms = Some(mono_ms);
+    }
+
+    fn note_clock(&mut self, tick: &CleanTick, mono_ms: u64) {
+        let lap_time_ms = lap_ms(tick.graphic.current_lap_time);
+        if self.last_lap_time_ms != Some(lap_time_ms) {
+            self.last_lap_time_ms = Some(lap_time_ms);
+            self.last_clock_ms = Some(mono_ms);
         }
     }
 
-    fn frozen(&self, mono_ms: u64) -> bool {
-        self.last_change_ms
-            .is_none_or(|fresh| mono_ms.saturating_sub(fresh) >= FROZEN_AFTER_MS)
+    fn kill_clock(&mut self) {
+        self.last_clock_ms = None;
     }
 
-    /// После езды застывший Live на трассе — меню/выход, даже если `packet_id` растёт.
+    fn clock_live(&self, mono_ms: u64) -> bool {
+        self.last_clock_ms
+            .is_some_and(|fresh| mono_ms.saturating_sub(fresh) < CLOCK_DEAD_AFTER_MS)
+    }
+
     fn parked_on_track(&self, tick: &CleanTick, mono_ms: u64) -> bool {
         self.had_motion
-            && self.frozen(mono_ms)
+            && !self.clock_live(mono_ms)
             && tick.graphic.status == GameStatus::Live
             && tick.graphic.car_state == CarState::OnTrack
     }
 
+    fn is_driving(&self, tick: &CleanTick, mono_ms: u64) -> bool {
+        if tick.graphic.status != GameStatus::Live || self.car != CarState::OnTrack {
+            return false;
+        }
+        if !self.clock_live(mono_ms) {
+            return false;
+        }
+        let moving = tick.physics.speed.kmh() >= MOTION_SPEED_KMH;
+        moving || self.had_motion
+    }
+
+    fn place(&self, tick: Option<&CleanTick>, mono_ms: u64) -> SessionPlace {
+        match self.car {
+            CarState::InPitLane => SessionPlace::InPits,
+            CarState::OnTrack if tick.is_some_and(|tick| self.is_driving(tick, mono_ms)) => {
+                SessionPlace::OnTrack
+            }
+            _ => SessionPlace::Menu,
+        }
+    }
+
     fn snap(&self, tick: Option<&CleanTick>, mono_ms: u64) -> Snap {
-        let driving = tick.is_some_and(|tick| {
-            tick.graphic.status == GameStatus::Live
-                && self.car == CarState::OnTrack
-                && !self.parked_on_track(tick, mono_ms)
-        });
         Snap {
             packet_id: tick.map(|tick| tick.physics.packet_id),
             outing_id: self.machine.outing_id(),
@@ -233,11 +221,9 @@ impl Sequencer {
             lap_number: self.laps.open_number(),
             sector: tick.map(|tick| tick.graphic.sector_index),
             speed: tick.map(|tick| tick.physics.speed.kmh()),
-            in_pit: self.car == CarState::InPitLane,
+            place: self.place(tick, mono_ms),
             air_c: tick.map(|tick| tick.graphic.air.celsius()),
             road_c: tick.map(|tick| tick.graphic.road.celsius()),
-            // «На трассе» — только живая езда. Гараж, боксы и застывший Live — меню.
-            in_session: driving,
         }
     }
 
@@ -263,7 +249,6 @@ impl Sequencer {
         }
     }
 
-    /// Финиш и первая пачка нового круга уходят одним тиком: строка не ждёт секунду.
     fn take_packets(&mut self, closed: Option<Vec<u8>>, mono_ms: u64) -> Vec<Vec<u8>> {
         let mut packets = Vec::new();
         match self
@@ -520,126 +505,310 @@ mod tests {
     }
 
     #[test]
-    fn frozen_physics_with_a_live_status_is_the_menu() {
+    fn dead_lap_clock_with_a_live_status_is_the_menu() {
         let mut sequencer = Sequencer::default();
-        let draft = TickDraft {
-            packet_id: 1,
-            ..TickDraft::default()
-        };
-        let driving = sequencer.on_tick(draft.clone().build(), false, moment(0));
-        assert!(driving.snap.in_session);
+        let driving = sequencer.on_tick(
+            TickDraft {
+                packet_id: 1,
+                lap_time_ms: Some(10_000),
+                ..TickDraft::default()
+            }
+            .build(),
+            false,
+            moment(0),
+        );
+        assert!(driving.snap.place == SessionPlace::OnTrack);
 
-        let echo = sequencer.on_tick(draft.clone().build(), true, moment(500));
-        assert!(echo.snap.in_session);
+        let echo = sequencer.on_tick(
+            TickDraft {
+                packet_id: 1,
+                lap_time_ms: Some(10_000),
+                ..TickDraft::default()
+            }
+            .build(),
+            true,
+            moment(200),
+        );
+        assert!(echo.snap.place == SessionPlace::OnTrack);
 
-        let menu = sequencer.on_tick(draft.build(), true, moment(FROZEN_AFTER_MS));
-        assert!(!menu.snap.in_session);
+        let menu = sequencer.on_tick(
+            TickDraft {
+                packet_id: 1,
+                lap_time_ms: Some(10_000),
+                ..TickDraft::default()
+            }
+            .build(),
+            true,
+            moment(CLOCK_DEAD_AFTER_MS),
+        );
+        assert!(menu.snap.place != SessionPlace::OnTrack);
     }
 
     #[test]
-    fn bumping_packet_id_without_motion_is_still_the_menu() {
+    fn bumping_packet_id_with_frozen_clock_is_the_menu() {
         let mut sequencer = Sequencer::default();
         let driving = sequencer.on_tick(
             TickDraft {
                 packet_id: 1,
                 speed: 120.0,
                 distance_m: 500.0,
+                lap_time_ms: Some(20_000),
                 ..TickDraft::default()
             }
             .build(),
             false,
             moment(0),
         );
-        assert!(driving.snap.in_session);
+        assert!(driving.snap.place == SessionPlace::OnTrack);
 
         let still = sequencer.on_tick(
             TickDraft {
                 packet_id: 2,
                 speed: 0.0,
                 distance_m: 500.0,
+                lap_time_ms: Some(20_050),
                 ..TickDraft::default()
             }
             .build(),
             false,
-            moment(10),
+            moment(50),
         );
-        assert!(still.snap.in_session);
+        assert!(still.snap.place == SessionPlace::OnTrack);
 
         let menu = sequencer.on_tick(
             TickDraft {
                 packet_id: 99,
                 speed: 0.0,
                 distance_m: 500.0,
+                lap_time_ms: Some(20_050),
                 ..TickDraft::default()
             }
             .build(),
             false,
-            moment(10 + FROZEN_AFTER_MS),
+            moment(50 + CLOCK_DEAD_AFTER_MS),
         );
-        assert!(!menu.snap.in_session);
+        assert!(menu.snap.place != SessionPlace::OnTrack);
     }
 
     #[test]
-    fn standing_before_first_motion_stays_on_track() {
+    fn frozen_clock_ignores_speed_and_distance_jitter_in_the_menu() {
         let mut sequencer = Sequencer::default();
-        let start = sequencer.on_tick(
+        let driving = sequencer.on_tick(
             TickDraft {
                 packet_id: 1,
-                speed: 0.0,
-                distance_m: 10.0,
+                speed: 140.0,
+                distance_m: 800.0,
+                lap_time_ms: Some(30_000),
                 ..TickDraft::default()
             }
             .build(),
             false,
             moment(0),
         );
-        assert!(start.snap.in_session);
+        assert!(driving.snap.place == SessionPlace::OnTrack);
+
+        let mut mono = CLOCK_DEAD_AFTER_MS;
+        for packet_id in 2..12 {
+            let parked = sequencer.on_tick(
+                TickDraft {
+                    packet_id,
+                    speed: if packet_id % 2 == 0 { 0.0 } else { 88.0 },
+                    distance_m: 800.0 + (packet_id as f32) * 0.25,
+                    lap_time_ms: Some(30_000),
+                    ..TickDraft::default()
+                }
+                .build(),
+                false,
+                moment(mono),
+            );
+            assert!(
+                parked.snap.place != SessionPlace::OnTrack,
+                "jitter at {mono} ms must leave the track"
+            );
+            mono += 50;
+        }
+    }
+
+    #[test]
+    fn standing_before_first_motion_is_not_on_track() {
+        let mut sequencer = Sequencer::default();
+        let start = sequencer.on_tick(
+            TickDraft {
+                packet_id: 1,
+                speed: 0.0,
+                distance_m: 10.0,
+                lap_time_ms: Some(100),
+                ..TickDraft::default()
+            }
+            .build(),
+            false,
+            moment(0),
+        );
+        assert!(start.snap.place != SessionPlace::OnTrack);
 
         let waiting = sequencer.on_tick(
             TickDraft {
                 packet_id: 2,
                 speed: 0.0,
                 distance_m: 10.0,
+                lap_time_ms: Some(200),
                 ..TickDraft::default()
             }
             .build(),
             false,
-            moment(FROZEN_AFTER_MS + 50),
+            moment(100),
         );
-        assert!(waiting.snap.in_session);
+        assert!(waiting.snap.place != SessionPlace::OnTrack);
     }
 
     #[test]
-    fn garage_and_pit_are_not_on_track() {
+    fn short_stop_after_motion_stays_on_track_while_clock_runs() {
         let mut sequencer = Sequencer::default();
-        let driving = sequencer.on_tick(TickDraft::default().build(), false, moment(0));
-        assert!(driving.snap.in_session);
-
-        let garage = sequencer.on_tick(
+        let driving = sequencer.on_tick(
             TickDraft {
-                packet_id: 2,
-                car_state: CarState::InGarage,
+                packet_id: 1,
+                speed: 120.0,
+                distance_m: 400.0,
+                lap_time_ms: Some(40_000),
                 ..TickDraft::default()
             }
             .build(),
             false,
-            moment(10),
+            moment(0),
         );
-        assert!(!garage.snap.in_session);
-        assert!(!garage.snap.in_pit);
+        assert!(driving.snap.place == SessionPlace::OnTrack);
 
-        let pit = sequencer.on_tick(
+        let stopped = sequencer.on_tick(
+            TickDraft {
+                packet_id: 2,
+                speed: 0.0,
+                distance_m: 400.0,
+                lap_time_ms: Some(40_080),
+                ..TickDraft::default()
+            }
+            .build(),
+            false,
+            moment(80),
+        );
+        assert!(stopped.snap.place == SessionPlace::OnTrack);
+
+        let waiting = sequencer.on_tick(
             TickDraft {
                 packet_id: 3,
-                car_state: CarState::InPitLane,
+                speed: 0.0,
+                distance_m: 400.0,
+                lap_time_ms: Some(45_000),
+                ..TickDraft::default()
+            }
+            .build(),
+            false,
+            moment(5_000),
+        );
+        assert!(waiting.snap.place == SessionPlace::OnTrack);
+    }
+
+    #[test]
+    fn off_then_live_stationary_is_the_menu() {
+        let mut sequencer = Sequencer::default();
+        let driving = sequencer.on_tick(
+            TickDraft {
+                packet_id: 1,
+                speed: 140.0,
+                distance_m: 800.0,
+                lap_time_ms: Some(50_000),
+                ..TickDraft::default()
+            }
+            .build(),
+            false,
+            moment(0),
+        );
+        assert!(driving.snap.place == SessionPlace::OnTrack);
+
+        let off = sequencer.on_tick(
+            TickDraft {
+                packet_id: 2,
+                status: GameStatus::Off,
+                car_state: CarState::InGarage,
+                speed: 0.0,
+                distance_m: 800.0,
+                lap_time_ms: Some(50_000),
                 ..TickDraft::default()
             }
             .build(),
             false,
             moment(20),
         );
-        assert!(!pit.snap.in_session);
-        assert!(pit.snap.in_pit);
+        assert!(off.snap.place != SessionPlace::OnTrack);
+
+        let echo = sequencer.on_tick(
+            TickDraft {
+                packet_id: 3,
+                speed: 0.0,
+                distance_m: 800.0,
+                lap_time_ms: Some(50_000),
+                ..TickDraft::default()
+            }
+            .build(),
+            false,
+            moment(40),
+        );
+        assert!(echo.snap.place != SessionPlace::OnTrack);
+
+        let later = sequencer.on_tick(
+            TickDraft {
+                packet_id: 4,
+                speed: 120.0,
+                distance_m: 800.1,
+                lap_time_ms: Some(50_000),
+                ..TickDraft::default()
+            }
+            .build(),
+            false,
+            moment(40 + CLOCK_DEAD_AFTER_MS),
+        );
+        assert!(later.snap.place != SessionPlace::OnTrack);
+    }
+
+    #[test]
+    fn garage_and_pit_are_not_on_track() {
+        let mut sequencer = Sequencer::default();
+        let driving = sequencer.on_tick(
+            TickDraft {
+                lap_time_ms: Some(12_000),
+                ..TickDraft::default()
+            }
+            .build(),
+            false,
+            moment(0),
+        );
+        assert!(driving.snap.place == SessionPlace::OnTrack);
+
+        let garage = sequencer.on_tick(
+            TickDraft {
+                packet_id: 2,
+                car_state: CarState::InGarage,
+                lap_time_ms: Some(12_000),
+                ..TickDraft::default()
+            }
+            .build(),
+            false,
+            moment(10),
+        );
+        assert_eq!(garage.snap.place, SessionPlace::Menu);
+
+        let pit = sequencer.on_tick(
+            TickDraft {
+                packet_id: 3,
+                car_state: CarState::InPitLane,
+                speed: 60.0,
+                lap_time_ms: Some(12_100),
+                ..TickDraft::default()
+            }
+            .build(),
+            false,
+            moment(20),
+        );
+        assert_eq!(pit.snap.place, SessionPlace::InPits);
     }
 
     fn read_i32(bytes: &[u8], at: usize) -> i32 {

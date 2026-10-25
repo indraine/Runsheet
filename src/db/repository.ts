@@ -118,12 +118,12 @@ export class SessionRepository {
         })
     }
 
-    /** Полный снимок IndexedDB для обмена между гонщиками. */
+    
     async exportAll(): Promise<RunsheetDump> {
         return readDump(this.database)
     }
 
-    /** Merge-импорт снимка; поднимает revision, чтобы таймлайн перечитал день. */
+    
     async importAll(dump: RunsheetDump): Promise<void> {
         await writeDump(this.database, dump)
         this.setRevision(current => current + 1)
@@ -142,7 +142,7 @@ function assertWrite(write: SessionWrite): void {
     }
 }
 
-/** Explicit `refLapId` wins. Otherwise the fastest valid lap with a closed time. */
+
 function pickReference(
     laps: readonly Lap[],
     refLapId?: string

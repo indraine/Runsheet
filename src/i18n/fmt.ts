@@ -20,7 +20,7 @@ function lap(milliseconds: number): string {
     return `${minutes}:${pad(seconds, 2)}.${pad(millis, 3)}`
 }
 
-/** Signed delta in milliseconds as `+s.sss` or `-s.sss`. Zero is `+0.000`. */
+
 function delta(milliseconds: number): string {
     const rounded = wholeMilliseconds(milliseconds)
     const sign = rounded < 0 ? "-" : "+"
@@ -30,13 +30,13 @@ function delta(milliseconds: number): string {
     return `${sign}${seconds}.${pad(millis, 3)}`
 }
 
-/** Local start time as `HH:MM`. */
+
 function clock(at: Date | number): string {
     const date = typeof at === "number" ? new Date(at) : at
     return `${pad(date.getHours(), 2)}:${pad(date.getMinutes(), 2)}`
 }
 
-/** Время сектора без нулевой минуты: `44.890` или `1:08.120`. */
+
 const sector = (milliseconds: number): string => {
     const text = lap(milliseconds)
     return text.startsWith("0:") ? text.slice(2) : text

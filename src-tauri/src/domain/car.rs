@@ -1,9 +1,15 @@
-//! Где стоит машина.
 
 use super::GameStatus;
 use super::units::LapTime;
 
-/// Место машины в сессии. Варианты не пересекаются.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum SessionPlace {
+    #[default]
+    Menu,
+    InPits,
+    OnTrack,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum CarState {
     #[default]
@@ -13,9 +19,6 @@ pub(crate) enum CarState {
     SessionFinished,
 }
 
-/// Событие круга или пит-стопа.
-///
-/// Круг и сектор порождает сборщик. Этот модуль сам выдаёт только вход и выход с пит-лейна.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SessionEvent {
     LapStarted {
@@ -33,7 +36,6 @@ pub(crate) enum SessionEvent {
     PitExit,
 }
 
-/// Один уже разобранный снимок места. Это вход шага, не сохранённое состояние.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CarPlace {
     pub status: GameStatus,
@@ -43,19 +45,13 @@ pub(crate) struct CarPlace {
     pub checkered: bool,
 }
 
-/// Куда машина перешла на этом снимке.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CarStep {
     pub state: CarState,
-    /// Событие есть только при смене варианта и только для входа на пит-лейн или выхода с него.
     pub event: Option<SessionEvent>,
 }
 
 impl CarState {
-    /// Следующее место по одному снимку.
-    ///
-    /// Повтор место не меняет и события не даёт. Клетчатый флаг на быстром круге
-    /// оставляет машину на трассе. Клетчатый в боксах или на пит-лейне завершает сессию.
     #[must_use]
     pub(crate) const fn step(self, place: CarPlace) -> CarStep {
         let Some(next) = resolve(place) else {
@@ -70,9 +66,6 @@ impl CarState {
         }
     }
 
-    /// Ребро пит-лейна между двумя уже известными местами.
-    ///
-    /// Секвенсор берёт следующее место из кадра: ingress считает его без истории.
     #[must_use]
     pub(crate) const fn pit_edge(self, next: Self) -> Option<SessionEvent> {
         pit_event(self, next)

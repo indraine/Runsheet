@@ -31,14 +31,14 @@ const LABEL_KEY = {
     "solarized-light": "app.themeSolarizedLight",
 } as const satisfies Record<ThemePreference, `app.${string}`>
 
-/** Подпись режима в списке попапа. */
+
 const themeLabel = (preference: ThemePreference): string =>
     t(LABEL_KEY[preference])
 
 const itemClass =
     "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[11px] text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-[state=checked]:text-accent"
 
-/** Кнопка справа в шапке. Светлая, тёмная, системная и именованные схемы. */
+
 export const ThemeToggle = () => (
     <Menu.Root
         aria-label={t("app.theme")}

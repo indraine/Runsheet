@@ -1,6 +1,13 @@
 import { A, useNavigate } from "@solidjs/router"
 import { Check } from "lucide-solid"
-import { createEffect, createSignal, For, Index, Show } from "solid-js"
+import {
+    createEffect,
+    createSignal,
+    For,
+    Index,
+    Show,
+    untrack,
+} from "solid-js"
 import { hasAsphalt } from "~/app/track-catalog"
 import { TrackLine } from "~/app/track-line"
 import type { LiveCard as LiveCardModel, LiveLapRow } from "~/domain"
@@ -8,8 +15,13 @@ import { carName, fmt, t, trackCodes, trackName } from "~/i18n"
 import { locale } from "~/i18n/locale"
 import { cn } from "~/ui"
 
-export const LiveCard = (props: { card: LiveCardModel }) => {
-    const card = () => props.card
+export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
+    const [held, setHeld] = createSignal(untrack(() => props.card))
+    createEffect(() => {
+        const next = props.card
+        if (next) setHeld(next)
+    })
+    const card = () => held()!
     const [preview, setPreview] = createSignal<string>()
     const shownTrack = () => preview() ?? card().session.track
     const ownTrack = () => shownTrack() === card().session.track

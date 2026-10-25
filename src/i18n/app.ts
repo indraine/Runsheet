@@ -3,6 +3,7 @@ import type { Locale } from "~/i18n/locale"
 const en = {
     wordmark: "Runsheet",
     accMenu: "In menu",
+    accInPits: "In pits",
     accOnTrack: "On track",
     backToTimeline: "To timeline",
     welcomeSlogan: "Drove! Recorded! Reviewed!",
@@ -98,6 +99,7 @@ const en = {
     settings: "Settings",
     resetSettings: "Reset settings",
     exportData: "Export data",
+    exportFailed: "Could not export the file",
     importData: "Import data",
     importFailed: "Could not import the file",
     github: "GitHub repository",
@@ -106,6 +108,7 @@ const en = {
 const ru: typeof en = {
     wordmark: "Runsheet",
     accMenu: "В меню",
+    accInPits: "В боксах",
     accOnTrack: "На трассе",
     backToTimeline: "К таймлайну",
     welcomeSlogan: "Проехал! Записал! Разобрал!",
@@ -201,6 +204,7 @@ const ru: typeof en = {
     settings: "Настройки",
     resetSettings: "Сбросить настройки",
     exportData: "Экспорт данных",
+    exportFailed: "Не удалось экспортировать файл",
     importData: "Импорт данных",
     importFailed: "Не удалось импортировать файл",
     github: "Репозиторий на GitHub",

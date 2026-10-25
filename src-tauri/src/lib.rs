@@ -8,7 +8,7 @@ pub mod startup;
 
 use tauri::Manager;
 
-use ipc::{acc_install, launch_acc, listen_laps};
+use ipc::{acc_install, launch_acc, listen_laps, listen_status, save_text_file};
 use startup::StartupProbes;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -17,13 +17,14 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             listen_laps,
+            listen_status,
             acc_install,
-            launch_acc
+            launch_acc,
+            save_text_file
         ])
         .setup(|app| {
-            // Воркер не стартует, пока размер shared memory не подтверждён.
             StartupProbes::verify_memory_layout()?;
-            let outbox = ipc::Outbox::new(app.handle().clone());
+            let outbox = ipc::Outbox::new();
             app.manage(outbox.clone());
             pipeline::spawn_reader(outbox);
             Ok(())

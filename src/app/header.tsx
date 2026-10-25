@@ -1,12 +1,18 @@
 import { A, useMatch } from "@solidjs/router"
 import { ArrowLeft } from "lucide-solid"
-import { Show } from "solid-js"
-import { isGameOff, LaunchAccButton } from "~/app/launch-acc"
+import { createEffect, onCleanup, onMount, Show, untrack } from "solid-js"
+import { LaunchAccButton } from "~/app/launch-acc"
 import { SettingsMenu } from "~/app/settings-menu"
-import { accLink, analysisHeading } from "~/app/status"
+import {
+    accPresence,
+    analysisHeading,
+    paintAccPresence,
+    type AccPresence,
+} from "~/app/status"
 import { ThemeToggle } from "~/app/theme-toggle"
 import { Wordmark } from "~/app/wordmark"
 import { t } from "~/i18n"
+import { locale } from "~/i18n/locale"
 import { cn } from "~/ui"
 
 export function Header() {
@@ -22,7 +28,7 @@ export function Header() {
                     <Wordmark class="h-10" />
                 </A>
                 <span class="h-4 w-px shrink-0 bg-line" aria-hidden="true" />
-                <Show when={analysis()} fallback={<AccStatus />}>
+                <Show when={analysis()}>
                     <A
                         href="/"
                         class="inline-flex h-7 shrink-0 items-center gap-1.5 rounded px-2 font-mono text-[11px] font-medium tracking-wide text-secondary uppercase hover:bg-inset hover:text-ink"
@@ -40,6 +46,9 @@ export function Header() {
                         {analysisHeading().car ?? t("app.empty")}
                     </span>
                 </Show>
+                <Show when={!analysis()}>
+                    <AccStatus />
+                </Show>
             </div>
             <div class="flex shrink-0 items-center gap-3">
                 <Show when={analysis()}>
@@ -53,40 +62,56 @@ export function Header() {
 }
 
 function AccStatus() {
-    const presence = () => accLink().presence
-    const label = () => presenceLabel(presence())
+    let row: HTMLParagraphElement | undefined
+    let dot: HTMLSpanElement | undefined
+    let label: HTMLSpanElement | undefined
+    let launch: HTMLSpanElement | undefined
+
+    const paint = (value: AccPresence) => {
+        const name = presenceName(value)
+        if (label) label.textContent = name
+        if (dot) {
+            dot.className = cn(
+                "size-1.5 rounded-full",
+                value === "onTrack"
+                    ? "bg-gain"
+                    : value === "inPits"
+                      ? "bg-accent"
+                      : "bg-muted"
+            )
+        }
+        if (row) row.hidden = name === ""
+        if (launch) launch.hidden = value !== "off"
+    }
+
+    onMount(() => {
+        onCleanup(paintAccPresence(paint))
+        createEffect(() => {
+            locale()
+            untrack(() => paint(accPresence()))
+        })
+    })
 
     return (
-        <Show when={!isGameOff()} fallback={<LaunchAccButton />}>
-            <Show when={label()}>
-                {text => (
-                    <p class="inline-flex shrink-0 items-center gap-2 font-mono text-[11px] font-medium tracking-wide text-secondary uppercase">
-                        <span
-                            class={cn(
-                                "size-1.5 rounded-full",
-                                presenceDot(presence())
-                            )}
-                            aria-hidden="true"
-                        />
-                        {text()}
-                    </p>
-                )}
-            </Show>
-        </Show>
+        <>
+            <span ref={launch} hidden>
+                <LaunchAccButton />
+            </span>
+            <p
+                ref={row}
+                hidden
+                class="inline-flex shrink-0 items-center gap-2 font-mono text-[11px] font-medium tracking-wide text-secondary uppercase"
+            >
+                <span ref={dot} class="size-1.5 rounded-full bg-muted" aria-hidden="true" />
+                <span ref={label} />
+            </p>
+        </>
     )
 }
 
-const presenceLabel = (
-    presence: ReturnType<typeof accLink>["presence"]
-): string | undefined => {
-    if (presence === "onTrack") return t("app.accOnTrack")
-    if (presence === "menu") return t("app.accMenu")
-    return undefined
-}
-
-const presenceDot = (
-    presence: ReturnType<typeof accLink>["presence"]
-): string => {
-    if (presence === "onTrack") return "bg-gain"
-    return "bg-muted"
+const presenceName = (value: AccPresence): string => {
+    if (value === "onTrack") return t("app.accOnTrack")
+    if (value === "inPits") return t("app.accInPits")
+    if (value === "menu") return t("app.accMenu")
+    return ""
 }

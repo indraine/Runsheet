@@ -52,7 +52,7 @@ const openRepo = (): void => {
     })
 }
 
-/** Lucide больше не отдаёт бренд-иконки — свой силуэт mark. */
+
 const GithubMark = (props: { class?: string }) => (
     <svg
         class={props.class}

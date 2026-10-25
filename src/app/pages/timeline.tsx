@@ -10,7 +10,7 @@ import {
     onCleanup,
     untrack,
 } from "solid-js"
-import { accLink } from "~/app/status"
+import { accLink, accPresence } from "~/app/status"
 import { useSessionRepository } from "~/db"
 import {
     SESSION_FILTERS,
@@ -80,17 +80,35 @@ export function TimelinePage() {
         if (!repo) return
         const revision = repo.revision()
         const write = repo.lastWrite()
-        if (!write || revision === appliedRevision) return
+        if (revision === appliedRevision) return
         const current = memory()
         if (!current) return
+        const sessionId = untrack(() => accLink().sessionId)
+        if (!write || revision !== appliedRevision + 1) {
+            let stopped = false
+            onCleanup(() => {
+                stopped = true
+            })
+            void readStableDay(repo, sessionId)
+                .then(loaded => {
+                    if (stopped) return
+                    let next = loaded.memory
+                    let nextRevision = loaded.revision
+                    const pending = repo.lastWrite()
+                    if (pending && repo.revision() !== loaded.revision) {
+                        next = applyDayWrite(next, pending, sessionId)
+                        nextRevision = repo.revision()
+                    }
+                    appliedRevision = nextRevision
+                    setMemory(next)
+                })
+                .catch(error => {
+                    if (!stopped) setFailed(error)
+                })
+            return
+        }
         appliedRevision = revision
-        setMemory(
-            applyDayWrite(
-                current,
-                write,
-                untrack(() => accLink().sessionId)
-            )
-        )
+        setMemory(applyDayWrite(current, write, sessionId))
     })
 
     return (
@@ -105,20 +123,19 @@ export function TimelinePage() {
                         const records = createMemo(() =>
                             trackRecords(sheet().past)
                         )
-                        /** Live — только «На трассе»; меню/боксы → шахматка. */
-                        const liveOnTrack = () =>
-                            accLink().presence === "onTrack"
+                        const live = () =>
+                            accPresence() === "onTrack"
                                 ? sheet().live
                                 : undefined
                         return (
                             <>
                                 <Show
-                                    when={liveOnTrack()}
+                                    when={live()}
                                     fallback={
                                         <TrackBoard records={records()} />
                                     }
                                 >
-                                    {card => <LiveCard card={card()} />}
+                                    <LiveCard card={live()!} />
                                 </Show>
                                 <Show when={sheet().past.length > 0}>
                                     <PastSheet sessions={sheet().past} />

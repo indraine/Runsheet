@@ -377,7 +377,7 @@ function qualifyingLap(row: LapRow): Lap {
     }
 }
 
-/** One finished lap, so a closed row has a best time to open. */
+
 function closedLap(
     sessionId: string,
     id: string,
@@ -479,7 +479,7 @@ function clockMs(clock: Clock): number | null {
     return clock === null ? null : milliseconds(clock)
 }
 
-/** `m:ss.sss` or `ss.sss` to milliseconds. */
+
 function milliseconds(clock: string): number {
     const [body, fraction] = clock.split(".")
     if (!body || fraction?.length !== 3) {

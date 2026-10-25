@@ -1,15 +1,10 @@
-//! Идентификаторы выезда, сессии и круга.
-//!
-//! Шестнадцать байт без крейта `uuid`. Разбор текстового UUID остаётся на границе IPC.
 
 use std::fmt;
 
-/// Идентификатор сессии.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub(crate) struct SessionId([u8; 16]);
 
 impl SessionId {
-    /// Байты уже выбраны снаружи.
     pub(crate) const fn from_bytes(bytes: [u8; 16]) -> Self {
         Self(bytes)
     }
@@ -25,12 +20,10 @@ impl fmt::Display for SessionId {
     }
 }
 
-/// Идентификатор выезда.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub(crate) struct OutingId([u8; 16]);
 
 impl OutingId {
-    /// Байты уже выбраны снаружи.
     pub(crate) const fn from_bytes(bytes: [u8; 16]) -> Self {
         Self(bytes)
     }
@@ -46,12 +39,10 @@ impl fmt::Display for OutingId {
     }
 }
 
-/// Идентификатор круга.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub(crate) struct LapId([u8; 16]);
 
 impl LapId {
-    /// Байты уже выбраны снаружи.
     pub(crate) const fn from_bytes(bytes: [u8; 16]) -> Self {
         Self(bytes)
     }

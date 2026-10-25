@@ -10,7 +10,6 @@ const readSort = (): TrackSort => {
         const stored = localStorage.getItem(SORT_KEY)
         if (stored && isTrackSort(stored)) return stored
     } catch {
-        // ignore
     }
     return DEFAULT_SORT
 }
@@ -25,6 +24,5 @@ export const setTrackBoardSort = (sort: TrackSort): void => {
     try {
         localStorage.setItem(SORT_KEY, sort)
     } catch {
-        // private mode / quota — память сессии всё равно жива
     }
 }

@@ -1,76 +1,129 @@
-//! Пачка круга. Страница получает `ArrayBuffer`, не JSON-массив чисел.
 
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 use tauri::ipc::{Channel, InvokeResponseBody};
-use tauri::{AppHandle, Emitter, State};
+use tauri::State;
 
-use super::status::{ACC_STATUS, Status};
+use super::status::Status;
 
 struct LapGate {
     channel: Option<Channel<InvokeResponseBody>>,
-    /// Последняя пачка, если страница ещё не вызвала `listen_laps`.
-    pending: Option<Vec<u8>>,
+    queue: VecDeque<Vec<u8>>,
 }
 
-/// Куда поток чтения кладёт статус и пачки.
+struct StatusGate {
+    channel: Option<Channel<Status>>,
+    last: Option<Status>,
+    queue: VecDeque<Status>,
+}
+
 #[derive(Clone)]
 pub(crate) struct Outbox {
-    app: AppHandle,
     laps: Arc<Mutex<LapGate>>,
+    status: Arc<Mutex<StatusGate>>,
 }
 
 impl Outbox {
-    pub(crate) fn new(app: AppHandle) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
-            app,
             laps: Arc::new(Mutex::new(LapGate {
                 channel: None,
-                pending: None,
+                queue: VecDeque::new(),
+            })),
+            status: Arc::new(Mutex::new(StatusGate {
+                channel: None,
+                last: None,
+                queue: VecDeque::new(),
             })),
         }
     }
 
     pub(crate) fn emit_status(&self, status: &Status) {
-        let _ = self.app.emit(ACC_STATUS, status);
+        {
+            let mut gate = self.status.lock().expect("канал статуса ACC");
+            gate.last = Some(status.clone());
+            gate.queue.push_back(status.clone());
+        }
+        self.drain_status();
     }
 
-    /// Кладёт пачку. Если канал уже есть, байты уходят сразу, иначе заменяют предыдущие.
-    #[cfg_attr(not(windows), allow(dead_code))]
-    pub(crate) fn send_lap(&self, bytes: Vec<u8>) {
-        self.laps.lock().expect("канал пачек круга").pending = Some(bytes);
-        self.drain();
-    }
-
-    /// Отдаёт последнюю пачку, когда подписка появилась между тиками.
-    pub(crate) fn drain(&self) {
-        let ready = {
-            let mut gate = self.laps.lock().expect("канал пачек круга");
-            let channel = gate.channel.clone();
-            let bytes = if channel.is_some() {
-                gate.pending.take()
-            } else {
-                None
+    fn drain_status(&self) {
+        loop {
+            let ready = {
+                let mut gate = self.status.lock().expect("канал статуса ACC");
+                let Some(channel) = gate.channel.clone() else {
+                    return;
+                };
+                let Some(status) = gate.queue.pop_front() else {
+                    return;
+                };
+                gate.last = Some(status.clone());
+                (channel, status)
             };
-            channel.zip(bytes)
-        };
-        let Some((channel, bytes)) = ready else {
-            return;
-        };
-        // `Raw`, чтобы страница получила ArrayBuffer, а не JSON-массив чисел.
-        if channel.send(InvokeResponseBody::Raw(bytes)).is_err() {
-            self.laps.lock().expect("канал пачек круга").channel = None;
+            let (channel, status) = ready;
+            if channel.send(status).is_err() {
+                self.status.lock().expect("канал статуса ACC").channel = None;
+                return;
+            }
         }
     }
 
-    fn listen(&self, channel: Channel<InvokeResponseBody>) {
+    #[cfg_attr(not(windows), allow(dead_code))]
+    pub(crate) fn send_lap(&self, bytes: Vec<u8>) {
+        self.laps
+            .lock()
+            .expect("канал пачек круга")
+            .queue
+            .push_back(bytes);
+        self.drain();
+    }
+
+    pub(crate) fn drain(&self) {
+        loop {
+            let ready = {
+                let mut gate = self.laps.lock().expect("канал пачек круга");
+                let Some(channel) = gate.channel.clone() else {
+                    return;
+                };
+                let Some(bytes) = gate.queue.pop_front() else {
+                    return;
+                };
+                (channel, bytes)
+            };
+            let (channel, bytes) = ready;
+            if channel.send(InvokeResponseBody::Raw(bytes)).is_err() {
+                self.laps.lock().expect("канал пачек круга").channel = None;
+                return;
+            }
+        }
+    }
+
+    fn listen_laps(&self, channel: Channel<InvokeResponseBody>) {
         self.laps.lock().expect("канал пачек круга").channel = Some(channel);
         self.drain();
     }
+
+    fn listen_status(&self, channel: Channel<Status>) {
+        {
+            let mut gate = self.status.lock().expect("канал статуса ACC");
+            gate.channel = Some(channel);
+            if gate.queue.is_empty() {
+                if let Some(last) = gate.last.clone() {
+                    gate.queue.push_back(last);
+                }
+            }
+        }
+        self.drain_status();
+    }
 }
 
-/// Подписка на пачки круга. Аргумент `channel` — `Channel` с фронта.
 #[tauri::command]
 pub(crate) fn listen_laps(outbox: State<'_, Outbox>, channel: Channel<InvokeResponseBody>) {
-    outbox.listen(channel);
+    outbox.listen_laps(channel);
+}
+
+#[tauri::command]
+pub(crate) fn listen_status(outbox: State<'_, Outbox>, channel: Channel<Status>) {
+    outbox.listen_status(channel);
 }

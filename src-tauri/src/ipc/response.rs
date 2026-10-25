@@ -1,8 +1,6 @@
-//! Конверт команд. Событие `acc-status` и байты пачки в него не заворачиваются.
 
 use serde::Serialize;
 
-/// Успех несёт `data`. Ошибка несёт `message` и `hint`.
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub(crate) enum IpcResponse<T> {

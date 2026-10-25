@@ -8,7 +8,7 @@ import { buttonVariants } from "~/ui"
 const itemClass =
     "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[11px] text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink"
 
-/** Шестерёнка справа от темы: сброс настроек и обмен IndexedDB. */
+
 export function SettingsMenu() {
     const repository = useSessionRepository()
     let fileInput!: HTMLInputElement
@@ -16,7 +16,13 @@ export function SettingsMenu() {
     const exportData = async () => {
         const repo = repository()
         if (!repo) return
-        downloadDump(await repo.exportAll())
+        try {
+            await downloadDump(await repo.exportAll())
+        } catch (error) {
+            const detail =
+                error instanceof Error ? error.message : String(error)
+            window.alert(`${t("app.exportFailed")}\n${detail}`)
+        }
     }
 
     const importData = async (file: File) => {
