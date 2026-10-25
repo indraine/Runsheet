@@ -128,6 +128,23 @@ export class SessionRepository {
         await writeDump(this.database, dump)
         this.setRevision(current => current + 1)
     }
+
+    async clearAll(): Promise<void> {
+        const tx = this.database.transaction(
+            ["sessions", "laps", "traces"],
+            "readwrite"
+        )
+        await Promise.all([
+            tx.objectStore("sessions").clear(),
+            tx.objectStore("laps").clear(),
+            tx.objectStore("traces").clear(),
+            tx.done,
+        ])
+        batch(() => {
+            this.setLastWrite(undefined)
+            this.setRevision(current => current + 1)
+        })
+    }
 }
 
 function assertWrite(write: SessionWrite): void {

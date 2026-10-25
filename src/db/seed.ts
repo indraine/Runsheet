@@ -327,8 +327,8 @@ export async function seedDevDay(
 ): Promise<boolean> {
     const dev = options.dev ?? import.meta.env.DEV
     if (!dev) return false
-    const empty = (await database.count("sessions")) === 0
-    if (!empty && readSeedVersion() === SEED_VERSION) return false
+    // The version is stored after the first seed, so a later wipe stays empty.
+    if (readSeedVersion() === SEED_VERSION) return false
 
     const day = devDay(options.now ?? Date.now())
     const tx = database.transaction(["sessions", "laps", "traces"], "readwrite")

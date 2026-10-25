@@ -157,17 +157,17 @@ const TrackTile = (props: {
 
     return (
         <li class="flex aspect-[4/3] min-w-0 flex-col gap-1 px-4 pt-3 pb-4">
-            <div class="flex items-baseline justify-between gap-3 font-mono">
-                <p class="min-w-0 truncate text-[22px] font-semibold tracking-tight text-ink uppercase">
+            <div class="flex items-start justify-between gap-3 font-mono">
+                <p class="min-w-0 truncate text-[22px] leading-none font-semibold tracking-tight text-ink uppercase">
                     {trackName(props.track)}
                 </p>
                 <Show when={props.record}>
                     {record => (
-                        <p class="shrink-0 text-right font-mono leading-tight">
-                            <span class="block text-[15px] font-semibold tracking-tight text-ink">
+                        <p class="shrink-0 text-right font-mono leading-none">
+                            <span class="block text-[15px] leading-none font-semibold tracking-tight text-ink">
                                 {record().sessions}
                             </span>
-                            <span class="block text-[10px] font-medium tracking-wide text-secondary uppercase">
+                            <span class="mt-0.5 block text-[10px] leading-none font-medium tracking-wide text-secondary uppercase">
                                 {attemptWord(record().sessions)}
                             </span>
                         </p>

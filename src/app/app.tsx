@@ -24,10 +24,10 @@ export function App(props: RouteSectionProps) {
                 when={!onWelcome()}
                 fallback={<Suspense>{props.children}</Suspense>}
             >
-                <div class="flex min-h-dvh flex-col bg-canvas text-ink">
+                <div class="flex h-full flex-col overflow-hidden bg-canvas text-ink">
                     <Header />
                     <LaunchAcc />
-                    <main class="flex-1">
+                    <main class="flex min-h-0 flex-1 flex-col">
                         <Suspense>{props.children}</Suspense>
                     </main>
                     <Footer />

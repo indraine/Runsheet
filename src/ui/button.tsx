@@ -18,6 +18,7 @@ const buttonVariants = cva(
                 primary: "bg-accent text-on-accent hover:brightness-95",
                 secondary: "border-line bg-surface text-ink hover:bg-inset",
                 ghost: "bg-transparent text-secondary hover:bg-inset hover:text-ink",
+                danger: "bg-loss text-canvas hover:brightness-95",
             },
             size: {
                 md: "h-8 px-2.5",

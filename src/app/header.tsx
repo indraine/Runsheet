@@ -23,7 +23,7 @@ export function Header() {
             <div class="flex min-w-0 items-center gap-4">
                 <A
                     href="/"
-                    class="shrink-0 rounded outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20"
+                    class="inline-flex h-10 shrink-0 items-center rounded leading-none outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20"
                 >
                     <Wordmark class="h-10" />
                 </A>
@@ -63,24 +63,16 @@ export function Header() {
 
 function AccStatus() {
     let row: HTMLParagraphElement | undefined
-    let dot: HTMLSpanElement | undefined
     let label: HTMLSpanElement | undefined
     let launch: HTMLSpanElement | undefined
 
     const paint = (value: AccPresence) => {
         const name = presenceName(value)
         if (label) label.textContent = name
-        if (dot) {
-            dot.className = cn(
-                "size-1.5 rounded-full",
-                value === "onTrack"
-                    ? "bg-gain"
-                    : value === "inPits"
-                      ? "bg-accent"
-                      : "bg-muted"
-            )
+        if (row) {
+            row.hidden = name === ""
+            row.className = cn(presenceBubble, presenceTone(value))
         }
-        if (row) row.hidden = name === ""
         if (launch) launch.hidden = value !== "off"
     }
 
@@ -97,16 +89,21 @@ function AccStatus() {
             <span ref={launch} hidden>
                 <LaunchAccButton />
             </span>
-            <p
-                ref={row}
-                hidden
-                class="inline-flex shrink-0 items-center gap-2 font-mono text-[11px] font-medium tracking-wide text-secondary uppercase"
-            >
-                <span ref={dot} class="size-1.5 rounded-full bg-muted" aria-hidden="true" />
+            <p ref={row} hidden class={presenceBubble}>
                 <span ref={label} />
             </p>
         </>
     )
+}
+
+const presenceBubble =
+    "inline-flex h-6 shrink-0 items-center self-center rounded-full border border-current/30 px-2.5 font-mono text-[11px] leading-none font-semibold tracking-wide whitespace-nowrap uppercase"
+
+const presenceTone = (value: AccPresence): string => {
+    if (value === "onTrack") return "bg-gain/15 text-gain"
+    if (value === "inPits") return "bg-accent/15 text-accent"
+    if (value === "menu") return "bg-caution/15 text-caution"
+    return "bg-inset text-secondary"
 }
 
 const presenceName = (value: AccPresence): string => {

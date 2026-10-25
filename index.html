@@ -38,6 +38,18 @@
                 }
                 document.documentElement.dataset.theme = resolved
                 document.documentElement.style.colorScheme = scheme
+                var scale = 100
+                try {
+                    var raw = Number(localStorage.getItem("runsheet.scale"))
+                    if (raw >= 80 && raw <= 150 && raw % 10 === 0) scale = raw
+                } catch (e) {}
+                if (scale !== 100) {
+                    var zoom = scale / 100
+                    var root = document.documentElement
+                    root.style.zoom = String(zoom)
+                    root.style.width = 100 / zoom + "vw"
+                    root.style.height = 100 / zoom + "dvh"
+                }
             })()
         </script>
         <link rel="icon" type="image/svg+xml" href="/src/assets/icon.svg" />

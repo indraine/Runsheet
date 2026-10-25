@@ -1,5 +1,6 @@
 import { render } from "solid-js/web"
 import { AppRoutes } from "~/app/routes"
+import "~/app/scale"
 import "~/app/theme"
 import "~/index.css"
 

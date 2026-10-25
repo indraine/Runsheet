@@ -97,11 +97,21 @@ const en = {
     launchStarting: "Starting ACC…",
     launchMissing: "ACC was not found in Steam libraries",
     settings: "Settings",
+    scale: "Scale",
+    scaleDown: "Zoom out",
+    scaleUp: "Zoom in",
     resetSettings: "Reset settings",
     exportData: "Export data",
     exportFailed: "Could not export the file",
     importData: "Import data",
     importFailed: "Could not import the file",
+    clearData: "Clear data",
+    clearDataTitle: "Clear all recorded data?",
+    clearDataBody:
+        "Every recorded session will be deleted. This cannot be undone.",
+    clearDataConfirm: "Clear",
+    clearDataCancel: "Cancel",
+    clearDataFailed: "Could not clear the data",
     github: "GitHub repository",
 }
 
@@ -202,11 +212,21 @@ const ru: typeof en = {
     launchStarting: "Запускаю ACC…",
     launchMissing: "ACC не найдена в библиотеках Steam",
     settings: "Настройки",
+    scale: "Масштаб",
+    scaleDown: "Уменьшить",
+    scaleUp: "Увеличить",
     resetSettings: "Сбросить настройки",
     exportData: "Экспорт данных",
     exportFailed: "Не удалось экспортировать файл",
     importData: "Импорт данных",
     importFailed: "Не удалось импортировать файл",
+    clearData: "Очистить данные",
+    clearDataTitle: "Очистить все записанные данные?",
+    clearDataBody:
+        "Все собранные заезды будут удалены. Вернуть их нельзя.",
+    clearDataConfirm: "Очистить",
+    clearDataCancel: "Отмена",
+    clearDataFailed: "Не удалось очистить данные",
     github: "Репозиторий на GitHub",
 }
 

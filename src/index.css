@@ -262,11 +262,17 @@ html[data-theme="solarized-light"] {
 
 @layer base {
     html {
+        height: 100%;
         background-color: var(--canvas);
         color: var(--ink);
         font-family: var(--font-mono);
         font-feature-settings:
             "tnum" 1,
             "zero" 1;
+    }
+
+    body,
+    #root {
+        height: 100%;
     }
 }

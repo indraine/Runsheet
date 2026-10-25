@@ -15,7 +15,7 @@ export function WelcomePage() {
     }
 
     return (
-        <div class="flex min-h-dvh items-center justify-center bg-canvas px-6 text-ink">
+        <div class="flex min-h-full items-center justify-center bg-canvas px-6 text-ink">
             <div class="flex w-full max-w-xl flex-col items-center text-center">
                 <Wordmark class="h-32 max-w-full" />
                 <p class="mt-10 font-mono text-xl leading-7 text-ink">

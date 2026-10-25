@@ -9,7 +9,7 @@ type WordmarkProps = {
 export const Wordmark = (props: WordmarkProps) => (
     <span
         class={cn(
-            "inline-flex text-ink [&_svg]:h-full [&_svg]:w-auto",
+            "inline-flex items-center leading-none text-ink [&_svg]:block [&_svg]:h-full [&_svg]:w-auto",
             props.class
         )}
         role="img"
