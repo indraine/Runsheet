@@ -1,5 +1,7 @@
 # Builds Windows MSI + portable .exe and publishes a GitHub Release on version tags.
 # macOS/Linux are omitted: ACC Shared Memory (live telemetry) is Windows-only.
+#
+# CI uses npm (not Bun): bun install frequently hangs on windows-latest runners.
 name: Release
 
 on:
@@ -11,17 +13,18 @@ jobs:
   publish-tauri:
     permissions:
       contents: write
-
+    timeout-minutes: 90
     runs-on: windows-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version: lts/*
+          cache: npm
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -32,7 +35,8 @@ jobs:
           workspaces: './src-tauri -> target'
 
       - name: Install frontend dependencies
-        run: bun install --frozen-lockfile
+        timeout-minutes: 10
+        run: npm install
 
       # MSI only (no NSIS *-setup.exe — easy to confuse with the portable app).
       - name: Build and publish MSI to GitHub Release
@@ -65,7 +69,8 @@ jobs:
             > Live ACC Shared Memory requires Windows. See the [README](https://github.com/indraine/Runsheet#readme) for details.
           releaseDraft: false
           prerelease: false
-          args: '--bundles msi'
+          tauriScript: npm run tauri --
+          args: '--bundles msi --config src-tauri/tauri.ci.conf.json'
           assetNamePattern: 'Runsheet-[version]-windows-[arch]-installer[ext]'
 
       - name: Upload portable executable
