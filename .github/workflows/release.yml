@@ -69,7 +69,7 @@ jobs:
           releaseDraft: false
           prerelease: false
           tauriScript: npm run tauri --
-          args: '--bundles msi --config src-tauri/tauri.ci.conf.json'
+          args: '--bundles msi'
           assetNamePattern: 'Runsheet-[version]-windows-[arch]-installer[ext]'
 
       - name: Upload portable executable
