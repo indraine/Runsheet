@@ -56,7 +56,7 @@ Spa · lap table with S1/S2/S3, fuel, delta, and mini-map.
 - [x] Catalog of 25 ACC tracks — Recent, Popular, A–Z filters; personal bests and attempt counts
 - [x] Outing journal by day and type (practice, qualifying, race / solo, online)
 - [x] Live card: air and asphalt, tyre pressure (psi), vector track map
-- [x] 11 themes (Dark, Light, Dracula, Nord, Monokai, Gruvbox, Mocha, Solarized, …)
+- [x] 12 themes (Dark, Light, Dracula, Nord, Monokai, Gruvbox, Everforest, Mocha, Solarized, …)
 - [x] Two UI languages (EN / RU)
 
 ---

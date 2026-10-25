@@ -173,6 +173,27 @@ html[data-theme="gruvbox"] {
     --caution: #fabd2f;
 }
 
+html[data-theme="everforest"] {
+    color-scheme: dark;
+
+    --canvas: #1e2326;
+    --surface: #272e33;
+    --inset: #2e383c;
+    --line: #414b50;
+
+    --ink: #d3c6aa;
+    --secondary: #9da9a0;
+    --muted: #859289;
+
+    --accent: #a7c080;
+    --on-accent: #272e33;
+    --reference: #d699b6;
+
+    --gain: #a7c080;
+    --loss: #e67e80;
+    --caution: #dbbc7f;
+}
+
 html[data-theme="one-dark"] {
     color-scheme: dark;
 

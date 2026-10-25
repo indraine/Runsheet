@@ -26,6 +26,7 @@ const LABEL_KEY = {
     nord: "app.themeNord",
     mocha: "app.themeMocha",
     gruvbox: "app.themeGruvbox",
+    everforest: "app.themeEverforest",
     "one-dark": "app.themeOneDark",
     "solarized-dark": "app.themeSolarizedDark",
     "solarized-light": "app.themeSolarizedLight",
