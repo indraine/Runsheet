@@ -136,7 +136,7 @@ export const TrackLine = (props: {
             ref={element => {
                 host = element
             }}
-            class={cn("h-full min-h-72 w-full", props.class)}
+            class={cn("h-full w-full", props.class)}
             role="img"
             aria-label={t("app.trackLine")}
         />

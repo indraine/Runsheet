@@ -34,8 +34,8 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
     })
 
     return (
-        <section class="mx-6 mt-6 shrink-0 overflow-hidden rounded border border-line bg-surface">
-            <header class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b border-line px-4 py-3">
+        <section class="flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-line bg-surface">
+            <header class="flex shrink-0 flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b border-line px-4 py-3">
                 <div class="flex min-w-0 items-baseline gap-3">
                     <div class="relative min-w-0">
                         <h2
@@ -90,7 +90,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                 </p>
             </header>
 
-            <div class="grid border-b border-line sm:grid-cols-3 sm:divide-x sm:divide-line">
+            <div class="grid shrink-0 border-b border-line sm:grid-cols-3 sm:divide-x sm:divide-line">
                 <Summary
                     label={t("app.liveBest")}
                     value={bestTime(card().bestLap?.timeMs)}
@@ -109,20 +109,20 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                 />
             </div>
 
-            <div class="grid lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
+            <div class="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:grid-rows-[minmax(0,1fr)]">
                 <LapTable
                     sessionId={card().session.id}
                     rows={card().rows}
                     best={card().bestLap}
                 />
-                <div class="relative min-h-72 overflow-hidden border-t border-line lg:border-t-0 lg:border-l">
+                <div class="relative min-h-0 overflow-hidden border-t border-line lg:border-t-0 lg:border-l">
                     <Show
                         when={
                             (ownTrack() && (card().road || card().car)) ||
                             hasAsphalt(shownTrack())
                         }
                         fallback={
-                            <p class="flex h-full min-h-72 items-center justify-center font-mono text-[11px] text-muted">
+                            <p class="flex h-full items-center justify-center font-mono text-[11px] text-muted">
                                 {t("app.empty")}
                             </p>
                         }
@@ -178,7 +178,10 @@ const LapTable = (props: {
     rows: LiveLapRow[]
     best: LiveCardModel["bestLap"]
 }) => (
-    <div class="overflow-auto" style={{ "max-height": lapTableMaxHeight() }}>
+    <div
+        class="h-full min-h-0 min-w-0 overflow-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]"
+        style={{ "max-height": lapTableMaxHeight() }}
+    >
         <table class="w-full min-w-[40rem] border-collapse text-left">
             <caption class="sr-only">{t("app.lapTable")}</caption>
             <thead class="sticky top-0 z-10 bg-surface">

@@ -56,8 +56,8 @@ export const TrackBoard = (props: {
     })
 
     return (
-        <section class="mx-6 mt-6 shrink-0 overflow-hidden rounded border border-line">
-            <header class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-line bg-surface px-4 py-3">
+        <section class="flex min-h-0 flex-col overflow-y-auto rounded border border-line bg-surface">
+            <header class="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-line px-4 py-3">
                 <div class="min-w-0">
                     <h2 class="font-mono text-lg font-semibold tracking-tight text-ink uppercase">
                         {t("app.trackBoard")}
@@ -113,7 +113,7 @@ export const TrackBoard = (props: {
                     </nav>
                 </div>
             </header>
-            <ul class="grid grid-cols-4 divide-x divide-line bg-surface">
+            <ul class="grid shrink-0 grid-cols-4 divide-x divide-line">
                 <For each={pageTracks()}>
                     {track => (
                         <TrackTile

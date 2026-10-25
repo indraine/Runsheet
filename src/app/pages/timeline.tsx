@@ -17,15 +17,17 @@ import {
     closedSheet,
     groupByDay,
     isSessionFilter,
+    liveCard,
     trackRecords,
     type Lap,
+    type LiveCard as LiveCardModel,
     type Session,
     type SessionFilter,
     type SessionType,
 } from "~/domain"
 import { carName, fmt, t, trackName } from "~/i18n"
 import { locale } from "~/i18n/locale"
-import { Tabs, cn } from "~/ui"
+import { Button, Tabs, cn } from "~/ui"
 import { DayNav, activeDayStart } from "~/app/pages/day-nav"
 import {
     applyDayWrite,
@@ -43,7 +45,45 @@ export function TimelinePage() {
     const repository = useSessionRepository()
     const [memory, setMemory] = createSignal<DayMemory>()
     const [failed, setFailed] = createSignal<unknown>()
+    const [review, setReview] = createSignal<LiveCardModel>()
     let appliedRevision = -1
+    let reviewToken = 0
+
+    const showSession = (session: Session) => {
+        if (review()?.session.id === session.id) {
+            reviewToken += 1
+            setReview(undefined)
+            return
+        }
+        const repo = repository()
+        if (!repo) return
+        const token = ++reviewToken
+        void repo
+            .readLaps(session.id)
+            .then(async laps => {
+                const traces = await repo.readTraces(laps.map(lap => lap.id))
+                return liveCard(session, laps, [...traces.values()])
+            })
+            .then(card => {
+                if (token !== reviewToken) return
+                setReview(card)
+            })
+            .catch(error => {
+                if (token !== reviewToken) return
+                const detail =
+                    error instanceof Error ? error.message : String(error)
+                window.alert(`${t("app.showLiveFailed")}\n${detail}`)
+            })
+    }
+
+    createEffect(() => {
+        const card = review()
+        const current = memory()
+        if (!card || !current) return
+        if (!current.past.some(row => row.session.id === card.session.id)) {
+            setReview(undefined)
+        }
+    })
 
     createEffect(() => {
         const repo = repository()
@@ -127,28 +167,35 @@ export function TimelinePage() {
                             accPresence() === "onTrack"
                                 ? sheet().live
                                 : undefined
+                        const shown = () => review() ?? live()
                         const hasPast = () => sheet().past.length > 0
                         return (
                             <div class="flex min-h-0 flex-1 flex-col">
                                 <div
                                     class={cn(
-                                        "shrink-0 overflow-y-auto",
+                                        "flex min-h-0 shrink-0 flex-col overflow-hidden px-6 pt-6",
                                         hasPast()
-                                            ? "max-h-[calc(100%-12rem)]"
-                                            : "max-h-full"
+                                            ? shown()
+                                                ? "h-[calc(100%-12rem)] max-h-[32rem]"
+                                                : "max-h-[calc(100%-12rem)]"
+                                            : "h-full"
                                     )}
                                 >
                                     <Show
-                                        when={live()}
+                                        when={shown()}
                                         fallback={
                                             <TrackBoard records={records()} />
                                         }
                                     >
-                                        <LiveCard card={live()!} />
+                                        <LiveCard card={shown()!} />
                                     </Show>
                                 </div>
                                 <Show when={hasPast()}>
-                                    <PastSheet sessions={sheet().past} />
+                                    <PastSheet
+                                        sessions={sheet().past}
+                                        openedId={review()?.session.id}
+                                        onShowLive={showSession}
+                                    />
                                 </Show>
                             </div>
                         )
@@ -159,7 +206,11 @@ export function TimelinePage() {
     )
 }
 
-function PastSheet(props: { sessions: DaySession[] }) {
+function PastSheet(props: {
+    sessions: DaySession[]
+    openedId: string | undefined
+    onShowLive: (session: Session) => void
+}) {
     const [filter, setFilter] = createSignal<SessionFilter>("all")
     const [chosen, setChosen] = createSignal<number>()
     const days = () =>
@@ -204,6 +255,8 @@ function PastSheet(props: { sessions: DaySession[] }) {
                                 <ClosedRow
                                     session={session}
                                     bestLap={bestLap(session.id)}
+                                    opened={props.openedId === session.id}
+                                    onShow={() => props.onShowLive(session)}
                                 />
                             )}
                         </For>
@@ -239,7 +292,12 @@ function SessionTypeFilter(props: {
     )
 }
 
-function ClosedRow(props: { session: Session; bestLap: Lap | undefined }) {
+function ClosedRow(props: {
+    session: Session
+    bestLap: Lap | undefined
+    opened: boolean
+    onShow: () => void
+}) {
     const href = () => {
         const lap = countableLap(props.bestLap)
         if (!lap) return undefined
@@ -247,11 +305,16 @@ function ClosedRow(props: { session: Session; bestLap: Lap | undefined }) {
     }
 
     return (
-        <li class="border-b border-line">
+        <li
+            class={cn(
+                "group flex items-center border-b border-line pr-2 hover:bg-inset",
+                props.opened && "bg-inset"
+            )}
+        >
             <Show
                 when={href()}
                 fallback={
-                    <div class={rowClass}>
+                    <div class={cn(rowClass, "min-w-0 flex-1")}>
                         <RowContent
                             session={props.session}
                             bestLap={props.bestLap}
@@ -264,7 +327,7 @@ function ClosedRow(props: { session: Session; bestLap: Lap | undefined }) {
                         href={link()}
                         class={cn(
                             rowClass,
-                            "rounded outline-none hover:bg-inset focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20"
+                            "min-w-0 flex-1 rounded outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20"
                         )}
                     >
                         <RowContent
@@ -274,6 +337,40 @@ function ClosedRow(props: { session: Session; bestLap: Lap | undefined }) {
                     </A>
                 )}
             </Show>
+            <Button
+                variant="secondary"
+                size="sm"
+                class={cn(
+                    "shrink-0 group-hover:bg-inset",
+                    props.opened && "border-accent bg-inset text-accent"
+                )}
+                aria-pressed={props.opened}
+                aria-label={
+                    props.opened ? t("app.showTracks") : t("app.showLiveCard")
+                }
+                onClick={() => props.onShow()}
+            >
+                <span class="grid">
+                    <span
+                        class={cn(
+                            "col-start-1 row-start-1 whitespace-nowrap",
+                            props.opened && "invisible"
+                        )}
+                        aria-hidden="true"
+                    >
+                        {t("app.showLiveCard")}
+                    </span>
+                    <span
+                        class={cn(
+                            "col-start-1 row-start-1 whitespace-nowrap",
+                            !props.opened && "invisible"
+                        )}
+                        aria-hidden="true"
+                    >
+                        {t("app.showTracks")}
+                    </span>
+                </span>
+            </Button>
         </li>
     )
 }
