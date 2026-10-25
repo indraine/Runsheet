@@ -20,15 +20,13 @@
 ## Демонстрация работы
 
 <!--
-  Если ролик загружен через GitHub Issues или Release, замените src
+  Если ролик загружен через GitHub Issues или Release, замените ссылку
   на CDN-адрес: https://github.com/user-attachments/assets/...
 -->
 
-<div align="center">
-  <video src="docs/demo.mp4" autoplay loop muted playsinline width="100%"></video>
-</div>
+[![Демонстрация работы Runsheet](docs/demo.gif)](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
 
-> 💡 Не проигрывается видео? Посмотрите [демо-ролик в формате GIF](docs/demo.gif) или скачайте [MP4](docs/demo.mp4).
+> 💡 [Смотреть MP4 на GitHub](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
 
 ---
 

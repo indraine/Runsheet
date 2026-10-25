@@ -20,15 +20,13 @@ Desktop session sheet for **Assetto Corsa Competizione**. Everything is automati
 ## Demo
 
 <!--
-  If the clip is uploaded through GitHub Issues or a Release, replace src
+  If the clip is uploaded through GitHub Issues or a Release, replace the link
   with the CDN URL: https://github.com/user-attachments/assets/...
 -->
 
-<div align="center">
-  <video src="docs/demo.mp4" autoplay loop muted playsinline width="100%"></video>
-</div>
+[![Runsheet demo](docs/demo.gif)](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
 
-> 💡 Video not playing? Watch the [demo as a GIF](docs/demo.gif) or download the [MP4](docs/demo.mp4).
+> 💡 [Watch the MP4 on GitHub](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
 
 ---
 
