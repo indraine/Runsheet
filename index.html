@@ -41,7 +41,8 @@
                 var scale = 100
                 try {
                     var raw = Number(localStorage.getItem("runsheet.scale"))
-                    if (raw >= 80 && raw <= 150 && raw % 10 === 0) scale = raw
+                    if (raw >= 80 && raw <= 150 && Math.round(raw) === raw)
+                        scale = raw
                 } catch (e) {}
                 if (scale !== 100) {
                     var zoom = scale / 100

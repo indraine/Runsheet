@@ -2,28 +2,28 @@ import { createSignal } from "solid-js"
 
 const SCALE_KEY = "runsheet.scale"
 
-export const UI_SCALES = [80, 90, 100, 110, 120, 130, 140, 150] as const
+export const SCALE_MIN = 80
+export const SCALE_MAX = 150
+export const SCALE_STEP = 10
+export const DEFAULT_SCALE = 100
 
-export type UiScale = (typeof UI_SCALES)[number]
+export const isUiScale = (value: number): boolean =>
+    Number.isInteger(value) && value >= SCALE_MIN && value <= SCALE_MAX
 
-const DEFAULT_SCALE: UiScale = 100
-
-export const isUiScale = (value: number): value is UiScale =>
-    (UI_SCALES as readonly number[]).includes(value)
-
-export const parseScale = (stored: string | null): UiScale => {
+export const parseScale = (stored: string | null): number => {
     const value = Number(stored)
     return isUiScale(value) ? value : DEFAULT_SCALE
 }
 
-export const nextScale = (current: UiScale, direction: -1 | 1): UiScale => {
-    const index = UI_SCALES.indexOf(current) + direction
-    if (index < 0) return UI_SCALES[0]
-    if (index >= UI_SCALES.length) return UI_SCALES[UI_SCALES.length - 1]
-    return UI_SCALES[index]
+export const clampScale = (value: number): number => {
+    const rounded = Math.round(value)
+    return Math.min(SCALE_MAX, Math.max(SCALE_MIN, rounded))
 }
 
-const readScale = (): UiScale => {
+export const nextScale = (current: number, direction: -1 | 1): number =>
+    clampScale(current + direction * SCALE_STEP)
+
+const readScale = (): number => {
     if (typeof localStorage === "undefined") return DEFAULT_SCALE
     try {
         return parseScale(localStorage.getItem(SCALE_KEY))
@@ -32,7 +32,7 @@ const readScale = (): UiScale => {
     }
 }
 
-const applyScale = (scale: UiScale): void => {
+const applyScale = (scale: number): void => {
     const root = document.documentElement
     if (scale === DEFAULT_SCALE) {
         root.style.zoom = ""
@@ -46,15 +46,16 @@ const applyScale = (scale: UiScale): void => {
     root.style.height = `${100 / zoom}dvh`
 }
 
-const [uiScale, setUiScaleSignal] = createSignal<UiScale>(readScale())
+const [uiScale, setUiScaleSignal] = createSignal(readScale())
 
-export const setUiScale = (scale: UiScale): void => {
-    setUiScaleSignal(scale)
+export const setUiScale = (scale: number): void => {
+    const next = clampScale(scale)
+    setUiScaleSignal(next)
     try {
-        localStorage.setItem(SCALE_KEY, String(scale))
+        localStorage.setItem(SCALE_KEY, String(next))
     } catch {
     }
-    if (typeof document !== "undefined") applyScale(scale)
+    if (typeof document !== "undefined") applyScale(next)
 }
 
 export const zoomBy = (direction: -1 | 1): void => {

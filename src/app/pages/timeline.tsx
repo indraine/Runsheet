@@ -8,7 +8,6 @@ import {
     createMemo,
     createSignal,
     onCleanup,
-    onMount,
     untrack,
 } from "solid-js"
 import { accLink, accPresence } from "~/app/status"
@@ -26,7 +25,7 @@ import {
 } from "~/domain"
 import { carName, fmt, t, trackName } from "~/i18n"
 import { locale } from "~/i18n/locale"
-import { Button, Tabs, cn } from "~/ui"
+import { Tabs, cn } from "~/ui"
 import { DayNav, activeDayStart } from "~/app/pages/day-nav"
 import {
     applyDayWrite,
@@ -161,10 +160,8 @@ export function TimelinePage() {
 }
 
 function PastSheet(props: { sessions: DaySession[] }) {
-    const repository = useSessionRepository()
     const [filter, setFilter] = createSignal<SessionFilter>("all")
     const [chosen, setChosen] = createSignal<number>()
-    const [confirming, setConfirming] = createSignal(false)
     const days = () =>
         groupByDay(
             closedSheet(
@@ -199,9 +196,9 @@ function PastSheet(props: { sessions: DaySession[] }) {
                     <SessionTypeFilter value={filter()} onChange={setFilter} />
                 </div>
             </header>
-            <div class="mt-6 min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
-                <Show when={sessions().length > 0}>
-                    <ul class="border-t border-line">
+            <Show when={sessions().length > 0}>
+                <div class="mt-6 min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
+                    <ul class="border-t border-line pb-6">
                         <For each={sessions()}>
                             {session => (
                                 <ClosedRow
@@ -211,110 +208,9 @@ function PastSheet(props: { sessions: DaySession[] }) {
                             )}
                         </For>
                     </ul>
-                </Show>
-                <div class="flex justify-center border-t border-line py-4">
-                    <Button
-                        variant="danger"
-                        onClick={() => setConfirming(true)}
-                    >
-                        {t("app.clearData")}
-                    </Button>
                 </div>
-            </div>
-            <Show when={confirming()}>
-                <ClearDataDialog
-                    onCancel={() => setConfirming(false)}
-                    onConfirm={async () => {
-                        const repo = repository()
-                        if (!repo) return
-                        try {
-                            await repo.clearAll()
-                            setConfirming(false)
-                        } catch (error) {
-                            const detail =
-                                error instanceof Error
-                                    ? error.message
-                                    : String(error)
-                            window.alert(`${t("app.clearDataFailed")}\n${detail}`)
-                        }
-                    }}
-                />
             </Show>
         </section>
-    )
-}
-
-function ClearDataDialog(props: {
-    onCancel: () => void
-    onConfirm: () => Promise<void>
-}) {
-    const [clearing, setClearing] = createSignal(false)
-    let cancel: HTMLButtonElement | undefined
-
-    const dismiss = () => {
-        if (clearing()) return
-        props.onCancel()
-    }
-
-    const confirm = () => {
-        if (clearing()) return
-        setClearing(true)
-        void props.onConfirm().finally(() => setClearing(false))
-    }
-
-    onMount(() => {
-        cancel?.focus()
-        const onKey = (event: KeyboardEvent) => {
-            if (event.key === "Escape") dismiss()
-        }
-        document.addEventListener("keydown", onKey)
-        onCleanup(() => document.removeEventListener("keydown", onKey))
-    })
-
-    return (
-        <div
-            class="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 px-6"
-            onClick={dismiss}
-        >
-            <div
-                class="w-full max-w-md rounded border border-line bg-surface p-6 text-ink shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)]"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="clear-data-title"
-                aria-describedby="clear-data-body"
-                onClick={event => event.stopPropagation()}
-            >
-                <h2
-                    id="clear-data-title"
-                    class="font-mono text-sm font-medium tracking-wide text-ink uppercase"
-                >
-                    {t("app.clearDataTitle")}
-                </h2>
-                <p
-                    id="clear-data-body"
-                    class="mt-3 font-mono text-sm leading-5 text-secondary"
-                >
-                    {t("app.clearDataBody")}
-                </p>
-                <div class="mt-5 flex justify-end gap-2">
-                    <Button
-                        ref={cancel}
-                        variant="secondary"
-                        disabled={clearing()}
-                        onClick={dismiss}
-                    >
-                        {t("app.clearDataCancel")}
-                    </Button>
-                    <Button
-                        variant="danger"
-                        disabled={clearing()}
-                        onClick={confirm}
-                    >
-                        {t("app.clearDataConfirm")}
-                    </Button>
-                </div>
-            </div>
-        </div>
     )
 }
 
