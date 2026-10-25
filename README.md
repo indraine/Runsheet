@@ -1,79 +1,141 @@
-# Runsheet
+<p align="center">
+  <img src="docs/brand/logo.svg" alt="Runsheet" width="420" />
+</p>
 
-> На настоящей гонке у боксов лежит лист сессии. Команда ведёт его по ходу дня: во сколько машина выехала, какая это машина и какая сессия пошла — тренировка, квалификация или гонка. По строке потом смотрят, как прошёл выезд.
->
-> Runsheet — это программа, которая ведёт такой же лист для заездов в симуляторе ACC. Игрок едет один за компьютером, а события записываются так, будто сессию ведут у боксов автоатически: выезды идут сверху вниз, и каждый можно открыть и разобрать.
+<p align="center">
+  <strong><a href="README.md">English</a> · <a href="README.ru.md">Русский</a> · <a href="docs/CONCEPT.md">Concept</a> · <a href="docs/CONCEPT.ru.md">Концепция</a></strong>
+</p>
 
-## Концепция
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/version-1.0.0-2a6fc9" alt="Version 1.0.0" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" /></a>
+  <img src="https://img.shields.io/badge/platform-Windows-0078D6" alt="Windows" />
+  <img src="https://img.shields.io/badge/Tauri_2-SolidJS-24C8DB" alt="Tauri 2 · SolidJS" />
+</p>
 
-Лист заездов в Assetto Corsa Competizione. Игроку не требуется включать запись: открыл приложение, поехал, и сессия сама записалась сверху вниз. Каждая строка таймлайна раскрывается для демонтрации снятой телеметрии.
+Desktop session sheet for **Assetto Corsa Competizione**. Open the app, drive — laps, sectors, fuel, and validity are recorded automatically. No “start recording” button.
 
-## 1. Приложение следит за игрой
+> Product concept and session model: **[docs/CONCEPT.md](docs/CONCEPT.md)**
 
-- Приложение запускается и тихо ждёт. Кнопки «начать запись» нет.
-- Пока игра выключена, на листе пусто и видно, что ACC не запущена.
-- Как только игрок оказывается на трассе, запись начинается сама.
-- Игрок вернулся в меню — запись этого заезда закрывается.
-- Пауза заезд не рвёт. Игрок стоит в боксах или крутит настройки — это всё ещё тот же заезд.
+---
 
-## 2. Что считается одним заездом
+## Screenshots
 
-Один заезд — это один непрерывный выезд на трассу.
+### Track catalog
 
-- Начался, когда сессия стала живой: тренировка, квалификация, гонка, горячий круг или длинная попытка.
-- Закончился, когда игрок вышел в главное меню ACC.
-- Если приложение открыли уже посреди круга, в лист попадёт только то, что было после открытия.
-- Закрытый заезд остаётся в листе навсегда, даже если игру потом выключили.
+![Track catalog — Dark](docs/screenshots/01_tracks_dark.png)
 
-## 3. Как устроен таймлайн
+### Live Card
 
-Главная страница приложения показывает таймлайн событий сверху вниз
+Spa · lap table with S1/S2/S3, fuel, delta, and track minimap.
 
-Новая строка события появляется при:
+| Dark | Light |
+|:----:|:-----:|
+| ![Live Card — Dark](docs/screenshots/01_spa_livecard_dark.png) | ![Live Card — Light](docs/screenshots/01_spa_livecard_light.png) |
 
-- смене машины;
-- смене трассы;
-- одиночная езда сменилась заездом на сервере, или наоборот.
+| Dracula | Nord |
+|:-------:|:----:|
+| ![Live Card — Dracula](docs/screenshots/02_spa_livecard_dracula.png) | ![Live Card — Nord](docs/screenshots/03_spa_livecard_nord.png) |
 
-Пример таймлайна:
+---
 
-1. 21:04 — соло, Монца, BMW M4, тренировка.
-2. 21:41 — онлайн, Спа, BMW M4, тренировка.
-3. 22:02 — онлайн, Спа, BMW M4, квалификация.
-4. 22:20 — онлайн, Спа, BMW M4, гонка.
+## Features (v1.0.0)
 
-Практика, квалификация и гонка одного захода на сервер стоят рядом. Это части одного выезда: та же машина, та же трасса, тот же признак «онлайн». Между ними игрок в меню НЕ выходил.
+- [x] Automatic lap, sector (S1 / S2 / S3), fuel, and validity tracking
+- [x] Catalog of 25 ACC tracks — filters Recent, Popular, A–Z; personal bests and attempt counts
+- [x] Session journal grouped by day and type (Practice, Qualifying, Race / Solo, Online)
+- [x] Live Card with weather (Air, Asphalt), tyre pressure (psi), and vector track map
+- [x] 11 appearance themes (Dark, Light, Dracula, Nord, Monokai, Gruvbox, Mocha, Solarized, …)
+- [x] Multilingual UI (EN / RU)
 
-Уход в меню и новый заход — уже другая группа событий, технически - новая сессия, даже если машина и трасса те же.
+---
 
-## 4. Что написано на закрытой строке
+## Themes
 
-Не раскрывая строку, видно:
+| Theme | Mode |
+|-------|------|
+| Dark | Dark |
+| Light | Light |
+| Darcula | Dark |
+| Dracula | Dark |
+| Monokai | Dark |
+| Nord | Dark |
+| Mocha | Dark |
+| Gruvbox | Dark |
+| One Dark | Dark |
+| Solarized Dark | Dark |
+| Solarized Light | Light |
 
-- во сколько заезд начался;
-- соло это или онлайн;
-- трассу;
-- машину;
-- что это было: тренировка, квалификация, гонка, горячий круг или длинная попытка.
+System preference (`system`) follows the OS light/dark setting.
 
-Имени сервера игра не сообщает. Поэтому на строке будет «онлайн · Спа · BMW M4», а не название сервера. Число машин в заезде показать можно: оно известно.
+---
 
-Названия машин и трасс в игре короткие и служебные. В листе они должны быть человеческими: «BMW M4», «Монца», «Спа».
+## Roadmap (v1.1.0+)
 
-## 5. Каждое событие представляет из себя аккордеон (или же кнопку с redirect на подробную страницу)
+- [ ] 2D track geometry scene with asphalt boundaries
+- [ ] Driving trajectories on the map
+- [ ] Telemetry charts (Speed, Throttle, Brake, Gear)
+- [ ] Export to MoTeC / CSV
 
-Строка события — это складной блок. Внутри лежит уже сохранённая картина заезда, а не опрос игры в эту секунду.
+---
 
-- Список кругов этого заезда.
-- У каждого круга: полное время, три сектора и пометка, засчитан круг или нет.
-- У выбранного круга: как жали газ, как тормозили, как крутили руль и как менялась скорость.
-- Линия проезда на рисунке трассы.
-- Рядом — лучший круг этого же заезда, чтобы было видно, где текущий круг медленнее и где траектория другая.
+## Installation / Development build
 
-Пока заезд ещё идёт, его строка в листе живая: новые круги дописываются, пока игрок на трассе. После выхода в меню строка замирает и дальше только открывается для просмотра.
+**Requirements**
 
-## 6. Хранение данных
+- [Bun](https://bun.sh/)
+- [Rust](https://www.rust-lang.org/tools/install) (stable)
+- [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/)
+- **Windows** for live ACC Shared Memory (reader is unavailable on macOS/Linux)
 
-- Закрыл приложение и открыл на следующий день — вчерашние заезды на месте.
-- По листу можно пройтись назад и открыть любой старый заезд так же, как сегодняшний.
-- Записи лежат на устройстве в БД.
+```bash
+# Install dependencies
+bun install
+
+# Frontend only (Vite, seed data in dev)
+bun run dev
+
+# Full desktop app
+bun run tauri dev
+
+# Release build
+bun run tauri build
+```
+
+```bash
+# Checks
+bun run test
+cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+---
+
+## Tech Stack
+
+| Layer | Stack |
+|-------|--------|
+| Shell | Tauri 2 |
+| Backend | Rust, ACC Shared Memory (`acc_shared_memory_rs`) |
+| Frontend | SolidJS, TypeScript, Vite 8 |
+| UI | Tailwind CSS 4, Ark UI, Lucide |
+| Map | PixiJS |
+| Storage | IndexedDB (`idb`) |
+| i18n | `@solid-primitives/i18n` (EN / RU) |
+
+---
+
+## Contributing
+
+1. Fork the repository and create a feature branch.
+2. Keep handlers thin; put domain logic in services / domain modules.
+3. Run `bun run test` and Rust tests before opening a PR.
+4. Prefer small, focused pull requests with a short “why” in the description.
+
+Architectural invariants and layout: [AGENTS.md](AGENTS.md) · product concept: [docs/CONCEPT.md](docs/CONCEPT.md).
+
+---
+
+## License
+
+[MIT](LICENSE)
