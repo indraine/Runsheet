@@ -12,7 +12,7 @@
         "fmt": "prettier . --write",
         "tauri": "tauri"
     },
-    "license": "MIT",
+    "license": "GPL-3.0-or-later",
     "dependencies": {
         "@ark-ui/solid": "^5.39.3",
         "@fontsource/hanken-grotesk": "^5.3.0",

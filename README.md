@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/version-1.0.0-2a6fc9" alt="Version 1.0.0" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="GPL-3.0" /></a>
   <img src="https://img.shields.io/badge/platform-Windows-0078D6" alt="Windows" />
   <img src="https://img.shields.io/badge/Tauri_2-SolidJS-24C8DB" alt="Tauri 2 · SolidJS" />
 </p>
@@ -138,4 +138,6 @@ Architectural invariants and layout: [AGENTS.md](AGENTS.md) · product concept: 
 
 ## License
 
-[MIT](LICENSE)
+Copyright (C) 2026 indrane
+
+Licensed under the [GNU General Public License v3.0 or later](LICENSE).
