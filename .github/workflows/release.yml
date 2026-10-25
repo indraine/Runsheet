@@ -68,8 +68,9 @@ jobs:
             > Live ACC Shared Memory requires Windows. See the [README](https://github.com/indraine/Runsheet#readme) for details.
           releaseDraft: false
           prerelease: false
-          tauriScript: npm run tauri --
-          args: '--bundles msi'
+          # Avoid "npm run tauri -- … -- …" — the extra "--" leaks into cargo.
+          # MSI-only is already set via bundle.targets in tauri.conf.json.
+          tauriScript: npm run tauri
           assetNamePattern: 'Runsheet-[version]-windows-[arch]-installer[ext]'
 
       - name: Upload portable executable
