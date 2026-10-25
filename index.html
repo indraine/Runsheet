@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -19,6 +19,13 @@
                     "solarized-dark": "dark",
                     "solarized-light": "light",
                 }
+                var lang = "en"
+                try {
+                    var storedLang = localStorage.getItem("runsheet.locale")
+                    if (storedLang === "ru" || storedLang === "en")
+                        lang = storedLang
+                } catch (e) {}
+                document.documentElement.lang = lang
                 var preference = "light"
                 try {
                     var stored = localStorage.getItem("runsheet.theme")

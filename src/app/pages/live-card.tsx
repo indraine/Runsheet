@@ -1,4 +1,3 @@
-import { A, useNavigate } from "@solidjs/router"
 import { Check } from "lucide-solid"
 import {
     createEffect,
@@ -216,41 +215,28 @@ const LapRow = (props: {
     row: LiveLapRow
     best: LiveCardModel["bestLap"]
 }) => {
-    const navigate = useNavigate()
-    const href = () => `/sessions/${props.sessionId}/laps/${props.row.lap.id}`
     const muted = () => !props.row.lap.valid
-    const open = (event: MouseEvent) => {
-        const target = event.target
-        if (target instanceof Element && target.closest("a")) return
-        navigate(href())
-    }
 
     return (
         <tr
             class={cn(
-                "h-9 cursor-pointer border-b border-line last:border-b-0 hover:bg-inset",
+                "h-9 border-b border-line last:border-b-0",
                 muted() ? "text-muted" : "text-ink"
             )}
-            onClick={open}
         >
             <th scope="row" class="px-3 font-mono text-[13px] font-medium">
-                <A
-                    href={href()}
-                    class="rounded outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20"
-                >
-                    <span class="inline-flex items-center gap-1.5">
-                        L{props.row.lap.number}
-                        <Show when={props.row.lap.timeMs === null}>
-                            <span
-                                class="size-1.5 rounded-full bg-accent"
-                                aria-hidden="true"
-                            />
-                        </Show>
-                        <Show when={props.row.best}>
-                            <span class="text-accent">{t("app.pb")}</span>
-                        </Show>
-                    </span>
-                </A>
+                <span class="inline-flex items-center gap-1.5">
+                    L{props.row.lap.number}
+                    <Show when={props.row.lap.timeMs === null}>
+                        <span
+                            class="size-1.5 rounded-full bg-accent"
+                            aria-hidden="true"
+                        />
+                    </Show>
+                    <Show when={props.row.best}>
+                        <span class="text-accent">{t("app.pb")}</span>
+                    </Show>
+                </span>
             </th>
             <td class={cn("px-3 font-mono text-[13px]", timeClass(props.row))}>
                 {props.row.lap.timeMs === null

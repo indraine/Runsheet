@@ -9,6 +9,7 @@ import {
     paintAccPresence,
     type AccPresence,
 } from "~/app/status"
+import { LocaleToggle } from "~/app/locale-toggle"
 import { ThemeToggle } from "~/app/theme-toggle"
 import { Wordmark } from "~/app/wordmark"
 import { t } from "~/i18n"
@@ -54,6 +55,7 @@ export function Header() {
                 <Show when={analysis()}>
                     <AccStatus />
                 </Show>
+                <LocaleToggle />
                 <ThemeToggle />
                 <SettingsMenu />
             </div>

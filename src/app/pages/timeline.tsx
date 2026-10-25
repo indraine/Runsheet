@@ -1,4 +1,3 @@
-import { A } from "@solidjs/router"
 import {
     For,
     Match,
@@ -298,12 +297,6 @@ function ClosedRow(props: {
     opened: boolean
     onShow: () => void
 }) {
-    const href = () => {
-        const lap = countableLap(props.bestLap)
-        if (!lap) return undefined
-        return `/sessions/${props.session.id}/laps/${lap.id}`
-    }
-
     return (
         <li
             class={cn(
@@ -311,32 +304,12 @@ function ClosedRow(props: {
                 props.opened && "bg-inset"
             )}
         >
-            <Show
-                when={href()}
-                fallback={
-                    <div class={cn(rowClass, "min-w-0 flex-1")}>
-                        <RowContent
-                            session={props.session}
-                            bestLap={props.bestLap}
-                        />
-                    </div>
-                }
-            >
-                {link => (
-                    <A
-                        href={link()}
-                        class={cn(
-                            rowClass,
-                            "min-w-0 flex-1 rounded outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20"
-                        )}
-                    >
-                        <RowContent
-                            session={props.session}
-                            bestLap={props.bestLap}
-                        />
-                    </A>
-                )}
-            </Show>
+            <div class={cn(rowClass, "min-w-0 flex-1")}>
+                <RowContent
+                    session={props.session}
+                    bestLap={props.bestLap}
+                />
+            </div>
             <Button
                 variant="secondary"
                 size="sm"
