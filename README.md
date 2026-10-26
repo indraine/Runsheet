@@ -19,14 +19,7 @@ Session sheet for **Assetto Corsa Competizione**. Open the app, drive — laps, 
 
 ## Demo
 
-<!--
-  If the clip is uploaded through GitHub Issues or a Release, replace the link
-  with the CDN URL: https://github.com/user-attachments/assets/...
--->
-
-[![Runsheet demo](docs/demo.webp)](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
-
-> 💡 [Watch the MP4 on GitHub](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
+https://github.com/user-attachments/assets/0669f286-4e5b-4b5b-856e-6f346069dacf
 
 ---
 
@@ -68,15 +61,22 @@ Spa · lap table with S1/S2/S3, fuel, delta, and mini-map.
 - [ ] Trajectories and racing-line comparison on the map
 - [ ] Charts (speed, throttle, brake, gear, steering)
 - [ ] Session export to CSV / MoTeC
+- [ ] Tour — interactive onboarding walkthrough of the UI
 
-### v2.0.0 — iRacing
+### v2.0.0 — iRacing ([pitwall](https://crates.io/crates/pitwall))
 - [ ] Telemetry via iRacing SDK / shared memory
 - [ ] Automatic session and outing capture for iRacing
 - [ ] Car and track catalogs for iRacing
 
-### v3.0.0 — Automobilista 2
-- [ ] AMS2 shared-memory reader
-- [ ] Session tracking and AMS2 telemetry mapped to shared types
+### v3.0.0 — Le Mans Ultimate ([kerb](https://crates.io/crates/kerb))
+- [ ] LMU shared-memory reader
+- [ ] Automatic session and outing capture for LMU
+- [ ] Car and track catalogs for LMU
+
+### v4.0.0 — RaceRoom ([simetry](https://crates.io/crates/simetry))
+- [ ] RaceRoom shared-memory reader (`$R3E` / r3e-api)
+- [ ] Automatic session and outing capture for RaceRoom
+- [ ] Car and track catalogs for RaceRoom
 
 ---
 
@@ -130,7 +130,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 Sim data crosses one intake boundary: the raw shared-memory buffer never leaves `src-tauri/src/ingress/`; it is mapped once into domain types. Past that — the read pipeline, outing/lap services, and the UI — stay free of any one game.
 
-v1.0.0 ships ACC only. The same boundary is how iRacing (v2.0.0) and Automobilista 2 (v3.0.0) plug in later, without changing session logic.
+v1.0.0 ships ACC only. The same boundary is how iRacing (v2.0.0), Le Mans Ultimate (v3.0.0), and RaceRoom (v4.0.0) plug in later, without changing session logic.
 
 | Path | Role |
 |------|------|

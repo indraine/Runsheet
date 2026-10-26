@@ -19,14 +19,7 @@
 
 ## Демо
 
-<!--
-  Если ролик загружен через GitHub Issues или Release, замените ссылку
-  на CDN-адрес: https://github.com/user-attachments/assets/...
--->
-
-[![Демо Runsheet](docs/demo.webp)](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
-
-> 💡 [Смотреть MP4 на GitHub](https://github.com/indraine/Runsheet/blob/main/docs/demo.mp4)
+https://github.com/user-attachments/assets/0669f286-4e5b-4b5b-856e-6f346069dacf
 
 ---
 
@@ -68,15 +61,22 @@
 - [ ] Траектории и сравнение гоночных линий на карте
 - [ ] Графики (скорость, газ, тормоз, передача, руль)
 - [ ] Выгрузка сессии в CSV / MoTeC
+- [ ] Tour — обучающий тур по интерфейсу программы
 
-### v2.0.0 — iRacing
+### v2.0.0 — iRacing ([pitwall](https://crates.io/crates/pitwall))
 - [ ] Чтение телеметрии через iRacing SDK / общую память
 - [ ] Автоматическая фиксация сессий и заездов в iRacing
 - [ ] Каталоги машин и трасс iRacing
 
-### v3.0.0 — Automobilista 2
-- [ ] Чтение общей памяти AMS2
-- [ ] Учёт сессий и приведение телеметрии AMS2 к общим типам
+### v3.0.0 — Le Mans Ultimate ([kerb](https://crates.io/crates/kerb))
+- [ ] Чтение общей памяти LMU
+- [ ] Автоматическая фиксация сессий и заездов в LMU
+- [ ] Каталоги машин и трасс LMU
+
+### v4.0.0 — RaceRoom ([simetry](https://crates.io/crates/simetry))
+- [ ] Чтение общей памяти RaceRoom (`$R3E` / r3e-api)
+- [ ] Автоматическая фиксация сессий и заездов в RaceRoom
+- [ ] Каталоги машин и трасс RaceRoom
 
 ---
 
@@ -130,7 +130,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 Данные из симулятора проходят одну границу приёма: сырой буфер общей памяти не покидает `src-tauri/src/ingress/`, а сразу приводится к доменным типам. Дальше — конвейер чтения, сервисы заездов и кругов, интерфейс — без привязки к конкретной игре.
 
-В v1.0.0 подключён только ACC. Через ту же границу позже добавятся iRacing (v2.0.0) и Automobilista 2 (v3.0.0), без смены логики сессий.
+В v1.0.0 подключён только ACC. Через ту же границу позже добавятся iRacing (v2.0.0), Le Mans Ultimate (v3.0.0) и RaceRoom (v4.0.0), без смены логики сессий.
 
 | Путь | Роль |
 |------|------|
