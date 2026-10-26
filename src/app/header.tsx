@@ -1,6 +1,7 @@
 import { A, useMatch } from "@solidjs/router"
 import { ArrowLeft } from "lucide-solid"
 import { createEffect, onCleanup, onMount, Show, untrack } from "solid-js"
+import { GithubLink } from "~/app/github-link"
 import { LaunchAccButton } from "~/app/launch-acc"
 import { SettingsMenu } from "~/app/settings-menu"
 import {
@@ -55,6 +56,7 @@ export function Header() {
                 <Show when={analysis()}>
                     <AccStatus />
                 </Show>
+                <GithubLink />
                 <LocaleToggle />
                 <ThemeToggle />
                 <SettingsMenu />
