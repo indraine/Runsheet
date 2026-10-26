@@ -292,6 +292,7 @@ fn sample_from(tick: &CleanTick, mono_ms: u64, session_id: SessionId) -> Sample 
         throttle: physics.throttle.fraction(),
         brake: physics.brake.fraction(),
         steer: physics.steer_deg,
+        gear: physics.gear,
         speed: physics.speed.kmh(),
         lap_time_ms: lap_ms(graphic.current_lap_time),
         progress: physics.progress.fraction(),

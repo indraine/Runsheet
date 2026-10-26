@@ -31,7 +31,7 @@ export async function readDump(db: RunsheetDatabase): Promise<RunsheetDump> {
     const [sessions, laps, traces] = await Promise.all([
         db.getAll("sessions"),
         db.getAll("laps"),
-        db.getAll("traces"),
+        db.getAll("lap_telemetry"),
     ])
     return {
         format: DUMP_FORMAT,
@@ -50,14 +50,17 @@ export async function writeDump(
     dump: RunsheetDump
 ): Promise<void> {
     const parsed = parseDump(dump)
-    const tx = db.transaction(["sessions", "laps", "traces"], "readwrite")
+    const tx = db.transaction(
+        ["sessions", "laps", "lap_telemetry"],
+        "readwrite"
+    )
     const sessions = tx.objectStore("sessions")
     const laps = tx.objectStore("laps")
-    const traces = tx.objectStore("traces")
+    const telemetry = tx.objectStore("lap_telemetry")
     await Promise.all([
         ...parsed.sessions.map(session => sessions.put(session)),
         ...parsed.laps.map(lap => laps.put(lap)),
-        ...parsed.traces.map(trace => traces.put(decodeTrace(trace))),
+        ...parsed.traces.map(trace => telemetry.put(decodeTrace(trace))),
         tx.done,
     ])
 }
@@ -160,11 +163,24 @@ export function encodeTrace(trace: Trace): EncodedTrace {
 }
 
 export function decodeTrace(encoded: EncodedTrace): Trace {
+    const count = channelLength(encoded)
     const trace = { lapId: encoded.lapId } as Trace
     for (const channel of TRACE_CHANNELS) {
-        trace[channel] = Float32Array.from(encoded[channel])
+        const samples = encoded[channel]
+        trace[channel] =
+            samples && samples.length === count
+                ? Float32Array.from(samples)
+                : new Float32Array(count)
     }
     return trace
+}
+
+function channelLength(encoded: EncodedTrace): number {
+    for (const channel of TRACE_CHANNELS) {
+        const samples = encoded[channel]
+        if (samples) return samples.length
+    }
+    return 0
 }
 
 function parseSession(raw: unknown): Session {
@@ -222,6 +238,7 @@ function parseEncodedTrace(raw: unknown): EncodedTrace {
     let length: number | undefined
     for (const channel of TRACE_CHANNELS) {
         const samples = raw[channel]
+        if (samples == null) continue
         if (!Array.isArray(samples) || !samples.every(isFiniteNumber)) {
             throw new Error(`Канал ${channel} должен быть массивом чисел`)
         }
@@ -232,6 +249,12 @@ function parseEncodedTrace(raw: unknown): EncodedTrace {
             )
         }
         encoded[channel] = samples
+    }
+    if (length == null) {
+        throw new Error("Trace не содержит ни одного канала")
+    }
+    for (const channel of TRACE_CHANNELS) {
+        encoded[channel] ??= Array.from({ length }, () => 0)
     }
     return encoded
 }

@@ -82,6 +82,7 @@ impl TryFrom<&RawPhysicsPage> for CleanTelemetryFrame {
             throttle: ThrottlePosition::from_fraction_unchecked(unit_interval("gas", page.gas)?),
             brake: BrakePosition::from_fraction_unchecked(unit_interval("brake", page.brake)?),
             steer_deg: finite("steer_angle", page.steer_angle)?,
+            gear: page.gear,
             progress: TrackProgress::from_fraction_unchecked(0.0),
             fuel_l: finite("fuel", page.fuel)?,
             g_long,

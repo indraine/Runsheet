@@ -66,8 +66,8 @@ export class SessionRepository {
         const found = new Map<string, Trace>()
         if (lapIds.length === 0) return found
 
-        const tx = this.database.transaction("traces", "readonly")
-        const store = tx.objectStore("traces")
+        const tx = this.database.transaction("lap_telemetry", "readonly")
+        const store = tx.objectStore("lap_telemetry")
         const traces = await Promise.all(lapIds.map(lapId => store.get(lapId)))
         await tx.done
         for (const trace of traces) {
@@ -80,9 +80,12 @@ export class SessionRepository {
         lapId: string,
         refLapId?: string
     ): Promise<LapWithReference | undefined> {
-        const tx = this.database.transaction(["laps", "traces"], "readonly")
+        const tx = this.database.transaction(
+            ["laps", "lap_telemetry"],
+            "readonly"
+        )
         const laps = tx.objectStore("laps")
-        const traces = tx.objectStore("traces")
+        const telemetry = tx.objectStore("lap_telemetry")
         const lap = await laps.get(lapId)
         if (!lap) {
             await tx.done
@@ -92,8 +95,8 @@ export class SessionRepository {
         const sessionLaps = await laps.index("sessionId").getAll(lap.sessionId)
         const reference = pickReference(sessionLaps, refLapId)
         const [trace, referenceTrace] = await Promise.all([
-            traces.get(lap.id),
-            reference ? traces.get(reference.id) : undefined,
+            telemetry.get(lap.id),
+            reference ? telemetry.get(reference.id) : undefined,
             tx.done,
         ])
 
@@ -103,14 +106,16 @@ export class SessionRepository {
     async upsert(write: SessionWrite): Promise<void> {
         assertWrite(write)
         const tx = this.database.transaction(
-            ["sessions", "laps", "traces"],
+            ["sessions", "laps", "lap_telemetry"],
             "readwrite"
         )
         const writes: Promise<unknown>[] = [
             tx.objectStore("sessions").put(write.session),
         ]
         if (write.lap) writes.push(tx.objectStore("laps").put(write.lap))
-        if (write.trace) writes.push(tx.objectStore("traces").put(write.trace))
+        if (write.trace) {
+            writes.push(tx.objectStore("lap_telemetry").put(write.trace))
+        }
         await Promise.all([...writes, tx.done])
         batch(() => {
             this.setLastWrite(write)
@@ -131,13 +136,13 @@ export class SessionRepository {
 
     async clearAll(): Promise<void> {
         const tx = this.database.transaction(
-            ["sessions", "laps", "traces"],
+            ["sessions", "laps", "lap_telemetry"],
             "readwrite"
         )
         await Promise.all([
             tx.objectStore("sessions").clear(),
             tx.objectStore("laps").clear(),
-            tx.objectStore("traces").clear(),
+            tx.objectStore("lap_telemetry").clear(),
             tx.done,
         ])
         batch(() => {

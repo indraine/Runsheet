@@ -19,7 +19,7 @@ const SESSION_MONZA = "seed-monza-practice"
 const SESSION_SPA_PRACTICE = "seed-spa-practice"
 const SESSION_SPA_QUALIFYING = "seed-spa-qualifying"
 
-const SEED_VERSION = "4"
+const SEED_VERSION = "5"
 const SEED_VERSION_KEY = "runsheet.seed"
 
 const LAP_METRES = 7004
@@ -331,14 +331,17 @@ export async function seedDevDay(
     if (readSeedVersion() === SEED_VERSION) return false
 
     const day = devDay(options.now ?? Date.now())
-    const tx = database.transaction(["sessions", "laps", "traces"], "readwrite")
+    const tx = database.transaction(
+        ["sessions", "laps", "lap_telemetry"],
+        "readwrite"
+    )
     const sessions = tx.objectStore("sessions")
     const laps = tx.objectStore("laps")
-    const traces = tx.objectStore("traces")
+    const telemetry = tx.objectStore("lap_telemetry")
     await Promise.all([
         ...day.sessions.map(session => sessions.put(session)),
         ...day.laps.map(lap => laps.put(lap)),
-        ...day.traces.map(trace => traces.put(trace)),
+        ...day.traces.map(trace => telemetry.put(trace)),
         tx.done,
     ])
     writeSeedVersion()
@@ -429,6 +432,7 @@ function lapTrace(
         columns.throttle.push(throttle)
         columns.brake.push(brake)
         columns.steer.push(Math.sin(fraction * Math.PI * 8) * (20 + brake * 90))
+        columns.gear.push(brake > 0.4 ? 3 : brake > 0.15 ? 4 : 5)
         columns.gLong.push((1 - brake) * 0.35 - brake * 1.4)
         columns.gLat.push(Math.sin(fraction * Math.PI * 4) * (0.4 + brake))
         columns.x.push(ground.x + lateral)

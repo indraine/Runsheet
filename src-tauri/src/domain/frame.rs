@@ -10,6 +10,8 @@ pub(crate) struct CleanTelemetryFrame {
     pub throttle: ThrottlePosition,
     pub brake: BrakePosition,
     pub steer_deg: f32,
+    /// ACC: `0` = N, `1..` = forward, negative = reverse.
+    pub gear: i32,
     pub progress: TrackProgress,
     pub fuel_l: f32,
     pub g_long: f32,

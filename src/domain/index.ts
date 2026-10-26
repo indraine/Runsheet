@@ -30,7 +30,13 @@ export {
     type SessionStatus,
     type SessionType,
 } from "~/domain/session"
-export { TRACE_CHANNELS, type Trace, type TraceChannel } from "~/domain/trace"
+export {
+    TRACE_CHANNELS,
+    lapPointAt,
+    type LapPoint,
+    type Trace,
+    type TraceChannel,
+} from "~/domain/trace"
 export {
     TRACK_SORTS,
     isTrackSort,

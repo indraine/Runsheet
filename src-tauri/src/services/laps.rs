@@ -9,7 +9,7 @@ const LAP_CLOCK_GUARD_MS: i32 = 3_000;
 
 const CLOCK_DROP_MS: i32 = 1_500;
 
-const CHANNEL_COUNT: usize = 16;
+const CHANNEL_COUNT: usize = 17;
 
 const HEADER_LEN: usize = 76;
 
@@ -31,6 +31,7 @@ pub(crate) struct Sample {
     pub throttle: f32,
     pub brake: f32,
     pub steer: f32,
+    pub gear: i32,
     pub speed: f32,
     pub lap_time_ms: i32,
     pub progress: f32,
@@ -151,7 +152,7 @@ impl Collector {
             open.last_lap_time_ms = Some(sample.lap_time_ms);
             open.last_progress = Some(sample.progress);
             if open.due(sample.mono_ms) {
-                open.points.push(Point::capture(sample, along_m));
+                open.points.push(LapPoint::capture(sample, along_m));
                 open.last_trace_ms = Some(sample.mono_ms);
             }
             sector
@@ -180,7 +181,7 @@ struct OpenLap {
     last_trace_ms: Option<u64>,
     last_lap_time_ms: Option<i32>,
     last_progress: Option<f32>,
-    points: Vec<Point>,
+    points: Vec<LapPoint>,
 }
 
 impl OpenLap {
@@ -309,14 +310,19 @@ impl OpenLap {
     }
 }
 
+/// One high-rate sample along an open lap (packed into the IPC plane).
+///
+/// Ground plane uses ACC `x`/`z` (world Y is vertical). `timestamp` is the
+/// in-lap clock in milliseconds.
 #[derive(Debug, Clone)]
-struct Point {
+struct LapPoint {
     distance: f32,
-    time: f32,
+    timestamp: f32,
     speed: f32,
     throttle: f32,
     brake: f32,
     steer: f32,
+    gear: f32,
     g_long: f32,
     g_lat: f32,
     x: f32,
@@ -329,15 +335,16 @@ struct Point {
     brake_temp_fr: f32,
 }
 
-impl Point {
+impl LapPoint {
     fn capture(sample: &Sample, along_m: f32) -> Self {
         Self {
             distance: along_m,
-            time: sample.lap_time_ms as f32,
+            timestamp: sample.lap_time_ms as f32,
             speed: sample.speed,
             throttle: sample.throttle,
             brake: sample.brake,
             steer: sample.steer,
+            gear: sample.gear as f32,
             g_long: sample.g_long,
             g_lat: sample.g_lat,
             x: sample.x,
@@ -365,7 +372,7 @@ struct Finished {
     valid: bool,
     fuel: f32,
     max_speed: f32,
-    points: Vec<Point>,
+    points: Vec<LapPoint>,
 }
 
 const MAX_LAP_MS: i32 = 2 * 60 * 60 * 1000;
@@ -434,13 +441,14 @@ fn pack(lap: &Finished) -> Vec<u8> {
     out
 }
 
-fn write_plane(out: &mut Vec<u8>, points: &[Point]) {
+fn write_plane(out: &mut Vec<u8>, points: &[LapPoint]) {
     write_values(out, points, |point| point.distance);
-    write_values(out, points, |point| point.time);
+    write_values(out, points, |point| point.timestamp);
     write_values(out, points, |point| point.speed);
     write_values(out, points, |point| point.throttle);
     write_values(out, points, |point| point.brake);
     write_values(out, points, |point| point.steer);
+    write_values(out, points, |point| point.gear);
     write_values(out, points, |point| point.g_long);
     write_values(out, points, |point| point.g_lat);
     write_values(out, points, |point| point.x);
@@ -453,7 +461,7 @@ fn write_plane(out: &mut Vec<u8>, points: &[Point]) {
     write_values(out, points, |point| point.brake_temp_fr);
 }
 
-fn write_values(out: &mut Vec<u8>, points: &[Point], value: impl Fn(&Point) -> f32) {
+fn write_values(out: &mut Vec<u8>, points: &[LapPoint], value: impl Fn(&LapPoint) -> f32) {
     for point in points {
         write_f32(out, value(point));
     }
