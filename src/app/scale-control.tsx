@@ -68,15 +68,15 @@ export const ScaleControl = () => {
                         }
                         commit()
                     }}
-                    onKeyDown={event => {
+                    onKeyDown={(event: KeyboardEvent) => {
                         if (event.key === "Escape") {
                             revertOnBlur = true
-                            event.currentTarget.blur()
+                            ;(event.currentTarget as HTMLInputElement).blur()
                             return
                         }
                         if (event.key === "Enter") {
                             commit()
-                            event.currentTarget.blur()
+                            ;(event.currentTarget as HTMLInputElement).blur()
                         }
                     }}
                 />

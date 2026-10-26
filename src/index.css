@@ -29,18 +29,18 @@
 html[data-theme="dark"] {
     color-scheme: dark;
 
-    --canvas: #0b1220;
-    --surface: #111827;
-    --inset: #0f172a;
-    --line: #1f2937;
+    --canvas: #0a0a0a;
+    --surface: #171717;
+    --inset: #111111;
+    --line: #2a2a2a;
 
-    --ink: #f8fafc;
-    --secondary: #cbd5e1;
-    --muted: #64748b;
+    --ink: #fafafa;
+    --secondary: #a3a3a3;
+    --muted: #737373;
 
     --accent: #7eb0ef;
     --on-accent: #ffffff;
-    --reference: #a5b4fc;
+    --reference: #a78bfa;
 
     --gain: #34d399;
     --loss: #f87171;
