@@ -84,10 +84,12 @@ https://github.com/user-attachments/assets/0669f286-4e5b-4b5b-856e-6f346069dacf
 
 **Что нужно**
 
-- [Bun](https://bun.sh/)
+- [Bun](https://bun.sh/) — локальная установка и `dev` / `test`
 - [Rust](https://www.rust-lang.org/tools/install) (stable)
 - [Предварительные требования Tauri 2](https://v2.tauri.app/start/prerequisites/)
 - **Windows** для живого чтения общей памяти ACC (на macOS/Linux чтение недоступно)
+
+> Релизный CI на Windows использует **npm** (Bun часто зависает на `windows-latest`). Повседневная разработка — на Bun.
 
 ```bash
 # Зависимости
@@ -109,6 +111,7 @@ bun run test
 cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
+
 
 ---
 

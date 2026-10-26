@@ -84,10 +84,12 @@ Spa · lap table with S1/S2/S3, fuel, delta, and mini-map.
 
 **Needs**
 
-- [Bun](https://bun.sh/)
+- [Bun](https://bun.sh/) — local install and `dev` / `test`
 - [Rust](https://www.rust-lang.org/tools/install) (stable)
 - [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/)
 - **Windows** for live ACC shared-memory reading (unavailable on macOS/Linux)
+
+> Release CI on Windows uses **npm** (Bun often hangs on `windows-latest`). Day-to-day development stays on Bun.
 
 ```bash
 # Dependencies
@@ -109,6 +111,7 @@ bun run test
 cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
+
 
 ---
 

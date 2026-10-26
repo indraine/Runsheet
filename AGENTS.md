@@ -38,18 +38,25 @@ Desktop telemetry recording, lap analysis, and setup tracking for Assetto Corsa 
 ## Startup Fail-Fast Probes
 - `StartupProbes::verify_memory_layout`: fails if shared memory buffer size < expected struct size.
 
+## Tooling
+- Local frontend: **Bun** (`bun.lockb`).
+- Windows release CI: **npm** — Bun often hangs on `windows-latest` (see `.github/workflows/release.yml`).
+- `tauri.conf.json`: `beforeDevCommand` → Bun; `beforeBuildCommand` → npm (for CI).
+
 ## Commands
 
 ```bash
 # Frontend
 bun install
-bun run typecheck
-bun run lint
+bun run test
+bun run fmt
 
 # Backend (Tauri / Rust)
 cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 
-# Full app dev
+# Full app
 bun run tauri dev
+bun run tauri build
 ```
+
