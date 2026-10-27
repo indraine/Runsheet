@@ -23,7 +23,21 @@
 
 **Runsheet** is a session sheet for the **Assetto Corsa Competizione** simulator. The app reads telemetry from the game’s shared memory and keeps a chronological outing log: laps, sector times, fuel use, and lap validity are recorded automatically, with no separate start-recording command. Closed sessions stay in the journal for later review and telemetry comparison.
 
-> Product idea and outing model: **[docs/CONCEPT.md](docs/CONCEPT.md)**
+## Features
+
+- [x] Automatic capture of laps, sector times, fuel use, and lap validity
+- [x] Catalog of 25 ACC tracks with filters, personal bests, and attempt counts
+- [x] Outing journal grouped by day and session type
+- [x] Live outing card: air and asphalt temperature, tyre pressure, vector track map
+- [x] Flat track scene with asphalt-surface boundaries
+- [x] Trajectory and racing-line comparison on the map
+- [x] Telemetry channel charts [speed | throttle | brake | gear | steer]
+- [x] Two-lap telemetry comparison: charts, racing-line overlay, and cockpit controls; automatic divergence detection
+- [x] Import and export of the outing journal
+- [x] UI theming via CSS custom properties
+- [x] UI localization with an extensible language set
+
+---
 
 ## Demo
 
@@ -55,42 +69,16 @@ Monza · BMW M4 · two-lap overlay — throttle, brake, steer, speed, racing lin
 
 ---
 
-## Features (v1.0.0)
-
-- [x] Automatic capture of laps, sector times, fuel use, and lap validity
-- [x] Catalog of 25 ACC tracks with filters, personal bests, and attempt counts
-- [x] Outing journal grouped by day and session type
-- [x] Live outing card: air and asphalt temperature, tyre pressure, vector track map
-- [x] Two-lap telemetry comparison: charts, racing-line overlay, and cockpit controls; automatic divergence detection
-- [x] Import and export of the outing journal
-- [x] UI theming via CSS custom properties
-- [x] UI localization with an extensible language set
-
----
-
 ## Roadmap
 
-### v1.1.0 — Analysis & trajectories
-- [x] Flat track scene with asphalt-surface boundaries
-- [x] Trajectory and racing-line comparison on the map
-- [x] Telemetry channel charts [speed | throttle | brake | gear | steer]
+### Next
 - [ ] Session export to CSV / MoTeC
 - [ ] Interactive UI onboarding tour
 
-### v2.0.0 — Le Mans Ultimate ([kerb](https://crates.io/crates/kerb))
-- [ ] LMU telemetry via shared memory
-- [ ] Automatic session and outing capture for LMU
-- [ ] LMU car and track catalogs
-
-### v3.0.0 — RaceRoom ([simetry](https://crates.io/crates/simetry))
-- [ ] RaceRoom telemetry via shared memory (`$R3E` / r3e-api)
-- [ ] Automatic session and outing capture for RaceRoom
-- [ ] RaceRoom car and track catalogs
-
-### v4.0.0 — iRacing ([pitwall](https://crates.io/crates/pitwall))
-- [ ] iRacing telemetry via SDK / shared memory
-- [ ] Automatic session and outing capture for iRacing
-- [ ] iRacing car and track catalogs
+### Simulators
+- [ ] Le Mans Ultimate — telemetry via shared memory ([kerb](https://crates.io/crates/kerb)), automatic session capture, car and track catalogs
+- [ ] RaceRoom — telemetry via shared memory (`$R3E` / r3e-api, [simetry](https://crates.io/crates/simetry)), automatic session capture, car and track catalogs
+- [ ] iRacing — telemetry via SDK / shared memory ([pitwall](https://crates.io/crates/pitwall)), automatic session capture, car and track catalogs
 
 ---
 
@@ -147,7 +135,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 Sim data crosses one intake boundary: the raw shared-memory buffer never leaves `src-tauri/src/ingress/`; it is mapped once into domain types. Past that — the read pipeline, outing/lap services, and the UI — stay free of any one game.
 
-v1.0.0 ships ACC only. The same boundary is how Le Mans Ultimate (v2.0.0), RaceRoom (v3.0.0), and iRacing (v4.0.0) plug in later, without changing session logic.
+Today only ACC is wired in. The same boundary is how Le Mans Ultimate, RaceRoom, and iRacing plug in later, without changing session logic.
 
 | Path | Role |
 |------|------|
