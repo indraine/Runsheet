@@ -39,6 +39,19 @@
 
 ---
 
+## Roadmap
+
+### Next
+- [ ] Session export to CSV / MoTeC
+- [ ] Interactive UI onboarding tour
+
+### Simulators
+- [ ] Le Mans Ultimate — telemetry via shared memory ([kerb](https://crates.io/crates/kerb)), automatic session capture, car and track catalogs
+- [ ] RaceRoom — telemetry via shared memory (`$R3E` / r3e-api, [simetry](https://crates.io/crates/simetry)), automatic session capture, car and track catalogs
+- [ ] iRacing — telemetry via SDK / shared memory ([pitwall](https://crates.io/crates/pitwall)), automatic session capture, car and track catalogs
+
+---
+
 ## Demo
 
 https://github.com/user-attachments/assets/0669f286-4e5b-4b5b-856e-6f346069dacf
@@ -66,19 +79,6 @@ Monza · BMW M4 · two-lap overlay — throttle, brake, steer, speed, racing lin
 | Dark | Light |
 |:----:|:-----:|
 | ![Telemetry — Dark](docs/screenshots/telemetry-dark.png) | ![Telemetry — Light](docs/screenshots/telemetry-light.png) |
-
----
-
-## Roadmap
-
-### Next
-- [ ] Session export to CSV / MoTeC
-- [ ] Interactive UI onboarding tour
-
-### Simulators
-- [ ] Le Mans Ultimate — telemetry via shared memory ([kerb](https://crates.io/crates/kerb)), automatic session capture, car and track catalogs
-- [ ] RaceRoom — telemetry via shared memory (`$R3E` / r3e-api, [simetry](https://crates.io/crates/simetry)), automatic session capture, car and track catalogs
-- [ ] iRacing — telemetry via SDK / shared memory ([pitwall](https://crates.io/crates/pitwall)), automatic session capture, car and track catalogs
 
 ---
 
@@ -117,45 +117,19 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 ---
 
-## Stack
-
-| Layer | Built with |
-|-------|------------|
-| Shell | Tauri 2 |
-| Backend | Rust; ACC shared-memory reader today (`acc_shared_memory_rs`) |
-| Client | SolidJS, TypeScript, Vite 8 |
-| UI | Tailwind CSS 4, Ark UI, Lucide |
-| Map | PixiJS |
-| Storage | IndexedDB (`idb`) |
-| Languages | `@solid-primitives/i18n` (EN / RU) |
-
----
-
-## Architecture
-
-Sim data crosses one intake boundary: the raw shared-memory buffer never leaves `src-tauri/src/ingress/`; it is mapped once into domain types. Past that — the read pipeline, outing/lap services, and the UI — stay free of any one game.
-
-Today only ACC is wired in. The same boundary is how Le Mans Ultimate, RaceRoom, and iRacing plug in later, without changing session logic.
-
-| Path | Role |
-|------|------|
-| `src-tauri/src/ingress/` | Per-game reader and one-shot boundary normalization |
-| `src-tauri/src/domain/` | Pure types and car state machine (`CarState`), no external SDKs |
-| `src-tauri/src/pipeline/` · `services/` | High-rate polling, outing and lap collection |
-| `src-tauri/src/ipc/` + `src/` | Thin bridge and session-sheet UI |
-
-Rules and layout: [AGENTS.md](AGENTS.md).
-
----
-
 ## Contributing
 
-1. Fork the repo and open a branch for the change.
-2. Keep handlers short; put outing logic in services and `domain`.
-3. Run `bun run test` and the Rust tests before a PR.
-4. Prefer small PRs with a short “why” in the description.
+Contributions are welcome. For larger changes, please open an issue first to discuss what you would like to change.
 
-Rules and layout: [AGENTS.md](AGENTS.md) · product idea: [docs/CONCEPT.md](docs/CONCEPT.md).
+1. Fork the repository and create your branch from `main`.
+2. Make your changes and ensure checks pass:
+
+```bash
+bun run test
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+3. Open a pull request with a clear description of the change.
 
 ---
 

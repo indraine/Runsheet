@@ -39,6 +39,19 @@
 
 ---
 
+## Планы
+
+### Ближайшее
+- [ ] Экспорт сессии в форматы CSV / MoTeC
+- [ ] Интерактивный обучающий тур по интерфейсу
+
+### Симуляторы
+- [ ] Le Mans Ultimate — телеметрия из shared memory ([kerb](https://crates.io/crates/kerb)), автоматическая фиксация сессий, каталоги машин и трасс
+- [ ] RaceRoom — телеметрия из shared memory (`$R3E` / r3e-api, [simetry](https://crates.io/crates/simetry)), автоматическая фиксация сессий, каталоги машин и трасс
+- [ ] iRacing — телеметрия через SDK / shared memory ([pitwall](https://crates.io/crates/pitwall)), автоматическая фиксация сессий, каталоги машин и трасс
+
+---
+
 ## Демо
 
 https://github.com/user-attachments/assets/0669f286-4e5b-4b5b-856e-6f346069dacf
@@ -66,19 +79,6 @@ https://github.com/user-attachments/assets/0669f286-4e5b-4b5b-856e-6f346069dacf
 | Dark | Light |
 |:----:|:-----:|
 | ![Телеметрия — Dark](docs/screenshots/telemetry-dark.png) | ![Телеметрия — Light](docs/screenshots/telemetry-light.png) |
-
----
-
-## Планы
-
-### Ближайшее
-- [ ] Экспорт сессии в форматы CSV / MoTeC
-- [ ] Интерактивный обучающий тур по интерфейсу
-
-### Симуляторы
-- [ ] Le Mans Ultimate — телеметрия из shared memory ([kerb](https://crates.io/crates/kerb)), автоматическая фиксация сессий, каталоги машин и трасс
-- [ ] RaceRoom — телеметрия из shared memory (`$R3E` / r3e-api, [simetry](https://crates.io/crates/simetry)), автоматическая фиксация сессий, каталоги машин и трасс
-- [ ] iRacing — телеметрия через SDK / shared memory ([pitwall](https://crates.io/crates/pitwall)), автоматическая фиксация сессий, каталоги машин и трасс
 
 ---
 
@@ -117,45 +117,19 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 ---
 
-## Стек
-
-| Слой | Чем собран |
-|------|------------|
-| Оболочка | Tauri 2 |
-| Серверная часть | Rust; сейчас — чтение общей памяти ACC (`acc_shared_memory_rs`) |
-| Клиент | SolidJS, TypeScript, Vite 8 |
-| Интерфейс | Tailwind CSS 4, Ark UI, Lucide |
-| Карта | PixiJS |
-| Хранение | IndexedDB (`idb`) |
-| Языки | `@solid-primitives/i18n` (EN / RU) |
-
----
-
-## Архитектура
-
-Данные из симулятора проходят одну границу приёма: сырой буфер общей памяти не покидает `src-tauri/src/ingress/`, а сразу приводится к доменным типам. Дальше — конвейер чтения, сервисы заездов и кругов, интерфейс — без привязки к конкретной игре.
-
-Сейчас подключён только ACC. Через ту же границу позже добавятся Le Mans Ultimate, RaceRoom и iRacing, без смены логики сессий.
-
-| Путь | Роль |
-|------|------|
-| `src-tauri/src/ingress/` | Чтение конкретной игры и однократная нормализация на границе |
-| `src-tauri/src/domain/` | Чистые типы и состояния машины (`CarState`), без внешних SDK |
-| `src-tauri/src/pipeline/` · `services/` | Частый опрос, сбор заездов и кругов |
-| `src-tauri/src/ipc/` + `src/` | Тонкий мост и интерфейс листа сессии |
-
-Правила и раскладка: [AGENTS.md](AGENTS.md).
-
----
-
 ## Участие
 
-1. Сделайте копию репозитория и ветку под задачу.
-2. Обработчики держите короткими; логику заезда — в сервисах и `domain`.
-3. Перед PR прогоните `bun run test` и тесты на Rust.
-4. Лучше небольшие PR с коротким «зачем» в описании.
+Приветствуются pull request’ы. Для крупных изменений сначала откройте issue и обсудите идею.
 
-Правила и раскладка: [AGENTS.md](AGENTS.md) · идея продукта: [docs/CONCEPT.ru.md](docs/CONCEPT.ru.md).
+1. Сделайте fork репозитория и создайте ветку от `main`.
+2. Внесите изменения и убедитесь, что проверки проходят:
+
+```bash
+bun run test
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+3. Откройте pull request с кратким описанием изменений.
 
 ---
 
