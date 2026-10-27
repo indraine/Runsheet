@@ -1,12 +1,16 @@
+import { Select, createListCollection } from "@ark-ui/solid/select"
 import { Check } from "lucide-solid"
 import {
     createEffect,
+    createMemo,
     createSignal,
     For,
     Index,
     Show,
     untrack,
 } from "solid-js"
+import { Portal } from "solid-js/web"
+import { screenPositioning } from "~/app/screen-position"
 import { hasAsphalt } from "~/app/track-catalog"
 import { TrackView } from "~/app/track-view"
 import type { LiveCard as LiveCardModel, LiveLapRow } from "~/domain"
@@ -23,6 +27,13 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
     const card = () => held()!
     const [preview, setPreview] = createSignal<string>()
     const shownTrack = () => preview() ?? card().session.track
+    const tracks = createMemo(() =>
+        createListCollection({
+            items: [...trackCodes],
+            itemToValue: code => code,
+            itemToString: code => trackName(code),
+        })
+    )
     const ownTrack = () => shownTrack() === card().session.track
     const seedDev = () =>
         import.meta.env.DEV && card().session.id.startsWith("seed-")
@@ -44,22 +55,45 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                             {trackName(shownTrack())}
                         </h2>
                         <Show when={seedDev()}>
-                            <select
-                                class="absolute inset-0 w-full cursor-pointer opacity-0"
-                                aria-label={t("app.previewTrack")}
-                                value={shownTrack()}
-                                onChange={event =>
-                                    setPreview(event.currentTarget.value)
-                                }
+                            <Select.Root
+                                collection={tracks()}
+                                value={[shownTrack()]}
+                                positioning={screenPositioning({
+                                    placement: "bottom-start",
+                                    gutter: 4,
+                                })}
+                                onValueChange={details => {
+                                    const next = details.value[0]
+                                    if (next) setPreview(next)
+                                }}
                             >
-                                <For each={trackCodes}>
-                                    {code => (
-                                        <option value={code}>
-                                            {trackName(code)}
-                                        </option>
-                                    )}
-                                </For>
-                            </select>
+                                <Select.Control class="absolute inset-0">
+                                    <Select.Trigger
+                                        class="size-full cursor-pointer opacity-0"
+                                        aria-label={t("app.previewTrack")}
+                                    >
+                                        {trackName(shownTrack())}
+                                    </Select.Trigger>
+                                </Select.Control>
+                                <Portal>
+                                    <Select.Positioner>
+                                        <Select.Content class="w-56 rounded border border-line bg-surface p-1 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)] outline-none">
+                                            <For each={trackCodes}>
+                                                {code => (
+                                                    <Select.Item
+                                                        item={code}
+                                                        class="flex cursor-pointer rounded px-2 py-1.5 text-left font-mono text-[13px] text-ink outline-none data-highlighted:bg-inset"
+                                                    >
+                                                        <Select.ItemText>
+                                                            {trackName(code)}
+                                                        </Select.ItemText>
+                                                    </Select.Item>
+                                                )}
+                                            </For>
+                                        </Select.Content>
+                                    </Select.Positioner>
+                                </Portal>
+                            </Select.Root>
                         </Show>
                     </div>
                     <Show when={ownTrack() && card().trackLengthM}>
@@ -212,10 +246,7 @@ const LapTable = (props: {
     </div>
 )
 
-const LapRow = (props: {
-    row: LiveLapRow
-    best: LiveCardModel["bestLap"]
-}) => {
+const LapRow = (props: { row: LiveLapRow; best: LiveCardModel["bestLap"] }) => {
     const muted = () => !props.row.lap.valid
 
     return (

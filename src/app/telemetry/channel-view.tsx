@@ -1,6 +1,6 @@
 import { Application, Graphics } from "pixi.js"
 import { createEffect, onCleanup, onMount } from "solid-js"
-import { followPlotBox } from "~/app/plot-frame"
+import { ensurePlotSize, followPlotBox, plotResolution } from "~/app/plot-frame"
 import { uiScale } from "~/app/scale"
 import { cssColor } from "~/app/telemetry/css-color"
 import { layoutPoint } from "~/app/zoom-space"
@@ -35,6 +35,7 @@ export const ChannelView = (props: {
     label: string
 }) => {
     let host: HTMLDivElement | undefined
+    let pixi: Application | undefined
     let fitScale = () => {}
     let plot: Graphics | undefined
     let cursor: Graphics | undefined
@@ -58,15 +59,17 @@ export const ChannelView = (props: {
 
     const redraw = () => {
         const view = host
+        const app = pixi
         const layer = plot
         const playhead = cursor
-        if (!ready || !view || !layer || !playhead) return
+        if (!ready || !view || !app || !layer || !playhead) return
+        const box = ensurePlotSize(app, view)
+        if (!box) return
 
         layer.clear()
         playhead.clear()
 
-        const width = view.clientWidth
-        const height = view.clientHeight
+        const { width, height } = box
         const innerW = width - PAD.left - PAD.right
         const innerH = height - PAD.top - PAD.bottom
         if (innerW < 8 || innerH < 8) return
@@ -110,6 +113,7 @@ export const ChannelView = (props: {
         playhead.moveTo(cursorX, PAD.top)
         playhead.lineTo(cursorX, PAD.top + innerH)
         playhead.stroke({ width: 1.5, color: colors.ink, alpha: 0.85 })
+        app.render()
     }
 
     const distanceFromEvent = (clientX: number): number | undefined => {
@@ -141,6 +145,7 @@ export const ChannelView = (props: {
         if (!view) return
 
         const app = new Application()
+        pixi = app
         const fit = followPlotBox(app, view, redraw, () => ready)
         fitScale = fit
 
@@ -168,7 +173,7 @@ export const ChannelView = (props: {
                 backgroundAlpha: 0,
                 antialias: true,
                 autoDensity: true,
-                resolution: Math.min(window.devicePixelRatio || 1, 2),
+                resolution: plotResolution(),
                 preference: "webgl",
             })
             .then(() => {

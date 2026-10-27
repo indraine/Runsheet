@@ -1,6 +1,8 @@
-import { Menu } from "@ark-ui/solid/menu"
+import { Select, createListCollection } from "@ark-ui/solid/select"
 import { Check, Monitor, Moon, Palette, Sun } from "lucide-solid"
-import { For, Match, Show, Switch } from "solid-js"
+import { For, Match, Switch, createMemo } from "solid-js"
+import { Portal } from "solid-js/web"
+import { screenPositioning } from "~/app/screen-position"
 import {
     APPEARANCE,
     SCHEMES,
@@ -38,49 +40,64 @@ const themeLabel = (preference: ThemePreference): string =>
 const itemClass =
     "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[11px] text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-[state=checked]:text-accent"
 
-export const ThemeToggle = () => (
-    <Menu.Root
-        aria-label={t("app.theme")}
-        positioning={{ placement: "bottom-end", gutter: 8 }}
-    >
-        <Menu.Trigger
-            class={buttonVariants({ variant: "ghost", size: "icon" })}
-            aria-label={t("app.theme")}
+export const ThemeToggle = () => {
+    const collection = createMemo(() =>
+        createListCollection<ThemePreference>({
+            items: [...APPEARANCE, ...SCHEMES],
+            itemToValue: item => item,
+            itemToString: item => themeLabel(item),
+        })
+    )
+
+    return (
+        <Select.Root
+            collection={collection()}
+            value={[theme()]}
+            positioning={screenPositioning({ placement: "bottom-end" })}
+            onValueChange={details => {
+                const next = details.value[0]
+                if (next && isThemePreference(next)) setTheme(next)
+            }}
         >
-            <TriggerGlyph preference={theme()} />
-        </Menu.Trigger>
-        <Menu.Positioner>
-            <Menu.Content class="z-50 max-h-[min(24rem,calc(70vh/var(--ui-zoom)))] min-w-44 overflow-y-auto rounded border border-line bg-surface p-1 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)]">
-                <Menu.RadioItemGroup
-                    value={theme()}
-                    onValueChange={details => {
-                        if (isThemePreference(details.value))
-                            setTheme(details.value)
-                    }}
+            <Select.Control>
+                <Select.Trigger
+                    class={buttonVariants({ variant: "ghost", size: "icon" })}
+                    aria-label={t("app.theme")}
                 >
-                    <For each={APPEARANCE}>
-                        {preference => <ThemeChoice preference={preference} />}
-                    </For>
-                    <Menu.Separator class="my-1 h-px border-0 bg-line" />
-                    <For each={SCHEMES}>
-                        {preference => <ThemeChoice preference={preference} />}
-                    </For>
-                </Menu.RadioItemGroup>
-            </Menu.Content>
-        </Menu.Positioner>
-    </Menu.Root>
-)
+                    <TriggerGlyph preference={theme()} />
+                </Select.Trigger>
+            </Select.Control>
+            <Portal>
+                <Select.Positioner>
+                    <Select.Content class="z-50 min-w-44 rounded border border-line bg-surface p-1 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)]">
+                        <For each={APPEARANCE}>
+                            {preference => (
+                                <ThemeChoice preference={preference} />
+                            )}
+                        </For>
+                        <div class="my-1 h-px bg-line" />
+                        <For each={SCHEMES}>
+                            {preference => (
+                                <ThemeChoice preference={preference} />
+                            )}
+                        </For>
+                    </Select.Content>
+                </Select.Positioner>
+            </Portal>
+        </Select.Root>
+    )
+}
 
 const ThemeChoice = (props: { preference: ThemePreference }) => (
-    <Menu.RadioItem value={props.preference} class={itemClass}>
+    <Select.Item item={props.preference} class={itemClass}>
         <ThemeMark preference={props.preference} />
-        <span class="flex-1 text-left">{themeLabel(props.preference)}</span>
-        <span class="flex size-3.5 items-center justify-center">
-            <Show when={theme() === props.preference}>
-                <Check class="size-3.5" strokeWidth={1.75} />
-            </Show>
-        </span>
-    </Menu.RadioItem>
+        <Select.ItemText class="flex-1 text-left">
+            {themeLabel(props.preference)}
+        </Select.ItemText>
+        <Select.ItemIndicator class="flex size-3.5 items-center justify-center">
+            <Check class="size-3.5" strokeWidth={1.75} />
+        </Select.ItemIndicator>
+    </Select.Item>
 )
 
 const TriggerGlyph = (props: { preference: ThemePreference }) => (

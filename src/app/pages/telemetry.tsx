@@ -1,4 +1,5 @@
 import { Popover } from "@ark-ui/solid/popover"
+import { Select, createListCollection } from "@ark-ui/solid/select"
 import { useNavigate, useSearchParams } from "@solidjs/router"
 import {
     batch,
@@ -14,6 +15,7 @@ import {
 import { Portal } from "solid-js/web"
 import { ArrowLeftRight, ChevronDown } from "lucide-solid"
 import { DayNav } from "~/app/pages/day-nav"
+import { screenPositioning } from "~/app/screen-position"
 import { setAnalysisHeading } from "~/app/status"
 import { ChannelView } from "~/app/telemetry/channel-view"
 import {
@@ -596,7 +598,7 @@ const DivergenceMenu = (props: {
         <Popover.Root
             open={open()}
             onOpenChange={details => setOpen(details.open)}
-            positioning={{ placement: "bottom-end", gutter: 8 }}
+            positioning={screenPositioning({ placement: "bottom-end" })}
         >
             <Popover.Trigger
                 class={cn(
@@ -619,73 +621,78 @@ const DivergenceMenu = (props: {
                 </span>
                 <ChevronDown class="size-4 shrink-0" strokeWidth={2} />
             </Popover.Trigger>
-            <Popover.Positioner class="z-50">
-                <Popover.Content class="w-64 overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
-                    <div class="border-b border-line px-3 py-2">
-                        <Popover.Title class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
-                            {t("app.telemetryDivergence")}
-                        </Popover.Title>
-                    </div>
-                    <ul class="flex flex-col gap-0.5 p-1.5">
-                        <For each={props.zones}>
-                            {(zone, index) => {
-                                const active = () => selected() === index()
-                                return (
-                                    <li>
-                                        <button
-                                            type="button"
-                                            class={cn(
-                                                "flex w-full cursor-pointer items-baseline justify-between gap-3 rounded px-2.5 py-2 text-left font-mono outline-none transition-colors",
-                                                active()
-                                                    ? "bg-loss/15 text-loss"
-                                                    : "text-ink hover:bg-inset"
-                                            )}
-                                            aria-current={
-                                                active() ? "true" : undefined
-                                            }
-                                            onClick={() => {
-                                                if (active()) props.onClose()
-                                                else props.onOpen(zone)
-                                                setOpen(false)
-                                            }}
-                                        >
-                                            <span class="text-sm font-semibold">
-                                                {t("app.telemetryTurn", {
-                                                    n: index() + 1,
-                                                })}
-                                            </span>
-                                            <span
-                                                class={cn(
-                                                    "text-xs",
-                                                    active()
-                                                        ? undefined
-                                                        : "text-secondary"
-                                                )}
-                                            >
-                                                {t(CAUSE_LABEL[zone.cause])}
-                                            </span>
-                                        </button>
-                                    </li>
-                                )
-                            }}
-                        </For>
-                    </ul>
-                    <Show when={props.focus}>
-                        <div class="border-t border-line p-1.5">
-                            <button
-                                type="button"
-                                class="flex w-full cursor-pointer rounded px-2.5 py-2 text-left font-mono text-sm text-secondary outline-none hover:bg-inset hover:text-ink"
-                                onClick={() => {
-                                    props.onClose()
-                                    setOpen(false)
-                                }}
-                            >
-                                {t("app.telemetryFullLap")}
-                            </button>
+            <Portal>
+                <Popover.Positioner class="z-50">
+                    <Popover.Content class="w-64 overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
+                        <div class="border-b border-line px-3 py-2">
+                            <Popover.Title class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
+                                {t("app.telemetryDivergence")}
+                            </Popover.Title>
                         </div>
-                    </Show>
-                </Popover.Content>
-            </Popover.Positioner>
+                        <ul class="flex flex-col gap-0.5 p-1.5">
+                            <For each={props.zones}>
+                                {(zone, index) => {
+                                    const active = () => selected() === index()
+                                    return (
+                                        <li>
+                                            <button
+                                                type="button"
+                                                class={cn(
+                                                    "flex w-full cursor-pointer items-baseline justify-between gap-3 rounded px-2.5 py-2 text-left font-mono outline-none transition-colors",
+                                                    active()
+                                                        ? "bg-loss/15 text-loss"
+                                                        : "text-ink hover:bg-inset"
+                                                )}
+                                                aria-current={
+                                                    active()
+                                                        ? "true"
+                                                        : undefined
+                                                }
+                                                onClick={() => {
+                                                    if (active())
+                                                        props.onClose()
+                                                    else props.onOpen(zone)
+                                                    setOpen(false)
+                                                }}
+                                            >
+                                                <span class="text-sm font-semibold">
+                                                    {t("app.telemetryTurn", {
+                                                        n: index() + 1,
+                                                    })}
+                                                </span>
+                                                <span
+                                                    class={cn(
+                                                        "text-xs",
+                                                        active()
+                                                            ? undefined
+                                                            : "text-secondary"
+                                                    )}
+                                                >
+                                                    {t(CAUSE_LABEL[zone.cause])}
+                                                </span>
+                                            </button>
+                                        </li>
+                                    )
+                                }}
+                            </For>
+                        </ul>
+                        <Show when={props.focus}>
+                            <div class="border-t border-line p-1.5">
+                                <button
+                                    type="button"
+                                    class="flex w-full cursor-pointer rounded px-2.5 py-2 text-left font-mono text-sm text-secondary outline-none hover:bg-inset hover:text-ink"
+                                    onClick={() => {
+                                        props.onClose()
+                                        setOpen(false)
+                                    }}
+                                >
+                                    {t("app.telemetryFullLap")}
+                                </button>
+                            </div>
+                        </Show>
+                    </Popover.Content>
+                </Popover.Positioner>
+            </Portal>
         </Popover.Root>
     )
 }
@@ -742,6 +749,72 @@ const SwapGlyph = () => (
     </span>
 )
 
+const TrackMenu = (props: {
+    tracks: string[]
+    value: string
+    onChange: (track: string) => void
+}) => {
+    let trigger: HTMLButtonElement | undefined
+    onMount(() => trigger?.focus())
+    const collection = createMemo(() =>
+        createListCollection({
+            items: props.tracks,
+            itemToValue: code => code,
+            itemToString: code => trackName(code),
+        })
+    )
+
+    return (
+        <Select.Root
+            collection={collection()}
+            value={props.value ? [props.value] : []}
+            positioning={screenPositioning({
+                placement: "bottom-start",
+                sameWidth: true,
+            })}
+            onValueChange={details => {
+                const next = details.value[0]
+                if (next) props.onChange(next)
+            }}
+        >
+            <Select.Control>
+                <Select.Trigger
+                    ref={trigger}
+                    class={cn(
+                        "inline-flex h-11 w-full cursor-pointer items-center justify-between gap-2 rounded border border-line bg-inset px-3 text-left font-mono text-base outline-none",
+                        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20",
+                        props.value ? "text-ink" : "text-muted"
+                    )}
+                >
+                    <Select.ValueText
+                        class="min-w-0 truncate"
+                        placeholder={t("app.telemetryPickTrackPlaceholder")}
+                    />
+                    <ChevronDown class="size-4 shrink-0" strokeWidth={2} />
+                </Select.Trigger>
+            </Select.Control>
+            <Portal>
+                <Select.Positioner>
+                    <Select.Content class="overflow-y-auto overscroll-contain rounded border border-line bg-surface p-1 shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
+                        <For each={props.tracks}>
+                            {code => (
+                                <Select.Item
+                                    item={code}
+                                    class="flex cursor-pointer rounded px-2.5 py-2 text-left font-mono text-base text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-[state=checked]:text-ink"
+                                >
+                                    <Select.ItemText>
+                                        {trackName(code)}
+                                    </Select.ItemText>
+                                </Select.Item>
+                            )}
+                        </For>
+                    </Select.Content>
+                </Select.Positioner>
+            </Portal>
+        </Select.Root>
+    )
+}
+
 const ComparePickerModal = (props: {
     choices: LapChoice[]
     mode: "required" | "edit"
@@ -786,8 +859,6 @@ const ComparePickerModal = (props: {
     const [rightLapId, setRightLapId] = createSignal(
         seed?.reference?.lap.id ?? ""
     )
-    let trackSelect: HTMLSelectElement | undefined
-
     const lapsOf = (sessionId: string) =>
         groups().find(group => group.session.id === sessionId)?.laps ?? []
 
@@ -900,7 +971,6 @@ const ComparePickerModal = (props: {
     }
 
     onMount(() => {
-        trackSelect?.focus()
         if (!seed && track()) {
             const first = days()[0]
             if (first) {
@@ -952,31 +1022,11 @@ const ComparePickerModal = (props: {
                         <span class="font-mono text-sm font-semibold tracking-wide text-muted uppercase">
                             {t("app.telemetryPickTrack")}
                         </span>
-                        <select
-                            ref={trackSelect}
-                            class={cn(
-                                "h-11 w-full cursor-pointer rounded border border-line bg-inset px-3 font-mono text-base outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20",
-                                track() ? "text-ink" : "text-muted"
-                            )}
+                        <TrackMenu
+                            tracks={tracks()}
                             value={track()}
-                            required
-                            aria-required="true"
-                            onChange={event => {
-                                const next = event.currentTarget.value
-                                if (next) chooseTrack(next)
-                            }}
-                        >
-                            <option value="" disabled>
-                                {t("app.telemetryPickTrackPlaceholder")}
-                            </option>
-                            <For each={tracks()}>
-                                {code => (
-                                    <option value={code}>
-                                        {trackName(code)}
-                                    </option>
-                                )}
-                            </For>
-                        </select>
+                            onChange={chooseTrack}
+                        />
                     </label>
                     <Show
                         when={track()}
@@ -1187,7 +1237,7 @@ const CompareBanner = (props: {
         props.choices.filter(item => item.lap.id !== props.primary?.id)
 
     return (
-        <section class="grid shrink-0 grid-cols-3 items-center gap-3 rounded border border-line bg-surface px-4 py-3">
+        <section class="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded border border-line bg-surface px-4 py-3">
             <div class="justify-self-start">
                 <Show when={(props.zones?.length ?? 0) > 0}>
                     <DivergenceMenu
@@ -1199,7 +1249,7 @@ const CompareBanner = (props: {
                 </Show>
             </div>
             <div class="flex w-full min-w-0 items-center justify-center gap-3 font-mono text-base">
-                <div class="min-w-0">
+                <div class="min-w-0 w-50">
                     <LapPicker
                         label={t("app.primaryLap")}
                         tone="a"
@@ -1217,7 +1267,7 @@ const CompareBanner = (props: {
                 >
                     <SwapGlyph />
                 </button>
-                <div class="min-w-0">
+                <div class="min-w-0 w-50">
                     <LapPicker
                         label={t("app.referenceLap")}
                         tone="b"
@@ -1249,126 +1299,134 @@ const LapPicker = (props: {
     choices: LapChoice[]
     onChange: (lapId: string) => void
 }) => {
-    const groups = createMemo(() => groupChoices(props.choices))
+    const groups = createMemo(() => groupLapChoices(props.choices))
     const selected = createMemo(
         () => props.choices.find(item => item.lap.id === props.value)?.lap
     )
-    const [open, setOpen] = createSignal(false)
+    const collection = createMemo(() =>
+        createListCollection({
+            items: [...props.choices],
+            itemToValue: item => item.lap.id,
+            itemToString: item => `L${item.lap.number}`,
+        })
+    )
+    const tone = () => (props.tone === "a" ? "text-lap-a" : "text-lap-b")
+    const checkedTone =
+        props.tone === "a"
+            ? "data-[state=checked]:bg-lap-a/15 data-[state=checked]:text-lap-a"
+            : "data-[state=checked]:bg-lap-b/15 data-[state=checked]:text-lap-b"
 
     return (
-        <Popover.Root
-            open={open()}
-            onOpenChange={details => setOpen(details.open)}
-            positioning={{ placement: "bottom-start", gutter: 8 }}
+        <Select.Root
+            collection={collection()}
+            value={props.value ? [props.value] : []}
+            disabled={props.choices.length === 0}
+            positioning={screenPositioning({ placement: "bottom-start" })}
+            onValueChange={details => {
+                const next = details.value[0]
+                if (next) props.onChange(next)
+            }}
         >
-            <Popover.Trigger
-                class={cn(
-                    "inline-flex h-9 w-full min-w-0 max-w-full cursor-pointer items-center gap-2 rounded border border-line bg-inset px-3 text-left outline-none transition-colors hover:border-secondary focus-visible:border-ink",
-                    "disabled:cursor-not-allowed disabled:hover:border-line",
-                    props.tone === "a" ? "text-lap-a" : "text-lap-b"
-                )}
-                aria-label={props.label}
-                disabled={props.choices.length === 0}
-            >
-                <span
+            <Select.Control class="min-w-0">
+                <Select.Trigger
                     class={cn(
-                        "size-2.5 shrink-0 rounded-full",
-                        props.tone === "a" ? "bg-lap-a" : "bg-lap-b"
+                        "inline-flex h-9 w-full min-w-0 max-w-full cursor-pointer items-center gap-2 rounded border border-line bg-inset px-3 text-left outline-none transition-colors hover:border-secondary focus-visible:border-ink",
+                        "disabled:cursor-not-allowed disabled:hover:border-line",
+                        tone()
                     )}
-                    aria-hidden="true"
-                />
-                <span class="min-w-0 truncate text-base font-semibold">
-                    <Show
-                        when={selected()}
-                        fallback={
-                            <span class="text-muted">{t("app.pickLap")}</span>
-                        }
-                    >
-                        {lap => (
-                            <>
-                                L{lap().number} · {formatLapTime(lap().timeMs)}
-                            </>
+                    aria-label={props.label}
+                >
+                    <span
+                        class={cn(
+                            "size-2.5 shrink-0 rounded-full",
+                            props.tone === "a" ? "bg-lap-a" : "bg-lap-b"
                         )}
-                    </Show>
-                </span>
-                <ChevronDown
-                    class="size-4 shrink-0 text-muted"
-                    strokeWidth={2}
-                />
-            </Popover.Trigger>
-            <Popover.Positioner class="z-50">
-                <Popover.Content class="w-[min(22rem,calc(100vw/var(--ui-zoom)-2rem))] overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
-                    <div class="border-b border-line px-3 py-2">
-                        <Popover.Title class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
-                            {props.label}
-                        </Popover.Title>
-                    </div>
-                    <div class="max-h-72 overflow-y-auto overscroll-contain p-1.5 [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
-                        <For each={groups()}>
-                            {group => (
-                                <div class="mb-1.5 last:mb-0">
-                                    <p class="px-2 py-1.5 font-mono text-sm tracking-wide text-muted uppercase">
-                                        {groupLabel(group.session)}
-                                    </p>
-                                    <ul class="flex flex-col gap-0.5">
-                                        <For each={group.laps}>
-                                            {lap => {
-                                                const active = () =>
-                                                    lap.id === props.value
-                                                return (
-                                                    <li>
-                                                        <button
-                                                            type="button"
-                                                            class={cn(
-                                                                "flex w-full cursor-pointer items-center justify-between gap-3 rounded px-2.5 py-2 text-left font-mono text-base outline-none transition-colors",
-                                                                active()
-                                                                    ? props.tone ===
-                                                                      "a"
-                                                                        ? "bg-lap-a/15 text-lap-a"
-                                                                        : "bg-lap-b/15 text-lap-b"
-                                                                    : "text-ink hover:bg-inset"
-                                                            )}
-                                                            aria-current={
-                                                                active()
-                                                                    ? "true"
-                                                                    : undefined
-                                                            }
-                                                            onClick={() => {
-                                                                props.onChange(
-                                                                    lap.id
-                                                                )
-                                                                setOpen(false)
-                                                            }}
-                                                        >
-                                                            <span class="font-semibold">
-                                                                L{lap.number}
-                                                            </span>
-                                                            <span
-                                                                class={cn(
-                                                                    "tabular-nums",
-                                                                    active()
-                                                                        ? undefined
-                                                                        : "text-secondary"
-                                                                )}
-                                                            >
-                                                                {formatLapTime(
-                                                                    lap.timeMs
-                                                                )}
-                                                            </span>
-                                                        </button>
-                                                    </li>
-                                                )
-                                            }}
-                                        </For>
-                                    </ul>
-                                </div>
+                        aria-hidden="true"
+                    />
+                    <span class="min-w-0 truncate text-base font-semibold">
+                        <Show
+                            when={selected()}
+                            fallback={
+                                <span class="text-muted">
+                                    {t("app.pickLap")}
+                                </span>
+                            }
+                        >
+                            {lap => (
+                                <>
+                                    L{lap().number} ·{" "}
+                                    {formatLapTime(lap().timeMs)}
+                                </>
                             )}
-                        </For>
-                    </div>
-                </Popover.Content>
-            </Popover.Positioner>
-        </Popover.Root>
+                        </Show>
+                    </span>
+                    <ChevronDown
+                        class="size-4 shrink-0 text-muted"
+                        strokeWidth={2}
+                    />
+                </Select.Trigger>
+            </Select.Control>
+            <Portal>
+                <Select.Positioner>
+                    <Select.Content class="w-[min(22rem,calc(100vw/var(--ui-zoom)-2rem))] overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
+                        <div class="border-b border-line px-3 py-2">
+                            <Select.Label class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
+                                {props.label}
+                            </Select.Label>
+                        </div>
+                        <div class="overflow-y-auto overscroll-contain p-1.5 [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
+                            <For each={groups()}>
+                                {group => (
+                                    <Select.ItemGroup class="mb-1.5 last:mb-0">
+                                        <Select.ItemGroupLabel class="px-2 py-1.5 font-mono text-sm tracking-wide text-muted uppercase">
+                                            {groupLabel(group.session)}
+                                        </Select.ItemGroupLabel>
+                                        <For each={group.choices}>
+                                            {choice => (
+                                                <Select.Item
+                                                    item={choice}
+                                                    class={cn(
+                                                        "group flex cursor-pointer items-center justify-between gap-3 rounded px-2.5 py-2 text-left font-mono text-base text-ink outline-none data-highlighted:bg-inset",
+                                                        checkedTone
+                                                    )}
+                                                >
+                                                    <span class="font-semibold">
+                                                        L{choice.lap.number}
+                                                    </span>
+                                                    <span class="tabular-nums text-secondary group-data-[state=checked]:text-inherit">
+                                                        {formatLapTime(
+                                                            choice.lap.timeMs
+                                                        )}
+                                                    </span>
+                                                </Select.Item>
+                                            )}
+                                        </For>
+                                    </Select.ItemGroup>
+                                )}
+                            </For>
+                        </div>
+                    </Select.Content>
+                </Select.Positioner>
+            </Portal>
+        </Select.Root>
     )
+}
+
+const groupLapChoices = (
+    choices: readonly LapChoice[]
+): { session: Session; choices: LapChoice[] }[] => {
+    const order: string[] = []
+    const map = new Map<string, { session: Session; choices: LapChoice[] }>()
+    for (const choice of choices) {
+        let group = map.get(choice.session.id)
+        if (!group) {
+            group = { session: choice.session, choices: [] }
+            map.set(choice.session.id, group)
+            order.push(choice.session.id)
+        }
+        group.choices.push(choice)
+    }
+    return order.map(id => map.get(id)!)
 }
 
 const groupChoices = (

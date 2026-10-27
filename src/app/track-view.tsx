@@ -1,7 +1,7 @@
 import { Application, Graphics, Text } from "pixi.js"
 import { createEffect, onCleanup, onMount } from "solid-js"
 import { fitFrame, type GroundPoint, type GroundSeries } from "~/app/fit-ground"
-import { followPlotBox } from "~/app/plot-frame"
+import { followPlotBox, plotResolution } from "~/app/plot-frame"
 import { uiScale } from "~/app/scale"
 import { themeGeneration } from "~/app/theme"
 import { boundariesFor } from "~/app/track-catalog"
@@ -192,7 +192,7 @@ export const TrackView = (props: {
                 backgroundAlpha: 0,
                 antialias: true,
                 autoDensity: true,
-                resolution: Math.min(window.devicePixelRatio || 1, 2),
+                resolution: plotResolution(),
                 preference: "webgl",
             })
             .then(() => {

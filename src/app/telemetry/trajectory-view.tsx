@@ -8,7 +8,7 @@ import {
     untrack,
 } from "solid-js"
 import { fitFrame, type GroundPoint, type GroundSeries } from "~/app/fit-ground"
-import { followPlotBox } from "~/app/plot-frame"
+import { ensurePlotSize, followPlotBox, plotResolution } from "~/app/plot-frame"
 import { uiScale } from "~/app/scale"
 import { cssColor } from "~/app/telemetry/css-color"
 import { layoutPoint, layoutTravel } from "~/app/zoom-space"
@@ -73,6 +73,7 @@ export const TrajectoryView = (props: {
     class?: string
 }) => {
     let host: HTMLDivElement | undefined
+    let pixi: Application | undefined
     let fitScale = () => {}
     let asphalt: Graphics | undefined
     let edges: Graphics | undefined
@@ -159,11 +160,15 @@ export const TrajectoryView = (props: {
 
     const redraw = () => {
         const view = host
+        const app = pixi
         const fill = asphalt
         const border = edges
         const lines = paths
         const car = marker
-        if (!ready || !view || !fill || !border || !lines || !car) return
+        if (!ready || !view || !app || !fill || !border || !lines || !car)
+            return
+        const box = ensurePlotSize(app, view)
+        if (!box || box.width < 16 || box.height < 16) return
 
         fill.clear()
         border.clear()
@@ -171,9 +176,7 @@ export const TrajectoryView = (props: {
         car.clear()
         hitPoints = []
 
-        const width = view.clientWidth
-        const height = view.clientHeight
-        if (width < 16 || height < 16) return
+        const { width, height } = box
 
         const colors = {
             lapA: cssColor("--lap-a", FALLBACK_LAP_A),
@@ -305,6 +308,7 @@ export const TrajectoryView = (props: {
             car.circle(mapped.x, mapped.y, CAR_RADIUS)
             car.fill({ color: roleColor(line.role) })
         }
+        app.render()
     }
 
     const scrubFromPointer = (clientX: number, clientY: number) => {
@@ -333,6 +337,7 @@ export const TrajectoryView = (props: {
         if (!view) return
 
         const app = new Application()
+        pixi = app
         const fit = followPlotBox(app, view, redraw, () => ready)
         fitScale = fit
         props.registerZoom?.(factor => zoomBy(factor))
@@ -405,7 +410,7 @@ export const TrajectoryView = (props: {
                 backgroundAlpha: 0,
                 antialias: true,
                 autoDensity: true,
-                resolution: Math.min(window.devicePixelRatio || 1, 2),
+                resolution: plotResolution(),
                 preference: "webgl",
             })
             .then(() => {
