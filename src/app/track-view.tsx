@@ -1,6 +1,8 @@
 import { Application, Graphics, Text } from "pixi.js"
 import { createEffect, onCleanup, onMount } from "solid-js"
 import { fitFrame, type GroundPoint, type GroundSeries } from "~/app/fit-ground"
+import { followPlotBox } from "~/app/plot-frame"
+import { uiScale } from "~/app/scale"
 import { themeGeneration } from "~/app/theme"
 import { boundariesFor } from "~/app/track-catalog"
 import {
@@ -54,7 +56,6 @@ type TrackLayout = {
     closed: boolean
 }
 
-
 export const TrackView = (props: {
     track?: string
     road?: Trace
@@ -65,6 +66,7 @@ export const TrackView = (props: {
     class?: string
 }) => {
     let host: HTMLDivElement | undefined
+    let fitScale = () => {}
     let asphaltGraphics: Graphics | undefined
     let edgeGraphics: Graphics | undefined
     let sectorGraphics: Graphics | undefined
@@ -82,7 +84,15 @@ export const TrackView = (props: {
         const sectors = sectorGraphics
         const road = roadGraphics
         const car = carGraphics
-        if (!ready || !view || !asphalt || !edges || !sectors || !road || !car) {
+        if (
+            !ready ||
+            !view ||
+            !asphalt ||
+            !edges ||
+            !sectors ||
+            !road ||
+            !car
+        ) {
             return
         }
 
@@ -164,8 +174,7 @@ export const TrackView = (props: {
             label.x = mark.at.x
             label.y = mark.at.y
             label.style.fill = colors.sector[mark.id]
-            label.alpha =
-                active === undefined || active === mark.id ? 1 : 0.45
+            label.alpha = active === undefined || active === mark.id ? 1 : 0.45
         }
     }
 
@@ -174,8 +183,8 @@ export const TrackView = (props: {
         if (!view) return
 
         const app = new Application()
-        const observer = new ResizeObserver(() => redraw())
-        observer.observe(view)
+        const fit = followPlotBox(app, view, redraw, () => ready)
+        fitScale = fit
 
         void app
             .init({
@@ -201,7 +210,8 @@ export const TrackView = (props: {
                         new Text({
                             text: "",
                             style: {
-                                fontFamily: "JetBrains Mono, ui-monospace, monospace",
+                                fontFamily:
+                                    "JetBrains Mono, ui-monospace, monospace",
                                 fontSize: LABEL_SIZE,
                                 fontWeight: "600",
                                 fill: FALLBACK_INK,
@@ -220,13 +230,12 @@ export const TrackView = (props: {
                 )
                 view.appendChild(app.canvas)
                 ready = true
-                redraw()
+                fit()
             })
             .catch(() => {})
 
         onCleanup(() => {
             disposed = true
-            observer.disconnect()
             if (!ready) return
             ready = false
             app.destroy(true, true)
@@ -254,12 +263,17 @@ export const TrackView = (props: {
         redraw()
     })
 
+    createEffect(() => {
+        uiScale()
+        fitScale()
+    })
+
     return (
         <div
             ref={element => {
                 host = element
             }}
-            class={cn("h-full w-full", props.class)}
+            class={cn("h-full w-full overflow-hidden", props.class)}
             role="img"
             aria-label={t("app.trackView")}
         />

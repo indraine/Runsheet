@@ -32,13 +32,11 @@ const LABEL_KEY = {
     "solarized-light": "app.themeSolarizedLight",
 } as const satisfies Record<ThemePreference, `app.${string}`>
 
-
 const themeLabel = (preference: ThemePreference): string =>
     t(LABEL_KEY[preference])
 
 const itemClass =
     "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[11px] text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-[state=checked]:text-accent"
-
 
 export const ThemeToggle = () => (
     <Menu.Root
@@ -52,7 +50,7 @@ export const ThemeToggle = () => (
             <TriggerGlyph preference={theme()} />
         </Menu.Trigger>
         <Menu.Positioner>
-            <Menu.Content class="z-50 max-h-[min(24rem,70vh)] min-w-44 overflow-y-auto rounded border border-line bg-surface p-1 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)]">
+            <Menu.Content class="z-50 max-h-[min(24rem,calc(70vh/var(--ui-zoom)))] min-w-44 overflow-y-auto rounded border border-line bg-surface p-1 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)]">
                 <Menu.RadioItemGroup
                     value={theme()}
                     onValueChange={details => {

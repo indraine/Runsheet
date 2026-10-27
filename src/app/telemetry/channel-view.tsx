@@ -1,6 +1,9 @@
 import { Application, Graphics } from "pixi.js"
 import { createEffect, onCleanup, onMount } from "solid-js"
+import { followPlotBox } from "~/app/plot-frame"
+import { uiScale } from "~/app/scale"
 import { cssColor } from "~/app/telemetry/css-color"
+import { layoutPoint } from "~/app/zoom-space"
 import type { DistanceWindow, DivergenceZone } from "~/app/telemetry/divergence"
 import { distanceSpan, downsampleIndices } from "~/app/telemetry/sample"
 import { themeGeneration } from "~/app/theme"
@@ -32,6 +35,7 @@ export const ChannelView = (props: {
     label: string
 }) => {
     let host: HTMLDivElement | undefined
+    let fitScale = () => {}
     let plot: Graphics | undefined
     let cursor: Graphics | undefined
     let disposed = false
@@ -112,10 +116,10 @@ export const ChannelView = (props: {
         const view = host
         const range = span()
         if (!view || !range || range.max <= range.min) return undefined
-        const box = view.getBoundingClientRect()
-        const innerW = box.width - PAD.left - PAD.right
+        const localX = layoutPoint(view, clientX, 0).x
+        const innerW = view.clientWidth - PAD.left - PAD.right
         if (innerW < 8) return undefined
-        const ratio = clamp((clientX - box.left - PAD.left) / innerW, 0, 1)
+        const ratio = clamp((localX - PAD.left) / innerW, 0, 1)
         return range.min + ratio * (range.max - range.min)
     }
 
@@ -137,8 +141,8 @@ export const ChannelView = (props: {
         if (!view) return
 
         const app = new Application()
-        const observer = new ResizeObserver(() => redraw())
-        observer.observe(view)
+        const fit = followPlotBox(app, view, redraw, () => ready)
+        fitScale = fit
 
         const onPointerMove = (event: PointerEvent) => {
             scrub(event.clientX)
@@ -177,13 +181,12 @@ export const ChannelView = (props: {
                 app.stage.addChild(plot, cursor)
                 view.appendChild(app.canvas)
                 ready = true
-                redraw()
+                fit()
             })
             .catch(() => {})
 
         onCleanup(() => {
             disposed = true
-            observer.disconnect()
             view.removeEventListener("pointermove", onPointerMove)
             view.removeEventListener("pointerdown", onPointerMove)
             view.removeEventListener("dblclick", onDoubleClick)
@@ -220,13 +223,18 @@ export const ChannelView = (props: {
         redraw()
     })
 
+    createEffect(() => {
+        uiScale()
+        fitScale()
+    })
+
     return (
         <div
             ref={element => {
                 host = element
             }}
             class={cn(
-                "h-full min-h-0 w-full touch-none cursor-crosshair",
+                "h-full min-h-0 w-full touch-none overflow-hidden cursor-crosshair",
                 props.class
             )}
             role="img"

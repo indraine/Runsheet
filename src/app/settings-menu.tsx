@@ -12,7 +12,6 @@ const itemClass =
 const dangerItemClass =
     "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[11px] text-loss outline-none data-highlighted:bg-loss/10 data-highlighted:text-loss"
 
-
 export function SettingsMenu() {
     const repository = useSessionRepository()
     const [confirming, setConfirming] = createSignal(false)
@@ -156,7 +155,7 @@ function ClearDataDialog(props: {
 
     return (
         <div
-            class="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 px-6"
+            class="fixed-screen z-50 flex items-center justify-center bg-ink/30 px-6"
             onClick={dismiss}
         >
             <div

@@ -929,12 +929,14 @@ const ComparePickerModal = (props: {
     return (
         <Portal>
             <div
-                class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/30 px-6 pt-36 pb-6"
+                class="fixed-screen z-50 flex items-start justify-center overflow-y-auto bg-ink/30 px-6 pt-36 pb-6"
                 onClick={dismiss}
             >
                 <div
                     class="flex w-full max-w-4xl flex-col overflow-hidden rounded border border-line bg-surface p-5 text-ink shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)]"
-                    style={{ height: "min(40rem, calc(100dvh - 12rem))" }}
+                    style={{
+                        height: "min(40rem, calc(100dvh / var(--ui-zoom) - 12rem))",
+                    }}
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="telemetry-pick-title"
@@ -1295,7 +1297,7 @@ const LapPicker = (props: {
                 />
             </Popover.Trigger>
             <Popover.Positioner class="z-50">
-                <Popover.Content class="w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
+                <Popover.Content class="w-[min(22rem,calc(100vw/var(--ui-zoom)-2rem))] overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
                     <div class="border-b border-line px-3 py-2">
                         <Popover.Title class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
                             {props.label}

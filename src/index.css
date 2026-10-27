@@ -310,6 +310,7 @@ html[data-theme="solarized-light"] {
 
 @layer base {
     html {
+        --ui-zoom: 1;
         height: 100%;
         background-color: var(--canvas);
         color: var(--ink);
@@ -323,4 +324,14 @@ html[data-theme="solarized-light"] {
     #root {
         height: 100%;
     }
+}
+
+/* `inset: 0` pins a fixed layer to the layout viewport. Zoom then scales that
+   box past the window. Size it in pre-zoom pixels so the painted layer fits. */
+.fixed-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: calc(100vw / var(--ui-zoom));
+    height: calc(100dvh / var(--ui-zoom));
 }

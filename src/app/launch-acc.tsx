@@ -14,7 +14,6 @@ const [launching, setLaunching] = createSignal(false)
 
 export const isGameOff = () => accPresence() === "off"
 
-
 const launchAcc = (): void => {
     if (launching()) return
     setLaunching(true)
@@ -25,7 +24,6 @@ const launchAcc = (): void => {
             report(error)
         })
 }
-
 
 export const LaunchAcc = () => {
     const [remember, setRemember] = createSignal(false)
@@ -64,7 +62,7 @@ export const LaunchAcc = () => {
 
     return (
         <Show when={open()}>
-            <div class="fixed inset-0 z-40 flex items-center justify-center bg-ink/30 px-6">
+            <div class="fixed-screen z-40 flex items-center justify-center bg-ink/30 px-6">
                 <div
                     class="w-full max-w-md rounded border border-line bg-surface p-6 text-ink shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)]"
                     role="dialog"
@@ -107,7 +105,6 @@ export const LaunchAcc = () => {
         </Show>
     )
 }
-
 
 export const LaunchAccButton = () => (
     <Button

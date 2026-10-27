@@ -6,6 +6,7 @@ import { Portal } from "solid-js/web"
 import { localDayStart, type DayGroup } from "~/domain"
 import { t } from "~/i18n"
 import { locale } from "~/i18n/locale"
+import { documentZoom } from "~/app/zoom-space"
 import { buttonVariants, cn } from "~/ui"
 
 const iconProps = { class: "size-4", strokeWidth: 1.75 }
@@ -13,10 +14,7 @@ const iconProps = { class: "size-4", strokeWidth: 1.75 }
 const CALENDAR_GAP = 8
 const CALENDAR_SCREEN_PADDING = 12
 
-const uiZoom = (): number => {
-    const zoom = Number(getComputedStyle(document.documentElement).zoom)
-    return zoom > 0 ? zoom : 1
-}
+const uiZoom = documentZoom
 
 const visualBox = (element: HTMLElement) => {
     const rect = element.getBoundingClientRect()

@@ -8,7 +8,10 @@ import {
     untrack,
 } from "solid-js"
 import { fitFrame, type GroundPoint, type GroundSeries } from "~/app/fit-ground"
+import { followPlotBox } from "~/app/plot-frame"
+import { uiScale } from "~/app/scale"
 import { cssColor } from "~/app/telemetry/css-color"
+import { layoutPoint, layoutTravel } from "~/app/zoom-space"
 import { downsampleIndices, sampleAtDistance } from "~/app/telemetry/sample"
 import {
     cursorIsProgrammatic,
@@ -70,6 +73,7 @@ export const TrajectoryView = (props: {
     class?: string
 }) => {
     let host: HTMLDivElement | undefined
+    let fitScale = () => {}
     let asphalt: Graphics | undefined
     let edges: Graphics | undefined
     let paths: Graphics | undefined
@@ -136,11 +140,11 @@ export const TrajectoryView = (props: {
         const next = clamp(prev * factor, MIN_ZOOM, MAX_ZOOM)
         if (next === prev) return
         if (view && originX !== undefined && originY !== undefined) {
-            const box = view.getBoundingClientRect()
-            const localX = originX - box.left
-            const localY = originY - box.top
-            const centerX = box.width / 2
-            const centerY = box.height / 2
+            const local = layoutPoint(view, originX, originY)
+            const localX = local.x
+            const localY = local.y
+            const centerX = view.clientWidth / 2
+            const centerY = view.clientHeight / 2
             const current = pan()
             const ratio = next / prev
             setPan({
@@ -305,9 +309,9 @@ export const TrajectoryView = (props: {
 
     const scrubFromPointer = (clientX: number, clientY: number) => {
         if (!props.onCursor || hitPoints.length === 0 || !host) return
-        const box = host.getBoundingClientRect()
-        const x = clientX - box.left
-        const y = clientY - box.top
+        const local = layoutPoint(host, clientX, clientY)
+        const x = local.x
+        const y = local.y
         let best = hitPoints[0]
         let bestDelta = Infinity
         for (const point of hitPoints) {
@@ -329,8 +333,8 @@ export const TrajectoryView = (props: {
         if (!view) return
 
         const app = new Application()
-        const observer = new ResizeObserver(() => redraw())
-        observer.observe(view)
+        const fit = followPlotBox(app, view, redraw, () => ready)
+        fitScale = fit
         props.registerZoom?.(factor => zoomBy(factor))
 
         const onWheel = (event: WheelEvent) => {
@@ -353,8 +357,13 @@ export const TrajectoryView = (props: {
                 if (!follow) scrubFromPointer(event.clientX, event.clientY)
                 return
             }
-            const dx = event.clientX - lastPointer.x
-            const dy = event.clientY - lastPointer.y
+            const travel = layoutTravel(
+                view,
+                event.clientX - lastPointer.x,
+                event.clientY - lastPointer.y
+            )
+            const dx = travel.x
+            const dy = travel.y
             if (!pending.moved) {
                 const travel = Math.hypot(
                     event.clientX - pending.x,
@@ -411,14 +420,13 @@ export const TrajectoryView = (props: {
                 app.stage.addChild(asphalt, edges, paths, marker)
                 view.appendChild(app.canvas)
                 ready = true
-                redraw()
+                fit()
             })
             .catch(() => {})
 
         onCleanup(() => {
             disposed = true
             props.registerZoom?.(undefined)
-            observer.disconnect()
             view.removeEventListener("wheel", onWheel)
             view.removeEventListener("pointerdown", onPointerDown)
             view.removeEventListener("pointermove", onPointerMove)
@@ -462,6 +470,11 @@ export const TrajectoryView = (props: {
     })
 
     createEffect(() => {
+        uiScale()
+        fitScale()
+    })
+
+    createEffect(() => {
         following()
         zoom()
         untrack(rememberMap)
@@ -473,7 +486,7 @@ export const TrajectoryView = (props: {
                 ref={element => {
                     host = element
                 }}
-                class="h-full w-full touch-none cursor-crosshair"
+                class="h-full w-full touch-none overflow-hidden cursor-crosshair"
                 role="img"
                 aria-label={t("app.telemetryTrajectory")}
             />

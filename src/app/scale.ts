@@ -34,13 +34,16 @@ const readScale = (): number => {
 
 const applyScale = (scale: number): void => {
     const root = document.documentElement
+    const zoom = scale / 100
+    // Fixed layers and viewport units are sized before zoom, then scaled again.
+    // Overlays divide by this variable so they stay inside the window.
+    root.style.setProperty("--ui-zoom", String(zoom))
     if (scale === DEFAULT_SCALE) {
         root.style.zoom = ""
         root.style.width = ""
         root.style.height = ""
         return
     }
-    const zoom = scale / 100
     root.style.zoom = String(zoom)
     root.style.width = `${100 / zoom}vw`
     root.style.height = `${100 / zoom}dvh`
@@ -53,8 +56,7 @@ export const setUiScale = (scale: number): void => {
     setUiScaleSignal(next)
     try {
         localStorage.setItem(SCALE_KEY, String(next))
-    } catch {
-    }
+    } catch {}
     if (typeof document !== "undefined") applyScale(next)
 }
 
