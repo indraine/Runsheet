@@ -158,7 +158,7 @@ const TrackTile = (props: {
     return (
         <li class="flex aspect-[4/3] min-w-0 flex-col gap-1 px-4 pt-3 pb-4">
             <div class="flex items-start justify-between gap-3 font-mono">
-                <p class="min-w-0 truncate text-[22px] leading-none font-semibold tracking-tight text-ink uppercase">
+                <p class="min-w-0 truncate text-[22px] leading-none font-semibold tracking-tight text-ink uppercase select-text">
                     {trackName(props.track)}
                 </p>
                 <Show when={props.record}>

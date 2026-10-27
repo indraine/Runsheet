@@ -382,7 +382,7 @@ function RowContent(props: { session: Session; bestLap: Lap | undefined }) {
                     <Separator />
                     {sessionTypeLabel(session().type)}
                     <Separator />
-                    {trackName(session().track)}
+                    <span class="select-text">{trackName(session().track)}</span>
                 </p>
                 <p class="mt-0.5 truncate font-mono text-[11px] text-secondary">
                     {carName(session().car)}

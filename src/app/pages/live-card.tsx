@@ -49,7 +49,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                 <div class="flex min-w-0 items-baseline gap-3">
                     <div class="relative min-w-0">
                         <h2
-                            class="truncate font-mono text-lg font-semibold tracking-tight text-ink uppercase"
+                            class="truncate font-mono text-lg font-semibold tracking-tight text-ink uppercase select-text"
                             aria-hidden={seedDev()}
                         >
                             {trackName(shownTrack())}
@@ -84,7 +84,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                                                         item={code}
                                                         class="flex cursor-pointer rounded px-2 py-1.5 text-left font-mono text-[13px] text-ink outline-none data-highlighted:bg-inset"
                                                     >
-                                                        <Select.ItemText>
+                                                        <Select.ItemText class="select-text">
                                                             {trackName(code)}
                                                         </Select.ItemText>
                                                     </Select.Item>

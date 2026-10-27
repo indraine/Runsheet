@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="docs/brand/logo.svg" alt="Runsheet" width="420" />
+  <img src="docs/brand/logo.svg" alt="Runsheet" width="280" />
 </p>
 
 <p align="center">
-  <strong><a href="README.md">English</a> · <a href="README.ru.md">Русский</a> · <a href="docs/CONCEPT.md">Concept</a> · <a href="docs/CONCEPT.ru.md">Концепция</a></strong>
+  <strong>Motorsport Telemetry Analysis</strong>
 </p>
 
 <p align="center">
@@ -13,7 +13,15 @@
   <img src="https://img.shields.io/badge/Tauri_2-SolidJS-24C8DB" alt="Tauri 2 · SolidJS" />
 </p>
 
-Лист заездов для **Assetto Corsa Competizione**. Открыл программу, поехал — круги, секторы (S1–S3), топливо и зачёт пишутся сами. Кнопки «начать запись» нет.
+<p align="center">
+  <strong><a href="README.md">English</a> · <a href="README.ru.md">Русский</a> · <a href="docs/CONCEPT.md">Concept</a> · <a href="docs/CONCEPT.ru.md">Концепция</a></strong>
+</p>
+
+<p align="center">
+  <img src="docs/brand/runsheet-hero-banner.png" alt="Runsheet Motorsport Telemetry Analysis" width="100%">
+</p>
+
+**Runsheet** — лист учёта заездов для симулятора **Assetto Corsa Competizione**. Приложение читает телеметрию из общей памяти игры и ведёт хронологию выездов: круги, времена секторов, расход топлива и зачётность круга фиксируются автоматически, без отдельной команды начала записи. Закрытые сессии сохраняются в журнале и доступны для последующего разбора и сравнения телеметрии.
 
 > Идея продукта и модель заезда: **[docs/CONCEPT.ru.md](docs/CONCEPT.ru.md)**
 
@@ -33,50 +41,56 @@ https://github.com/user-attachments/assets/0669f286-4e5b-4b5b-856e-6f346069dacf
 
 Спа · таблица кругов с S1/S2/S3, топливом, дельтой и мини-картой.
 
-| Dark | Light |
+| Slate | Light |
 |:----:|:-----:|
 | ![Живая карточка — Dark](docs/screenshots/01_spa_livecard_dark.png) | ![Живая карточка — Light](docs/screenshots/01_spa_livecard_light.png) |
 
-| Dracula | Nord |
-|:-------:|:----:|
-| ![Живая карточка — Dracula](docs/screenshots/02_spa_livecard_dracula.png) | ![Живая карточка — Nord](docs/screenshots/03_spa_livecard_nord.png) |
+### Сравнение телеметрии
+
+Монца · BMW M4 · наложение двух кругов — газ, тормоз, руль, скорость, гоночная линия и зоны расхождения.
+
+| Dark | Light |
+|:----:|:-----:|
+| ![Телеметрия — Dark](docs/screenshots/telemetry-dark.png) | ![Телеметрия — Light](docs/screenshots/telemetry-light.png) |
 
 ---
 
-## Что умеет сейчас (v1.0.0)
+## Возможности (v1.0.0)
 
-- [x] Сам пишет круги, секторы (S1 / S2 / S3), расход топлива и зачёт круга
-- [x] Каталог 25 трасс ACC — фильтры «недавние», «популярные», A–Z; личные рекорды и число попыток
-- [x] Журнал заездов по дням и типам (тренировка, квалификация, гонка / одиночная, онлайн)
-- [x] Живая карточка: воздух и асфальт, давление в шинах (psi), векторная карта трассы
-- [x] 12 тем оформления (Dark, Light, Dracula, Nord, Monokai, Gruvbox, Everforest, Mocha, Solarized и др.)
-- [x] Два языка интерфейса (EN / RU)
+- [x] Автоматическая фиксация кругов, времён секторов, расхода топлива и зачётности круга
+- [x] Каталог 25 трасс ACC с фильтрами с личными рекордами и числом попыток
+- [x] Журнал заездов с группировкой по дням и типам сессии
+- [x] Live-карточка заезда: температура воздуха и асфальта, давление в шинах, векторная карта трассы
+- [x] Сравнение телеметрии двух кругов: графики, наложение гоночных линий и визуализация органов управления; система автообнаружения расхождений
+- [x] Импорт и экспорт журнала заездов
+- [x] Выбор тем интерфейса на CSS custom properties
+- [x] Локализация интерфейса с расширяемым набором языков
 
 ---
 
 ## Планы
 
 ### v1.1.0 — Разбор и траектории
-- [ ] Плоская сцена трассы с границами полотна
-- [ ] Траектории и сравнение гоночных линий на карте
-- [ ] Графики (скорость, газ, тормоз, передача, руль)
-- [ ] Выгрузка сессии в CSV / MoTeC
-- [ ] Tour — обучающий тур по интерфейсу программы
+- [x] Плоская сцена трассы с границами асфальтового полотна
+- [x] Сравнение траекторий и гоночных линий на карте
+- [x] Графики телеметрических каналов [скорость | газ | тормоз | передача | руль]
+- [ ] Экспорт сессии в форматы CSV / MoTeC
+- [ ] Интерактивный обучающий тур по интерфейсу
 
-### v2.0.0 — iRacing ([pitwall](https://crates.io/crates/pitwall))
-- [ ] Чтение телеметрии через iRacing SDK / общую память
-- [ ] Автоматическая фиксация сессий и заездов в iRacing
-- [ ] Каталоги машин и трасс iRacing
-
-### v3.0.0 — Le Mans Ultimate ([kerb](https://crates.io/crates/kerb))
-- [ ] Чтение общей памяти LMU
-- [ ] Автоматическая фиксация сессий и заездов в LMU
+### v2.0.0 — Le Mans Ultimate ([kerb](https://crates.io/crates/kerb))
+- [ ] Чтение телеметрии LMU из shared memory
+- [ ] Автоматическая фиксация сессий и заездов для LMU
 - [ ] Каталоги машин и трасс LMU
 
-### v4.0.0 — RaceRoom ([simetry](https://crates.io/crates/simetry))
-- [ ] Чтение общей памяти RaceRoom (`$R3E` / r3e-api)
-- [ ] Автоматическая фиксация сессий и заездов в RaceRoom
+### v3.0.0 — RaceRoom ([simetry](https://crates.io/crates/simetry))
+- [ ] Чтение телеметрии RaceRoom из shared memory (`$R3E` / r3e-api)
+- [ ] Автоматическая фиксация сессий и заездов для RaceRoom
 - [ ] Каталоги машин и трасс RaceRoom
+
+### v4.0.0 — iRacing ([pitwall](https://crates.io/crates/pitwall))
+- [ ] Чтение телеметрии iRacing через SDK / shared memory
+- [ ] Автоматическая фиксация сессий и заездов для iRacing
+- [ ] Каталоги машин и трасс iRacing
 
 ---
 
@@ -133,7 +147,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 Данные из симулятора проходят одну границу приёма: сырой буфер общей памяти не покидает `src-tauri/src/ingress/`, а сразу приводится к доменным типам. Дальше — конвейер чтения, сервисы заездов и кругов, интерфейс — без привязки к конкретной игре.
 
-В v1.0.0 подключён только ACC. Через ту же границу позже добавятся iRacing (v2.0.0), Le Mans Ultimate (v3.0.0) и RaceRoom (v4.0.0), без смены логики сессий.
+В v1.0.0 подключён только ACC. Через ту же границу позже добавятся Le Mans Ultimate (v2.0.0), RaceRoom (v3.0.0) и iRacing (v4.0.0), без смены логики сессий.
 
 | Путь | Роль |
 |------|------|

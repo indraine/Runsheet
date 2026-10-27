@@ -30,7 +30,7 @@ export function Header() {
                 </A>
                 <span class="h-6 w-px shrink-0 bg-line" aria-hidden="true" />
                 <Show when={analysis()}>
-                    <span class="min-w-0 truncate font-mono text-lg font-medium tracking-wide text-ink uppercase">
+                    <span class="min-w-0 truncate font-mono text-lg font-medium tracking-wide text-ink uppercase select-text">
                         {analysisHeading().track ?? t("app.empty")}
                     </span>
                     <span class="min-w-0 truncate font-mono text-lg text-secondary">

@@ -5,6 +5,7 @@ const THEME_KEY = "runsheet.theme"
 export const APPEARANCE = ["light", "dark", "system"] as const
 
 export const SCHEMES = [
+    "slate",
     "darcula",
     "dracula",
     "monokai",
@@ -26,6 +27,7 @@ export type ResolvedTheme = Exclude<ThemePreference, "system">
 const COLOR_SCHEME: Record<ResolvedTheme, "light" | "dark"> = {
     light: "light",
     dark: "dark",
+    slate: "dark",
     darcula: "dark",
     dracula: "dark",
     monokai: "dark",
@@ -39,6 +41,7 @@ const COLOR_SCHEME: Record<ResolvedTheme, "light" | "dark"> = {
 }
 
 export const THEME_SWATCH: Record<ThemeScheme, string> = {
+    slate: "#7eb0ef",
     darcula: "#6897bb",
     dracula: "#bd93f9",
     monokai: "#66d9ef",

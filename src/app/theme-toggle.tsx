@@ -22,6 +22,7 @@ const LABEL_KEY = {
     light: "app.themeLight",
     dark: "app.themeDark",
     system: "app.themeSystem",
+    slate: "app.themeSlate",
     darcula: "app.themeDarcula",
     dracula: "app.themeDracula",
     monokai: "app.themeMonokai",

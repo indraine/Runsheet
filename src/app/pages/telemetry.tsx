@@ -787,7 +787,7 @@ const TrackMenu = (props: {
                     )}
                 >
                     <Select.ValueText
-                        class="min-w-0 truncate"
+                        class="min-w-0 truncate select-text"
                         placeholder={t("app.telemetryPickTrackPlaceholder")}
                     />
                     <ChevronDown class="size-4 shrink-0" strokeWidth={2} />
@@ -802,7 +802,7 @@ const TrackMenu = (props: {
                                     item={code}
                                     class="flex cursor-pointer rounded px-2.5 py-2 text-left font-mono text-base text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-[state=checked]:text-ink"
                                 >
-                                    <Select.ItemText>
+                                    <Select.ItemText class="select-text">
                                         {trackName(code)}
                                     </Select.ItemText>
                                 </Select.Item>

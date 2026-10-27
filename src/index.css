@@ -51,6 +51,29 @@ html[data-theme="dark"] {
     --caution: #fbbf24;
 }
 
+html[data-theme="slate"] {
+    color-scheme: dark;
+
+    --canvas: #0b1220;
+    --surface: #111827;
+    --inset: #0f172a;
+    --line: #1f2937;
+
+    --ink: #f8fafc;
+    --secondary: #cbd5e1;
+    --muted: #64748b;
+
+    --accent: #7eb0ef;
+    --on-accent: #ffffff;
+    --reference: #a5b4fc;
+    --lap-a: #a5b4fc;
+    --lap-b: #7eb0ef;
+
+    --gain: #34d399;
+    --loss: #f87171;
+    --caution: #fbbf24;
+}
+
 html[data-theme="darcula"] {
     color-scheme: dark;
 
@@ -318,11 +341,18 @@ html[data-theme="solarized-light"] {
         font-feature-settings:
             "tnum" 1,
             "zero" 1;
+        user-select: none;
     }
 
     body,
     #root {
         height: 100%;
+    }
+
+    input,
+    textarea,
+    [contenteditable="true"] {
+        user-select: text;
     }
 }
 
