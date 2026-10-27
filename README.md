@@ -44,6 +44,7 @@
 ### Next
 - [ ] Session export to CSV / MoTeC
 - [ ] Interactive UI onboarding tour
+- [ ] AI Driver Coach — automated telemetry feedback and driving advice via user-provided OpenAI-compatible API keys analyzing divergence zones
 
 ### Simulators
 - [ ] Le Mans Ultimate — telemetry via shared memory ([kerb](https://crates.io/crates/kerb)), automatic session capture, car and track catalogs
