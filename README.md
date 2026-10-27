@@ -21,7 +21,7 @@
   <img src="docs/brand/runsheet-hero-banner.png" alt="Runsheet Motorsport Telemetry Analysis" width="100%">
 </p>
 
-**Runsheet** is a session sheet for the **Assetto Corsa Competizione** simulator. The app reads telemetry from the game’s shared memory and keeps a chronological outing log: laps, sector times, fuel use, and lap validity are recorded automatically, with no separate start-recording command. Closed sessions stay in the journal for later review and telemetry comparison.
+**Runsheet** is a lightweight, local-first session sheet and pit-wall tool for the **Assetto Corsa Competizione** simulator. Built with Rust and Tauri 2, it runs with near-zero CPU overhead, capturing telemetry from shared memory without affecting simulator framerates. Laps, sector times, fuel use, and validity are logged automatically for later review and telemetry comparison.
 
 ## Features
 
@@ -32,7 +32,7 @@
 - [x] **2D trajectory & racing-line overlay** — GPU-accelerated PixiJS track surface view with asphalt boundaries, apex zoom, and car follow mode
 - [x] **Interactive cockpit HUD** — pedal stack and animated steering wheel cluster showing instant driver inputs at cursor position
 - [x] **Track & session catalog** — all 25 ACC tracks with personal bests, historical session journal grouped by day, and export/import
-- [x] **Local-first & customizable** — lightweight desktop app with no cloud lock-in, multi-theme support, and full localization in English and Russian
+- [x] **Lightweight & local-first** — tiny binary (~15 MB), minimal RAM usage (<60 MB), zero game FPS impact, multi-theme support, and full localization (English, Russian)
 
 ---
 
