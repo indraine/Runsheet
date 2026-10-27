@@ -25,17 +25,14 @@
 
 ## Features
 
-- [x] Automatic capture of laps, sector times, fuel use, and lap validity
-- [x] Catalog of 25 ACC tracks with filters, personal bests, and attempt counts
-- [x] Outing journal grouped by day and session type
-- [x] Live outing card: air and asphalt temperature, tyre pressure, vector track map
-- [x] Flat track scene with asphalt-surface boundaries
-- [x] Trajectory and racing-line comparison on the map
-- [x] Telemetry channel charts [speed | throttle | brake | gear | steer]
-- [x] Two-lap telemetry comparison: charts, racing-line overlay, and cockpit controls; automatic divergence detection
-- [x] Import and export of the outing journal
-- [x] UI theming via CSS custom properties
-- [x] UI localization with an extensible language set
+- [x] **Zero-config session logging** — automatic capture of laps, sector times S1/S2/S3, fuel consumption, and lap validity via ACC shared memory
+- [x] **Live pit-wall card** — real-time track and air conditions, tyre pressures, live sector deltas, and interactive vector track map
+- [x] **Two-lap telemetry comparison** — multi-channel charts for speed, throttle, brake, steering angle, and gear with synchronized distance scrubbing
+- [x] **Automated divergence detection** — smart algorithm highlighting key braking, throttle, and speed loss zones between laps
+- [x] **2D trajectory & racing-line overlay** — GPU-accelerated PixiJS track surface view with asphalt boundaries, apex zoom, and car follow mode
+- [x] **Interactive cockpit HUD** — pedal stack and animated steering wheel cluster showing instant driver inputs at cursor position
+- [x] **Track & session catalog** — all 25 ACC tracks with personal bests, historical session journal grouped by day, and export/import
+- [x] **Local-first & customizable** — lightweight desktop app with no cloud lock-in, multi-theme support, and full localization in English and Russian
 
 ---
 
