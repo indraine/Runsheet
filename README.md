@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/brand/runsheet-hero-banner.png" alt="Runsheet Motorsport Telemetry Analysis" width="100%">
+  <img src="docs/brand/runsheet-hero-banner.webp" alt="Runsheet Motorsport Telemetry Analysis" width="100%">
 </p>
 
 **Runsheet** is a lightweight, local-first session sheet and pit-wall tool for the **Assetto Corsa Competizione** simulator. Built with Rust and Tauri 2, it runs with near-zero CPU overhead, capturing telemetry from shared memory without affecting simulator framerates. Laps, sector times, fuel use, and validity are logged automatically for later review and telemetry comparison.

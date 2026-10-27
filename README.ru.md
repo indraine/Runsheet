@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/brand/runsheet-hero-banner.png" alt="Runsheet Motorsport Telemetry Analysis" width="100%">
+  <img src="docs/brand/runsheet-hero-banner.webp" alt="Runsheet Motorsport Telemetry Analysis" width="100%">
 </p>
 
 **Runsheet** — легковесный local-first лист учёта заездов и инструмент пит-волла для симулятора **Assetto Corsa Competizione**. Построенный на базе Rust и Tauri 2, он работает с околонулевой нагрузкой на CPU и не снижает FPS в игре. Приложение автоматически фиксирует круги, сектора, расход топлива и зачётность из shared memory для последующего анализа и сравнения телеметрии.
