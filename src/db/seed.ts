@@ -19,7 +19,7 @@ const SESSION_MONZA = "seed-monza-practice"
 const SESSION_SPA_PRACTICE = "seed-spa-practice"
 const SESSION_SPA_QUALIFYING = "seed-spa-qualifying"
 
-const SEED_VERSION = "5"
+const SEED_VERSION = "6"
 const SEED_VERSION_KEY = "runsheet.seed"
 
 const LAP_METRES = 7004
@@ -359,8 +359,7 @@ const readSeedVersion = (): string | null => {
 const writeSeedVersion = (): void => {
     try {
         localStorage.setItem(SEED_VERSION_KEY, SEED_VERSION)
-    } catch {
-    }
+    } catch {}
 }
 
 function qualifyingLap(row: LapRow): Lap {
@@ -379,7 +378,6 @@ function qualifyingLap(row: LapRow): Lap {
         fuel: row.fuel,
     }
 }
-
 
 function closedLap(
     sessionId: string,
@@ -419,7 +417,7 @@ function lapTrace(
     const count = Math.max(2, Math.round((SAMPLE_COUNT - 1) * until) + 1)
     for (let index = 0; index < count; index += 1) {
         const fraction = (index / (SAMPLE_COUNT - 1)) * until
-        const brake = brakeAt(fraction)
+        const brake = brakeAt(fraction + (slower ? 0.01 : 0))
         const throttle = brake > 0.2 ? 0 : 1
         const speed = (160 + 112 * (1 - brake)) * (slower ? 0.985 : 1)
         const bump = slower ? Math.sin(fraction * Math.PI) * 400 : 0
@@ -482,7 +480,6 @@ function groundAt(fraction: number): { x: number; z: number } {
 function clockMs(clock: Clock): number | null {
     return clock === null ? null : milliseconds(clock)
 }
-
 
 function milliseconds(clock: string): number {
     const [body, fraction] = clock.split(".")

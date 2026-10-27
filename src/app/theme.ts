@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js"
+import { batch, createSignal } from "solid-js"
 
 const THEME_KEY = "runsheet.theme"
 
@@ -99,22 +99,38 @@ const applyTheme = (preference: ThemePreference): void => {
 
 const [theme, setThemeSignal] = createSignal<ThemePreference>(readPreference())
 
+/**
+ * Bumps after the document theme colors are already applied.
+ *
+ * Canvas views read CSS variables while drawing. The preference signal
+ * notifies them synchronously, so the dataset has to change first.
+ */
+const [themeGeneration, setThemeGeneration] = createSignal(0)
+
+const publishAppliedTheme = (preference: ThemePreference): void => {
+    if (typeof document !== "undefined") applyTheme(preference)
+    batch(() => {
+        setThemeSignal(preference)
+        setThemeGeneration(value => value + 1)
+    })
+}
+
 export const setTheme = (preference: ThemePreference): void => {
-    setThemeSignal(preference)
     try {
         localStorage.setItem(THEME_KEY, preference)
     } catch {
+        // Storage can be unavailable in private mode. The page still paints.
     }
-    if (typeof document !== "undefined") applyTheme(preference)
+    publishAppliedTheme(preference)
 }
 
-export { theme }
+export { theme, themeGeneration }
 
 if (typeof document !== "undefined") {
     applyTheme(theme())
     window
         .matchMedia("(prefers-color-scheme: dark)")
         .addEventListener("change", () => {
-            if (theme() === "system") applyTheme("system")
+            if (theme() === "system") publishAppliedTheme("system")
         })
 }

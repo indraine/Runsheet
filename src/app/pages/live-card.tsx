@@ -8,7 +8,7 @@ import {
     untrack,
 } from "solid-js"
 import { hasAsphalt } from "~/app/track-catalog"
-import { TrackLine } from "~/app/track-line"
+import { TrackView } from "~/app/track-view"
 import type { LiveCard as LiveCardModel, LiveLapRow } from "~/domain"
 import { carName, fmt, t, trackCodes, trackName } from "~/i18n"
 import { locale } from "~/i18n/locale"
@@ -109,11 +109,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
             </div>
 
             <div class="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:grid-rows-[minmax(0,1fr)]">
-                <LapTable
-                    sessionId={card().session.id}
-                    rows={card().rows}
-                    best={card().bestLap}
-                />
+                <LapTable rows={card().rows} best={card().bestLap} />
                 <div class="relative min-h-0 overflow-hidden border-t border-line lg:border-t-0 lg:border-l">
                     <Show
                         when={
@@ -126,11 +122,24 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                             </p>
                         }
                     >
-                        <TrackLine
+                        <TrackView
                             class="absolute inset-0 min-h-0"
                             track={shownTrack()}
                             road={ownTrack() ? card().road : undefined}
                             car={ownTrack() ? card().car : undefined}
+                            s1EndM={
+                                ownTrack()
+                                    ? (card().currentLap?.s1EndM ??
+                                      card().bestLap?.s1EndM)
+                                    : undefined
+                            }
+                            s2EndM={
+                                ownTrack()
+                                    ? (card().currentLap?.s2EndM ??
+                                      card().bestLap?.s2EndM)
+                                    : undefined
+                            }
+                            sector={ownTrack() ? card().sector : undefined}
                         />
                     </Show>
                 </div>
@@ -173,7 +182,6 @@ const lapTableMaxHeight = (): string =>
     `calc(${LAP_HEAD_REM}rem + ${VISIBLE_LAP_ROWS} * ${LAP_ROW_REM}rem + 1px)`
 
 const LapTable = (props: {
-    sessionId: string
     rows: LiveLapRow[]
     best: LiveCardModel["bestLap"]
 }) => (
@@ -197,13 +205,7 @@ const LapTable = (props: {
             </thead>
             <tbody>
                 <Index each={props.rows}>
-                    {row => (
-                        <LapRow
-                            sessionId={props.sessionId}
-                            row={row()}
-                            best={props.best}
-                        />
-                    )}
+                    {row => <LapRow row={row()} best={props.best} />}
                 </Index>
             </tbody>
         </table>
@@ -211,7 +213,6 @@ const LapTable = (props: {
 )
 
 const LapRow = (props: {
-    sessionId: string
     row: LiveLapRow
     best: LiveCardModel["bestLap"]
 }) => {

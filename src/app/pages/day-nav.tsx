@@ -6,7 +6,7 @@ import { Portal } from "solid-js/web"
 import { localDayStart, type DayGroup } from "~/domain"
 import { t } from "~/i18n"
 import { locale } from "~/i18n/locale"
-import { buttonVariants } from "~/ui"
+import { buttonVariants, cn } from "~/ui"
 
 const iconProps = { class: "size-4", strokeWidth: 1.75 }
 
@@ -21,7 +21,8 @@ const uiZoom = (): number => {
 const visualBox = (element: HTMLElement) => {
     const rect = element.getBoundingClientRect()
     const zoom = uiZoom()
-    const scale = element.offsetHeight > 0 ? rect.height / element.offsetHeight : 1
+    const scale =
+        element.offsetHeight > 0 ? rect.height / element.offsetHeight : 1
     if (scale > 1.01) return rect
     return new DOMRect(
         rect.x * zoom,
@@ -32,18 +33,26 @@ const visualBox = (element: HTMLElement) => {
 }
 
 const placeCalendar = (floating: HTMLElement | null): void => {
-    const anchor = document.querySelector<HTMLElement>(
-        "[data-scope='date-picker'][data-part='trigger']"
-    )
+    const anchor =
+        document.querySelector<HTMLElement>(
+            "[data-scope='date-picker'][data-part='trigger'][data-state='open']"
+        ) ??
+        document.querySelector<HTMLElement>(
+            "[data-scope='date-picker'][data-part='trigger']"
+        )
     if (!floating || !anchor) return
     const zoom = uiZoom()
     const anchorBox = visualBox(anchor)
     const fullHeight = floating.scrollHeight * zoom
     const width = floating.offsetWidth * zoom
-    const spaceBelow = window.innerHeight - anchorBox.bottom - CALENDAR_SCREEN_PADDING
+    const spaceBelow =
+        window.innerHeight - anchorBox.bottom - CALENDAR_SCREEN_PADDING
     const spaceAbove = anchorBox.top - CALENDAR_SCREEN_PADDING
     const openAbove = spaceBelow < fullHeight && spaceAbove > spaceBelow
-    const room = Math.max(0, (openAbove ? spaceAbove : spaceBelow) - CALENDAR_GAP)
+    const room = Math.max(
+        0,
+        (openAbove ? spaceAbove : spaceBelow) - CALENDAR_GAP
+    )
     const used = Math.min(fullHeight, room)
     const visualTop = openAbove
         ? anchorBox.top - CALENDAR_GAP - used
@@ -66,8 +75,8 @@ const placeCalendar = (floating: HTMLElement | null): void => {
 }
 
 const dayCellClass = [
-    "flex size-8 cursor-pointer items-center justify-center rounded",
-    "font-mono text-[12px] text-ink outline-none",
+    "flex size-9 cursor-pointer items-center justify-center rounded",
+    "font-mono text-sm text-ink outline-none",
     "hover:bg-inset",
     "data-today:font-semibold",
     "data-selected:bg-accent data-selected:text-on-accent data-selected:hover:bg-accent",
@@ -79,6 +88,7 @@ export const DayNav = (props: {
     days: DayGroup[]
     value: number
     onChange: (start: number) => void
+    compact?: boolean
 }) => {
     const available = createMemo(
         () => new Set(props.days.map(day => dayKey(day.start)))
@@ -99,7 +109,7 @@ export const DayNav = (props: {
         <div class="flex items-center gap-1">
             <button
                 type="button"
-                class={buttonVariants({ variant: "ghost", size: "icon" })}
+                class={cn(buttonVariants({ variant: "ghost", size: "icon" }))}
                 aria-label={t("app.previousDay")}
                 disabled={index() <= 0}
                 onClick={() => step(-1)}
@@ -116,7 +126,10 @@ export const DayNav = (props: {
                     flip: true,
                     slide: true,
                     overflowPadding: CALENDAR_SCREEN_PADDING,
-                    updatePosition: async ({ updatePosition, floatingElement }) => {
+                    updatePosition: async ({
+                        updatePosition,
+                        floatingElement,
+                    }) => {
                         await updatePosition()
                         placeCalendar(floatingElement)
                     },
@@ -149,7 +162,10 @@ export const DayNav = (props: {
             >
                 <DatePicker.Control>
                     <DatePicker.Trigger
-                        class="cursor-pointer rounded px-1 font-mono text-lg font-semibold tracking-tight text-ink outline-none hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20"
+                        class={cn(
+                            "cursor-pointer rounded px-1 font-mono font-semibold tracking-tight text-ink outline-none hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20",
+                            props.compact ? "text-base" : "text-lg"
+                        )}
                         aria-label={t("app.openCalendar")}
                     >
                         {dayLabel(props.value)}
@@ -157,81 +173,93 @@ export const DayNav = (props: {
                 </DatePicker.Control>
                 <Portal>
                     <DatePicker.Positioner class="overflow-y-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
-                    <DatePicker.Content class="z-50 rounded border border-line bg-surface p-3 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)]">
-                        <DatePicker.View view="day">
-                            <DatePicker.Context>
-                                {api => (
-                                    <>
-                                        <DatePicker.ViewControl class="mb-2 flex items-center justify-between gap-2">
-                                            <DatePicker.PrevTrigger
-                                                class={buttonVariants({
-                                                    variant: "ghost",
-                                                    size: "icon",
-                                                })}
-                                            >
-                                                <ChevronLeft {...iconProps} />
-                                            </DatePicker.PrevTrigger>
-                                            <DatePicker.RangeText class="font-mono text-[13px] font-medium text-ink" />
-                                            <DatePicker.NextTrigger
-                                                class={buttonVariants({
-                                                    variant: "ghost",
-                                                    size: "icon",
-                                                })}
-                                            >
-                                                <ChevronRight {...iconProps} />
-                                            </DatePicker.NextTrigger>
-                                        </DatePicker.ViewControl>
-                                        <DatePicker.Table>
-                                            <DatePicker.TableHead>
-                                                <DatePicker.TableRow>
-                                                    <For each={api().weekDays}>
-                                                        {weekDay => (
-                                                            <DatePicker.TableHeader class="size-8 text-center font-mono text-[10px] font-medium text-muted">
-                                                                {weekDay.narrow}
-                                                            </DatePicker.TableHeader>
-                                                        )}
-                                                    </For>
-                                                </DatePicker.TableRow>
-                                            </DatePicker.TableHead>
-                                            <DatePicker.TableBody>
-                                                <For each={api().weeks}>
-                                                    {week => (
-                                                        <DatePicker.TableRow>
-                                                            <For each={week}>
-                                                                {day => (
-                                                                    <DatePicker.TableCell
-                                                                        value={
-                                                                            day
-                                                                        }
-                                                                    >
-                                                                        <DatePicker.TableCellTrigger
-                                                                            class={
-                                                                                dayCellClass
+                        <DatePicker.Content class="z-50 rounded border border-line bg-surface p-3 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)]">
+                            <DatePicker.View view="day">
+                                <DatePicker.Context>
+                                    {api => (
+                                        <>
+                                            <DatePicker.ViewControl class="mb-2 flex items-center justify-between gap-2">
+                                                <DatePicker.PrevTrigger
+                                                    class={buttonVariants({
+                                                        variant: "ghost",
+                                                        size: "icon",
+                                                    })}
+                                                >
+                                                    <ChevronLeft
+                                                        {...iconProps}
+                                                    />
+                                                </DatePicker.PrevTrigger>
+                                                <DatePicker.RangeText class="font-mono text-base font-medium text-ink" />
+                                                <DatePicker.NextTrigger
+                                                    class={buttonVariants({
+                                                        variant: "ghost",
+                                                        size: "icon",
+                                                    })}
+                                                >
+                                                    <ChevronRight
+                                                        {...iconProps}
+                                                    />
+                                                </DatePicker.NextTrigger>
+                                            </DatePicker.ViewControl>
+                                            <DatePicker.Table>
+                                                <DatePicker.TableHead>
+                                                    <DatePicker.TableRow>
+                                                        <For
+                                                            each={
+                                                                api().weekDays
+                                                            }
+                                                        >
+                                                            {weekDay => (
+                                                                <DatePicker.TableHeader class="size-9 text-center font-mono text-xs font-medium text-muted">
+                                                                    {
+                                                                        weekDay.narrow
+                                                                    }
+                                                                </DatePicker.TableHeader>
+                                                            )}
+                                                        </For>
+                                                    </DatePicker.TableRow>
+                                                </DatePicker.TableHead>
+                                                <DatePicker.TableBody>
+                                                    <For each={api().weeks}>
+                                                        {week => (
+                                                            <DatePicker.TableRow>
+                                                                <For
+                                                                    each={week}
+                                                                >
+                                                                    {day => (
+                                                                        <DatePicker.TableCell
+                                                                            value={
+                                                                                day
                                                                             }
                                                                         >
-                                                                            {
-                                                                                day.day
-                                                                            }
-                                                                        </DatePicker.TableCellTrigger>
-                                                                    </DatePicker.TableCell>
-                                                                )}
-                                                            </For>
-                                                        </DatePicker.TableRow>
-                                                    )}
-                                                </For>
-                                            </DatePicker.TableBody>
-                                        </DatePicker.Table>
-                                    </>
-                                )}
-                            </DatePicker.Context>
-                        </DatePicker.View>
-                    </DatePicker.Content>
+                                                                            <DatePicker.TableCellTrigger
+                                                                                class={
+                                                                                    dayCellClass
+                                                                                }
+                                                                            >
+                                                                                {
+                                                                                    day.day
+                                                                                }
+                                                                            </DatePicker.TableCellTrigger>
+                                                                        </DatePicker.TableCell>
+                                                                    )}
+                                                                </For>
+                                                            </DatePicker.TableRow>
+                                                        )}
+                                                    </For>
+                                                </DatePicker.TableBody>
+                                            </DatePicker.Table>
+                                        </>
+                                    )}
+                                </DatePicker.Context>
+                            </DatePicker.View>
+                        </DatePicker.Content>
                     </DatePicker.Positioner>
                 </Portal>
             </DatePicker.Root>
             <button
                 type="button"
-                class={buttonVariants({ variant: "ghost", size: "icon" })}
+                class={cn(buttonVariants({ variant: "ghost", size: "icon" }))}
                 aria-label={t("app.nextDay")}
                 disabled={index() < 0 || index() >= props.days.length - 1}
                 onClick={() => step(1)}

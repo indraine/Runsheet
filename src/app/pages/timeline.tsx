@@ -1,3 +1,4 @@
+import { useNavigate } from "@solidjs/router"
 import {
     For,
     Match,
@@ -297,6 +298,17 @@ function ClosedRow(props: {
     opened: boolean
     onShow: () => void
 }) {
+    const navigate = useNavigate()
+    const compare = () => {
+        const params = new URLSearchParams({
+            session: props.session.id,
+            track: props.session.track,
+        })
+        const lap = props.bestLap
+        if (lap && lap.timeMs !== null) params.set("lap", lap.id)
+        navigate(`/telemetry?${params.toString()}`)
+    }
+
     return (
         <li
             class={cn(
@@ -305,45 +317,49 @@ function ClosedRow(props: {
             )}
         >
             <div class={cn(rowClass, "min-w-0 flex-1")}>
-                <RowContent
-                    session={props.session}
-                    bestLap={props.bestLap}
-                />
+                <RowContent session={props.session} bestLap={props.bestLap} />
             </div>
-            <Button
-                variant="secondary"
-                size="sm"
-                class={cn(
-                    "shrink-0 group-hover:bg-inset",
-                    props.opened && "border-accent bg-inset text-accent"
-                )}
-                aria-pressed={props.opened}
-                aria-label={
-                    props.opened ? t("app.showTracks") : t("app.showLiveCard")
-                }
-                onClick={() => props.onShow()}
-            >
-                <span class="grid">
-                    <span
-                        class={cn(
-                            "col-start-1 row-start-1 whitespace-nowrap",
-                            props.opened && "invisible"
-                        )}
-                        aria-hidden="true"
-                    >
-                        {t("app.showLiveCard")}
+            <div class="flex shrink-0 items-center gap-2">
+                <Button variant="secondary" size="sm" onClick={compare}>
+                    {t("app.compare")}
+                </Button>
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    class={cn(
+                        "group-hover:bg-inset",
+                        props.opened && "border-accent bg-inset text-accent"
+                    )}
+                    aria-pressed={props.opened}
+                    aria-label={
+                        props.opened
+                            ? t("app.showTracks")
+                            : t("app.showLiveCard")
+                    }
+                    onClick={() => props.onShow()}
+                >
+                    <span class="grid">
+                        <span
+                            class={cn(
+                                "col-start-1 row-start-1 whitespace-nowrap",
+                                props.opened && "invisible"
+                            )}
+                            aria-hidden="true"
+                        >
+                            {t("app.showLiveCard")}
+                        </span>
+                        <span
+                            class={cn(
+                                "col-start-1 row-start-1 whitespace-nowrap",
+                                !props.opened && "invisible"
+                            )}
+                            aria-hidden="true"
+                        >
+                            {t("app.showTracks")}
+                        </span>
                     </span>
-                    <span
-                        class={cn(
-                            "col-start-1 row-start-1 whitespace-nowrap",
-                            !props.opened && "invisible"
-                        )}
-                        aria-hidden="true"
-                    >
-                        {t("app.showTracks")}
-                    </span>
-                </span>
-            </Button>
+                </Button>
+            </div>
         </li>
     )
 }

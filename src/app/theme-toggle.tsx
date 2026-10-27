@@ -1,6 +1,6 @@
 import { Menu } from "@ark-ui/solid/menu"
 import { Check, Monitor, Moon, Palette, Sun } from "lucide-solid"
-import { For, Show } from "solid-js"
+import { For, Match, Show, Switch } from "solid-js"
 import {
     APPEARANCE,
     SCHEMES,
@@ -85,12 +85,28 @@ const ThemeChoice = (props: { preference: ThemePreference }) => (
     </Menu.RadioItem>
 )
 
-const TriggerGlyph = (props: { preference: ThemePreference }) => {
-    if (props.preference === "system") return <Monitor {...iconProps} />
-    if (props.preference === "light") return <Sun {...iconProps} />
-    if (props.preference === "dark") return <Moon {...iconProps} />
-    return <Palette {...iconProps} />
-}
+const TriggerGlyph = (props: { preference: ThemePreference }) => (
+    <Switch>
+        <Match when={props.preference === "system"}>
+            <Monitor {...iconProps} />
+        </Match>
+        <Match when={props.preference === "light"}>
+            <Sun {...iconProps} />
+        </Match>
+        <Match when={props.preference === "dark"}>
+            <Moon {...iconProps} />
+        </Match>
+        <Match
+            when={
+                props.preference !== "system" &&
+                props.preference !== "light" &&
+                props.preference !== "dark"
+            }
+        >
+            <Palette {...iconProps} />
+        </Match>
+    </Switch>
+)
 
 const ThemeMark = (props: { preference: ThemePreference }) => {
     if (!isThemeScheme(props.preference)) {

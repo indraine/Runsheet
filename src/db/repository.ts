@@ -45,6 +45,10 @@ export class SessionRepository {
         return this.database.getAll("sessions")
     }
 
+    async readSession(id: string): Promise<Session | undefined> {
+        return this.database.get("sessions", id)
+    }
+
     async readDay(at: number = Date.now()): Promise<DayItem[]> {
         const sessions = await this.database.getAll("sessions")
         const onDay = sessions.filter(session =>

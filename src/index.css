@@ -19,7 +19,9 @@
 
     --accent: #2a6fc9;
     --on-accent: #ffffff;
-    --reference: #6366f1;
+    --reference: #ea580c;
+    --lap-a: #ea580c;
+    --lap-b: #2a6fc9;
 
     --gain: #059669;
     --loss: #dc2626;
@@ -40,7 +42,9 @@ html[data-theme="dark"] {
 
     --accent: #7eb0ef;
     --on-accent: #ffffff;
-    --reference: #a78bfa;
+    --reference: #fb923c;
+    --lap-a: #fb923c;
+    --lap-b: #7eb0ef;
 
     --gain: #34d399;
     --loss: #f87171;
@@ -61,7 +65,9 @@ html[data-theme="darcula"] {
 
     --accent: #6897bb;
     --on-accent: #2b2b2b;
-    --reference: #9876aa;
+    --reference: #ffb86c;
+    --lap-a: #ffb86c;
+    --lap-b: #6897bb;
 
     --gain: #6a8759;
     --loss: #ff6b68;
@@ -82,7 +88,9 @@ html[data-theme="dracula"] {
 
     --accent: #bd93f9;
     --on-accent: #282a36;
-    --reference: #ff79c6;
+    --reference: #ffb86c;
+    --lap-a: #ffb86c;
+    --lap-b: #bd93f9;
 
     --gain: #50fa7b;
     --loss: #ff5555;
@@ -103,7 +111,9 @@ html[data-theme="monokai"] {
 
     --accent: #66d9ef;
     --on-accent: #272822;
-    --reference: #ae81ff;
+    --reference: #fd971f;
+    --lap-a: #fd971f;
+    --lap-b: #66d9ef;
 
     --gain: #a6e22e;
     --loss: #f92672;
@@ -124,7 +134,9 @@ html[data-theme="nord"] {
 
     --accent: #88c0d0;
     --on-accent: #2e3440;
-    --reference: #b48ead;
+    --reference: #d08770;
+    --lap-a: #d08770;
+    --lap-b: #88c0d0;
 
     --gain: #a3be8c;
     --loss: #bf616a;
@@ -145,7 +157,9 @@ html[data-theme="mocha"] {
 
     --accent: #89b4fa;
     --on-accent: #1e1e2e;
-    --reference: #cba6f7;
+    --reference: #fab387;
+    --lap-a: #fab387;
+    --lap-b: #89b4fa;
 
     --gain: #a6e3a1;
     --loss: #f38ba8;
@@ -166,7 +180,9 @@ html[data-theme="gruvbox"] {
 
     --accent: #fe8019;
     --on-accent: #282828;
-    --reference: #d3869b;
+    --reference: #fe8019;
+    --lap-a: #fe8019;
+    --lap-b: #83a598;
 
     --gain: #b8bb26;
     --loss: #fb4934;
@@ -187,7 +203,9 @@ html[data-theme="everforest"] {
 
     --accent: #a7c080;
     --on-accent: #272e33;
-    --reference: #d699b6;
+    --reference: #e69875;
+    --lap-a: #e69875;
+    --lap-b: #7fbbb3;
 
     --gain: #a7c080;
     --loss: #e67e80;
@@ -208,7 +226,9 @@ html[data-theme="one-dark"] {
 
     --accent: #61afef;
     --on-accent: #282c34;
-    --reference: #c678dd;
+    --reference: #d19a66;
+    --lap-a: #d19a66;
+    --lap-b: #61afef;
 
     --gain: #98c379;
     --loss: #e06c75;
@@ -229,7 +249,9 @@ html[data-theme="solarized-dark"] {
 
     --accent: #268bd2;
     --on-accent: #fdf6e3;
-    --reference: #6c71c4;
+    --reference: #cb4b16;
+    --lap-a: #cb4b16;
+    --lap-b: #268bd2;
 
     --gain: #859900;
     --loss: #dc322f;
@@ -250,7 +272,9 @@ html[data-theme="solarized-light"] {
 
     --accent: #268bd2;
     --on-accent: #fdf6e3;
-    --reference: #6c71c4;
+    --reference: #cb4b16;
+    --lap-a: #cb4b16;
+    --lap-b: #268bd2;
 
     --gain: #859900;
     --loss: #dc322f;
@@ -270,6 +294,9 @@ html[data-theme="solarized-light"] {
     --color-accent: var(--accent);
     --color-on-accent: var(--on-accent);
     --color-reference: var(--reference);
+
+    --color-lap-a: var(--lap-a);
+    --color-lap-b: var(--lap-b);
 
     --color-gain: var(--gain);
     --color-loss: var(--loss);

@@ -1,5 +1,4 @@
 import { A, useMatch } from "@solidjs/router"
-import { ArrowLeft } from "lucide-solid"
 import { createEffect, onCleanup, onMount, Show, untrack } from "solid-js"
 import { GithubLink } from "~/app/github-link"
 import { LaunchAccButton } from "~/app/launch-acc"
@@ -15,10 +14,10 @@ import { ThemeToggle } from "~/app/theme-toggle"
 import { Wordmark } from "~/app/wordmark"
 import { t } from "~/i18n"
 import { locale } from "~/i18n/locale"
-import { cn } from "~/ui"
+import { buttonVariants, cn } from "~/ui"
 
 export function Header() {
-    const analysis = useMatch(() => "/sessions/:sessionId/laps/:lapId")
+    const analysis = useMatch(() => "/telemetry")
 
     return (
         <header class="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6">
@@ -29,22 +28,12 @@ export function Header() {
                 >
                     <Wordmark class="h-10" />
                 </A>
-                <span class="h-4 w-px shrink-0 bg-line" aria-hidden="true" />
+                <span class="h-6 w-px shrink-0 bg-line" aria-hidden="true" />
                 <Show when={analysis()}>
-                    <A
-                        href="/"
-                        class="inline-flex h-7 shrink-0 items-center gap-1.5 rounded px-2 font-mono text-[11px] font-medium tracking-wide text-secondary uppercase hover:bg-inset hover:text-ink"
-                    >
-                        <ArrowLeft class="size-3.5" strokeWidth={1.75} />
-                        {t("app.backToTimeline")}
-                    </A>
-                    <span class="text-[11px] text-muted" aria-hidden="true">
-                        ·
-                    </span>
-                    <span class="truncate font-mono text-[11px] font-medium tracking-wide text-ink uppercase">
+                    <span class="min-w-0 truncate font-mono text-lg font-medium tracking-wide text-ink uppercase">
                         {analysisHeading().track ?? t("app.empty")}
                     </span>
-                    <span class="truncate font-mono text-[11px] text-secondary">
+                    <span class="min-w-0 truncate font-mono text-lg text-secondary">
                         {analysisHeading().car ?? t("app.empty")}
                     </span>
                 </Show>
@@ -55,6 +44,17 @@ export function Header() {
             <div class="flex shrink-0 items-center gap-3">
                 <Show when={analysis()}>
                     <AccStatus />
+                </Show>
+                <Show when={!analysis()}>
+                    <A
+                        href="/telemetry"
+                        class={buttonVariants({
+                            variant: "secondary",
+                            size: "sm",
+                        })}
+                    >
+                        {t("app.analyzeSession")}
+                    </A>
                 </Show>
                 <GithubLink />
                 <LocaleToggle />
