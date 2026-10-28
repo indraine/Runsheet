@@ -6,7 +6,11 @@ import { Portal } from "solid-js/web"
 import { localDayStart, type DayGroup } from "~/domain"
 import { t } from "~/i18n"
 import { locale } from "~/i18n/locale"
-import { screenPositioning } from "~/app/screen-position"
+import {
+    screenMenuListClass,
+    screenPopupOverModalClass,
+    screenPositioning,
+} from "~/app/screen-position"
 import { buttonVariants, cn } from "~/ui"
 
 const iconProps = { class: "size-4", strokeWidth: 1.75 }
@@ -99,8 +103,13 @@ export const DayNav = (props: {
                     </DatePicker.Trigger>
                 </DatePicker.Control>
                 <Portal>
-                    <DatePicker.Positioner class="overflow-y-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
-                        <DatePicker.Content class="z-50 rounded border border-line bg-surface p-3 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)]">
+                    <DatePicker.Positioner class={screenPopupOverModalClass}>
+                        <DatePicker.Content
+                            class={cn(
+                                screenMenuListClass,
+                                "rounded border border-line bg-surface p-3 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)]"
+                            )}
+                        >
                             <DatePicker.View view="day">
                                 <DatePicker.Context>
                                     {api => (

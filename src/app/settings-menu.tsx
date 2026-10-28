@@ -1,7 +1,7 @@
 import { Menu } from "@ark-ui/solid/menu"
 import { createSignal, onCleanup, onMount, Show } from "solid-js"
 import { Portal } from "solid-js/web"
-import { screenPositioning } from "~/app/screen-position"
+import { screenPopupClass, screenPositioning } from "~/app/screen-position"
 import { Download, RotateCcw, Settings, Trash2, Upload } from "lucide-solid"
 import { downloadDump, parseDumpFile, useSessionRepository } from "~/db"
 import { resetSettings } from "~/app/stored"
@@ -73,7 +73,7 @@ export function SettingsMenu() {
                     <Settings class="size-4" strokeWidth={1.75} />
                 </Menu.Trigger>
                 <Portal>
-                    <Menu.Positioner>
+                    <Menu.Positioner class={screenPopupClass}>
                         <Menu.Content class="z-50 min-w-44 rounded border border-line bg-surface p-1 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)]">
                             <Menu.Item value="export" class={itemClass}>
                                 <Download class="size-4" strokeWidth={1.75} />

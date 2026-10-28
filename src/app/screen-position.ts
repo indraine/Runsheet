@@ -150,17 +150,39 @@ const placeInScreen = (
         "--available-width",
         `${Math.max(0, (window.innerWidth - SCREEN_PADDING * 2) / zoom)}px`
     )
-    floating.style.overflowY = "auto"
+    // `max-height` on this node turns it into the scrollport. The list under
+    // it reads `--available-height` and scrolls itself.
+    floating.style.removeProperty("max-height")
+    floating.style.removeProperty("overflow-y")
     if (options.sameWidth) {
         floating.style.setProperty("--reference-width", `${frame.width}px`)
     }
 }
 
 /**
+ * Ark positioners use `isolation: isolate`, so z-index must live here, not on
+ * the menu content. Same layer as screen overlays — a later modal portal
+ * covers an open banner select.
+ */
+export const screenPopupClass = "z-50"
+
+/** Track / day menus inside a `z-50` modal. */
+export const screenPopupOverModalClass = "z-[60]"
+
+/**
+ * Scroll a portaled list inside the room `placeInScreen` stored as
+ * `--available-height`. Do not put this class on the positioner.
+ */
+export const screenMenuListClass =
+    "max-h-(--available-height) overflow-y-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]"
+
+/**
  * Ark Select / Popover / Menu positioning that stays inside the viewport.
- * `flip`, `slide`, and `fitViewport` are the library's collision rules.
- * `updatePosition` then rewrites the result into layout pixels so document
- * zoom does not push the popup away from its trigger.
+ * `flip` and `slide` are the library's collision rules. `fitViewport` stays
+ * off: it writes `max-height` onto the positioner and that node then scrolls
+ * instead of the list. The list caps itself with `--available-height`.
+ * `updatePosition` rewrites the result into layout pixels so document zoom
+ * does not push the popup away from its trigger.
  */
 export const screenPositioning = (options: {
     placement: Placement
@@ -176,7 +198,7 @@ export const screenPositioning = (options: {
         flip: true,
         slide: true,
         overflowPadding: SCREEN_PADDING,
-        fitViewport: true,
+        fitViewport: false,
         sameWidth,
         updatePosition: async ({ updatePosition, floatingElement }) => {
             await updatePosition()

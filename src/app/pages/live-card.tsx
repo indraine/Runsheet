@@ -10,7 +10,11 @@ import {
     untrack,
 } from "solid-js"
 import { Portal } from "solid-js/web"
-import { screenPositioning } from "~/app/screen-position"
+import {
+    screenMenuListClass,
+    screenPopupClass,
+    screenPositioning,
+} from "~/app/screen-position"
 import { liveClock } from "~/app/status"
 import { hasAsphalt } from "~/app/track-catalog"
 import { TrackView } from "~/app/track-view"
@@ -90,8 +94,13 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                                     </Select.Trigger>
                                 </Select.Control>
                                 <Portal>
-                                    <Select.Positioner>
-                                        <Select.Content class="w-56 rounded border border-line bg-surface p-1 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)] outline-none">
+                                    <Select.Positioner class={screenPopupClass}>
+                                        <Select.Content
+                                            class={cn(
+                                                screenMenuListClass,
+                                                "w-56 rounded border border-line bg-surface p-1 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)] outline-none"
+                                            )}
+                                        >
                                             <For each={trackCodes}>
                                                 {code => (
                                                     <Select.Item

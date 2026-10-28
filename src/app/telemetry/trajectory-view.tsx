@@ -11,6 +11,11 @@ import { fitFrame, type GroundPoint, type GroundSeries } from "~/app/fit-ground"
 import { ensurePlotSize, followPlotBox, plotResolution } from "~/app/plot-frame"
 import { uiScale } from "~/app/scale"
 import { cssColor } from "~/app/telemetry/css-color"
+import {
+    guardPointerCapture,
+    popupBlocksCanvas,
+    releaseHeldPointer,
+} from "~/app/telemetry/pointer-capture"
 import { layoutPoint, layoutTravel } from "~/app/zoom-space"
 import { downsampleIndices, sampleAtDistance } from "~/app/telemetry/sample"
 import {
@@ -348,6 +353,7 @@ export const TrajectoryView = (props: {
             zoomBy(factor, event.clientX, event.clientY)
         }
         const onPointerDown = (event: PointerEvent) => {
+            if (popupBlocksCanvas()) return
             if (zoom() <= MIN_ZOOM) {
                 scrubFromPointer(event.clientX, event.clientY)
                 return
@@ -392,7 +398,7 @@ export const TrajectoryView = (props: {
             if (pending?.moved) rememberMap()
             else if (pending) scrubFromPointer(event.clientX, event.clientY)
             if (view.hasPointerCapture(event.pointerId)) {
-                view.releasePointerCapture(event.pointerId)
+                releaseHeldPointer(view, event.pointerId)
             }
         }
         const onDoubleClick = () => resetView()
@@ -403,6 +409,9 @@ export const TrajectoryView = (props: {
         view.addEventListener("pointerup", onPointerUp)
         view.addEventListener("pointercancel", onPointerUp)
         view.addEventListener("dblclick", onDoubleClick)
+        const releasePointer = guardPointerCapture(view, () => {
+            gesture = undefined
+        })
 
         void app
             .init({
@@ -431,6 +440,7 @@ export const TrajectoryView = (props: {
 
         onCleanup(() => {
             disposed = true
+            releasePointer()
             props.registerZoom?.(undefined)
             view.removeEventListener("wheel", onWheel)
             view.removeEventListener("pointerdown", onPointerDown)

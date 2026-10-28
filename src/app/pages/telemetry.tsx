@@ -15,7 +15,12 @@ import {
 import { Portal } from "solid-js/web"
 import { ArrowLeftRight, ChevronDown } from "lucide-solid"
 import { DayNav } from "~/app/pages/day-nav"
-import { screenPositioning } from "~/app/screen-position"
+import {
+    screenMenuListClass,
+    screenPopupClass,
+    screenPopupOverModalClass,
+    screenPositioning,
+} from "~/app/screen-position"
 import { setAnalysisHeading } from "~/app/status"
 import { ChannelView } from "~/app/telemetry/channel-view"
 import {
@@ -70,6 +75,11 @@ type Catalog = {
     initialPrimaryId: string
     initialReferenceId: string | undefined
 }
+
+const floatingMenuOpen = (): boolean =>
+    document.querySelector(
+        "[data-scope='select'][data-state='open'], [data-scope='popover'][data-state='open'], [data-scope='menu'][data-state='open'], [data-scope='date-picker'][data-state='open']"
+    ) !== null
 
 export const TelemetryPage = () => {
     const repository = useSessionRepository()
@@ -622,14 +632,14 @@ const DivergenceMenu = (props: {
                 <ChevronDown class="size-4 shrink-0" strokeWidth={2} />
             </Popover.Trigger>
             <Portal>
-                <Popover.Positioner class="z-50">
-                    <Popover.Content class="w-64 overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
-                        <div class="border-b border-line px-3 py-2">
+                <Popover.Positioner class={screenPopupClass}>
+                    <Popover.Content class="flex max-h-(--available-height) w-64 flex-col overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
+                        <div class="shrink-0 border-b border-line px-3 py-2">
                             <Popover.Title class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
                                 {t("app.telemetryDivergence")}
                             </Popover.Title>
                         </div>
-                        <ul class="flex flex-col gap-0.5 p-1.5">
+                        <ul class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain p-1.5 [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
                             <For each={props.zones}>
                                 {(zone, index) => {
                                     const active = () => selected() === index()
@@ -677,7 +687,7 @@ const DivergenceMenu = (props: {
                             </For>
                         </ul>
                         <Show when={props.focus}>
-                            <div class="border-t border-line p-1.5">
+                            <div class="shrink-0 border-t border-line p-1.5">
                                 <button
                                     type="button"
                                     class="flex w-full cursor-pointer rounded px-2.5 py-2 text-left font-mono text-sm text-secondary outline-none hover:bg-inset hover:text-ink"
@@ -794,8 +804,13 @@ const TrackMenu = (props: {
                 </Select.Trigger>
             </Select.Control>
             <Portal>
-                <Select.Positioner>
-                    <Select.Content class="overflow-y-auto overscroll-contain rounded border border-line bg-surface p-1 shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
+                <Select.Positioner class={screenPopupOverModalClass}>
+                    <Select.Content
+                        class={cn(
+                            screenMenuListClass,
+                            "rounded border border-line bg-surface p-1 shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none"
+                        )}
+                    >
                         <For each={props.tracks}>
                             {code => (
                                 <Select.Item
@@ -986,10 +1001,8 @@ const ComparePickerModal = (props: {
         if (props.mode !== "edit") return
         const onKey = (event: KeyboardEvent) => {
             if (event.key !== "Escape") return
-            const calendarOpen = document.querySelector(
-                "[data-scope='date-picker'][data-state='open']"
-            )
-            if (calendarOpen) return
+            // Capture runs before the select; leave Escape to the open popup.
+            if (floatingMenuOpen()) return
             props.onDismiss()
         }
         document.addEventListener("keydown", onKey, true)
@@ -999,7 +1012,7 @@ const ComparePickerModal = (props: {
     return (
         <Portal>
             <div
-                class="fixed-screen z-50 flex items-start justify-center overflow-y-auto bg-ink/30 px-6 pt-36 pb-6"
+                class="fixed-screen z-50 flex items-start justify-center overflow-hidden bg-ink/30 px-6 pt-36 pb-6"
                 onClick={dismiss}
             >
                 <div
@@ -1036,7 +1049,7 @@ const ComparePickerModal = (props: {
                             </p>
                         }
                     >
-                        <div class="mt-4 grid h-full min-h-0 flex-1 grid-cols-1 items-stretch gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+                        <div class="mt-4 grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch gap-3 overflow-hidden md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:grid-rows-1">
                             <LapCard
                                 label={t("app.primaryLap")}
                                 tone="a"
@@ -1073,9 +1086,9 @@ const ComparePickerModal = (props: {
                             />
                         </div>
                     </Show>
-                    <div class="mt-4 flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+                    <div class="mt-4 flex shrink-0 flex-nowrap items-center gap-3 border-t border-line pt-4">
                         <Show when={track()}>
-                            <p class="font-mono text-base">
+                            <p class="min-w-0 flex-1 truncate font-mono text-base">
                                 <span class="font-semibold text-lap-a">
                                     {lapSummary(leftSessionId(), leftLapId())}
                                 </span>
@@ -1085,7 +1098,7 @@ const ComparePickerModal = (props: {
                                 </span>
                             </p>
                         </Show>
-                        <div class="ml-auto flex gap-2">
+                        <div class="ml-auto flex shrink-0 gap-2">
                             <Button
                                 variant="secondary"
                                 class="h-10 px-4 text-sm"
@@ -1367,14 +1380,14 @@ const LapPicker = (props: {
                 </Select.Trigger>
             </Select.Control>
             <Portal>
-                <Select.Positioner>
-                    <Select.Content class="w-[min(22rem,calc(100vw/var(--ui-zoom)-2rem))] overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
-                        <div class="border-b border-line px-3 py-2">
+                <Select.Positioner class={screenPopupClass}>
+                    <Select.Content class="flex max-h-(--available-height) w-[min(22rem,calc(100vw/var(--ui-zoom)-2rem))] flex-col overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
+                        <div class="shrink-0 border-b border-line px-3 py-2">
                             <Select.Label class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
                                 {props.label}
                             </Select.Label>
                         </div>
-                        <div class="overflow-y-auto overscroll-contain p-1.5 [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
+                        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5 [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
                             <For each={groups()}>
                                 {group => (
                                     <Select.ItemGroup class="mb-1.5 last:mb-0">

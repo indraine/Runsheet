@@ -3,6 +3,10 @@ import { createEffect, onCleanup, onMount } from "solid-js"
 import { ensurePlotSize, followPlotBox, plotResolution } from "~/app/plot-frame"
 import { uiScale } from "~/app/scale"
 import { cssColor } from "~/app/telemetry/css-color"
+import {
+    guardPointerCapture,
+    popupBlocksCanvas,
+} from "~/app/telemetry/pointer-capture"
 import { layoutPoint } from "~/app/zoom-space"
 import type { DistanceWindow, DivergenceZone } from "~/app/telemetry/divergence"
 import { distanceSpan, downsampleIndices } from "~/app/telemetry/sample"
@@ -150,6 +154,7 @@ export const ChannelView = (props: {
         fitScale = fit
 
         const onPointerMove = (event: PointerEvent) => {
+            if (popupBlocksCanvas()) return
             scrub(event.clientX)
         }
         const onDoubleClick = (event: MouseEvent) => {
@@ -166,6 +171,7 @@ export const ChannelView = (props: {
         view.addEventListener("pointerdown", onPointerMove)
         view.addEventListener("dblclick", onDoubleClick)
         view.addEventListener("wheel", onWheel, { passive: false })
+        const releasePointer = guardPointerCapture(view)
 
         void app
             .init({
@@ -192,6 +198,7 @@ export const ChannelView = (props: {
 
         onCleanup(() => {
             disposed = true
+            releasePointer()
             view.removeEventListener("pointermove", onPointerMove)
             view.removeEventListener("pointerdown", onPointerMove)
             view.removeEventListener("dblclick", onDoubleClick)

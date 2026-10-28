@@ -2,7 +2,7 @@ import { Select, createListCollection } from "@ark-ui/solid/select"
 import { Check, Monitor, Moon, Palette, Sun } from "lucide-solid"
 import { For, Match, Switch, createMemo } from "solid-js"
 import { Portal } from "solid-js/web"
-import { screenPositioning } from "~/app/screen-position"
+import { screenPopupClass, screenPositioning } from "~/app/screen-position"
 import {
     APPEARANCE,
     SCHEMES,
@@ -69,7 +69,7 @@ export const ThemeToggle = () => {
                 </Select.Trigger>
             </Select.Control>
             <Portal>
-                <Select.Positioner>
+                <Select.Positioner class={screenPopupClass}>
                     <Select.Content class="z-50 min-w-44 rounded border border-line bg-surface p-1 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)]">
                         <For each={APPEARANCE}>
                             {preference => (
