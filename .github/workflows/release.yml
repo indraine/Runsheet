@@ -46,22 +46,23 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'Runsheet v__VERSION__'
           releaseBody: |
-            ## Runsheet v1.1.0 — Telemetry Comparison 🏁
+            ## Runsheet v1.2.0 — Lap Timing & Telemetry Depth 🏁
 
             Desktop session sheet for **Assetto Corsa Competizione**.
             Open the app, drive — sessions, laps, sectors, fuel, and validity are captured automatically.
 
-            ### What's new in 1.1.0
-            - **Two-lap telemetry comparison** — overlay charts (speed, throttle, brake, gear, steer), racing line, and cockpit controls
-            - **Automatic divergence detection** between reference and comparison laps
-            - Flat track scene with asphalt-surface boundaries and trajectory camera
-            - Adaptive UI scaling for different display sizes
+            ### What's new in 1.2.0
+            - **More reliable lap timing** — fixed lap start, fewer lost laps, clock freezes when returning to the pitlane
+            - **Outlap awareness** on the Live Card (running clock stays off until the lap is real)
+            - **Driver nickname** captured from ACC and shown in the session journal
+            - **Richer telemetry page** — channel drawer, fuel burn, setup card, lap tones/order, clearer compare filters
+            - Live Card / timeline status polish and CSS fixes
 
             ### Also included
+            - Two-lap telemetry comparison with divergence detection
             - Automatic session / lap / sector (S1–S3) tracking with fuel and validity
             - Catalog of **25 ACC tracks** (Recent, Popular, A–Z; personal bests & attempt counts)
             - Session journal grouped by day and type (Practice, Qualifying, Race / Solo, Online)
-            - **Live Card** with weather, tyre pressure (psi), splits, fuel, and vector track map
             - Appearance themes + multilingual UI (EN / RU)
 
             ### Download (Windows x64) — pick one
