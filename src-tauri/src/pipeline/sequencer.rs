@@ -97,7 +97,7 @@ impl Sequencer {
         let session_id = self.machine.session().map(|session| session.id);
         let closed = self.record(session_id, status, &tick, moment.mono_ms);
         let _ = self.laps.take_events();
-        let snap = self.snap(Some(&tick), moment.mono_ms);
+        let snap = self.snap(Some(&tick));
         self.finish(snap, closed, outing_events, moment)
     }
 
@@ -112,7 +112,7 @@ impl Sequencer {
             .into_iter()
             .collect();
         let _ = self.laps.take_events();
-        let snap = self.snap(None, moment.mono_ms);
+        let snap = self.snap(None);
         self.finish(snap, closed, outing_events, moment)
     }
 
@@ -204,28 +204,16 @@ impl Sequencer {
             && tick.physics.speed.kmh() >= MOTION_SPEED_KMH
     }
 
-    fn is_driving(&self, tick: &CleanTick, mono_ms: u64) -> bool {
-        if tick.graphic.status != GameStatus::Live || self.car != CarState::OnTrack {
-            return false;
-        }
-        if !self.clock_live(mono_ms) {
-            return false;
-        }
-        let moving = tick.physics.speed.kmh() >= MOTION_SPEED_KMH;
-        moving || self.had_motion
-    }
-
-    fn place(&self, tick: Option<&CleanTick>, mono_ms: u64) -> SessionPlace {
+    /// ESC pause keeps `CarState::OnTrack` — still "on track", not the game menu.
+    fn place(&self) -> SessionPlace {
         match self.car {
             CarState::InPitLane => SessionPlace::InPits,
-            CarState::OnTrack if tick.is_some_and(|tick| self.is_driving(tick, mono_ms)) => {
-                SessionPlace::OnTrack
-            }
-            _ => SessionPlace::Menu,
+            CarState::OnTrack => SessionPlace::OnTrack,
+            CarState::InGarage | CarState::SessionFinished => SessionPlace::Menu,
         }
     }
 
-    fn snap(&self, tick: Option<&CleanTick>, mono_ms: u64) -> Snap {
+    fn snap(&self, tick: Option<&CleanTick>) -> Snap {
         let split = self.laps.open_split();
         let lap_ms = if split.is_some() {
             tick.and_then(|tick| tick.graphic.current_lap_time.map(LapTime::ms))
@@ -257,7 +245,7 @@ impl Sequencer {
             s2_ms: split.as_ref().and_then(|split| split.s2_ms),
             outlap,
             speed: tick.map(|tick| tick.physics.speed.kmh()),
-            place: self.place(tick, mono_ms),
+            place: self.place(),
             air_c: tick.map(|tick| tick.graphic.air.celsius()),
             road_c: tick.map(|tick| tick.graphic.road.celsius()),
         }

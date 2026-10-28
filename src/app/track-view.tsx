@@ -1,4 +1,4 @@
-import { Application, Graphics, Text } from "pixi.js"
+import { Application, Graphics } from "pixi.js"
 import { createEffect, onCleanup, onMount } from "solid-js"
 import { fitFrame, type GroundPoint, type GroundSeries } from "~/app/fit-ground"
 import { followPlotBox, plotResolution } from "~/app/plot-frame"
@@ -6,6 +6,7 @@ import { uiScale } from "~/app/scale"
 import { themeGeneration } from "~/app/theme"
 import { boundariesFor } from "~/app/track-catalog"
 import {
+    pointAlongClosed,
     sectorLayout,
     type SectorId,
     type SectorLayout,
@@ -28,7 +29,6 @@ const CUT_WIDTH = 2
 const ROAD_WIDTH = 3
 const CAR_RADIUS = 5
 const CAR_RING = 2
-const LABEL_SIZE = 11
 
 const FALLBACK_ACCENT = 0x2a6fc9
 const FALLBACK_EDGE = 0x475569
@@ -72,7 +72,6 @@ export const TrackView = (props: {
     let sectorGraphics: Graphics | undefined
     let roadGraphics: Graphics | undefined
     let carGraphics: Graphics | undefined
-    let labels: Text[] = []
     let placement: Placement | undefined
     let disposed = false
     let ready = false
@@ -144,8 +143,6 @@ export const TrackView = (props: {
             })
         }
 
-        syncLabels(laid.sectors.labels, colors, props.sector)
-
         if (!bounds && laid.road.length >= 2) {
             strokeRoad(road, laid.road, ROAD_WIDTH, colors.road, laid.closed)
         }
@@ -154,27 +151,6 @@ export const TrackView = (props: {
                 fill: colors.accent,
                 ring: colors.surface,
             })
-        }
-    }
-
-    const syncLabels = (
-        marks: TrackLayout["sectors"]["labels"],
-        colors: ThemeColors,
-        active: SectorId | undefined
-    ) => {
-        for (let index = 0; index < labels.length; index += 1) {
-            const label = labels[index]
-            const mark = marks[index]
-            if (!mark) {
-                label.visible = false
-                continue
-            }
-            label.visible = true
-            label.text = mark.name
-            label.x = mark.at.x
-            label.y = mark.at.y
-            label.style.fill = colors.sector[mark.id]
-            label.alpha = active === undefined || active === mark.id ? 1 : 0.45
         }
     }
 
@@ -205,28 +181,12 @@ export const TrackView = (props: {
                 sectorGraphics = new Graphics()
                 roadGraphics = new Graphics()
                 carGraphics = new Graphics()
-                labels = [1, 2, 3].map(
-                    () =>
-                        new Text({
-                            text: "",
-                            style: {
-                                fontFamily:
-                                    "JetBrains Mono, ui-monospace, monospace",
-                                fontSize: LABEL_SIZE,
-                                fontWeight: "600",
-                                fill: FALLBACK_INK,
-                                align: "center",
-                            },
-                            anchor: { x: 0.5, y: 0.5 },
-                        })
-                )
                 app.stage.addChild(
                     asphaltGraphics,
                     edgeGraphics,
                     sectorGraphics,
                     roadGraphics,
-                    carGraphics,
-                    ...labels
+                    carGraphics
                 )
                 view.appendChild(app.canvas)
                 ready = true
@@ -244,7 +204,6 @@ export const TrackView = (props: {
             sectorGraphics = undefined
             roadGraphics = undefined
             carGraphics = undefined
-            labels = []
         })
     })
 
@@ -255,6 +214,7 @@ export const TrackView = (props: {
         props.road?.lapId
         props.car?.x
         props.car?.z
+        props.car?.distance
         props.car?.lapId
         props.s1EndM
         props.s2EndM
@@ -313,7 +273,12 @@ const layoutCatalog = (
     const sectors = sectorLayout(bounds, s1EndM, s2EndM)
     const tip = car ? lastPoint(car) : undefined
     const fit = placement?.status === "matched" ? placement.fit : undefined
-    const placed = tip && fit ? applySimilarity(tip, fit) : undefined
+    const placed =
+        tip && fit
+            ? applySimilarity(tip, fit)
+            : car
+              ? pointAlongClosed(bounds.center, lastDistance(car) ?? 0)
+              : undefined
 
     const bandCount = sectors?.bands.length ?? 0
     const base: GroundSeries[] = [
@@ -451,6 +416,14 @@ const lastPoint = (trace: Trace): PlanarPoint | undefined => {
         const x = trace.x[index]
         const y = trace.z[index]
         if (Number.isFinite(x) && Number.isFinite(y)) return { x, y }
+    }
+    return undefined
+}
+
+const lastDistance = (trace: Trace): number | undefined => {
+    for (let index = trace.distance.length - 1; index >= 0; index -= 1) {
+        const distance = trace.distance[index]
+        if (Number.isFinite(distance) && distance >= 0) return distance
     }
     return undefined
 }

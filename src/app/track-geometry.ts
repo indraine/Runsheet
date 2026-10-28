@@ -75,6 +75,18 @@ export const ribbonBetween = (
 export const closedLength = (points: readonly PlanarPoint[]): number =>
     pathLength(points, true)
 
+/** Point on a closed centerline at a driven distance (metres from S/F). */
+export const pointAlongClosed = (
+    points: readonly PlanarPoint[],
+    distanceM: number
+): PlanarPoint | undefined => {
+    const length = closedLength(points)
+    if (length < 1 || points.length < 2) return undefined
+    const located = locateClosed(points, distanceM, length)
+    if (!located) return undefined
+    return lerp(points, located.index, located.t)
+}
+
 /** Resolve S1/S2 ends; missing values fall back to equal thirds of the loop. */
 export const resolveSectorEnds = (
     length: number,

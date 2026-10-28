@@ -168,24 +168,31 @@ export function TimelinePage() {
                         const records = createMemo(() =>
                             trackRecords(sheet().past)
                         )
-                        const live = () =>
-                            accPresence() === "onTrack"
-                                ? sheet().live
-                                : undefined
+                        const live = () => {
+                            const presence = accPresence()
+                            if (
+                                presence === "onTrack" ||
+                                presence === "inPits"
+                            ) {
+                                return sheet().live
+                            }
+                            return undefined
+                        }
                         const shown = () => review() ?? live()
                         const hasPast = () => sheet().past.length > 0
+                        const splitTop = () =>
+                            shown()
+                                ? "h-[calc(100%-12rem)] max-h-[32rem]"
+                                : "max-h-[calc(100%-12rem)]"
                         return (
                             <div class="flex min-h-0 flex-1 flex-col">
                                 <div
                                     class={cn(
                                         "flex min-h-0 shrink-0 flex-col overflow-hidden px-6 pt-6",
-                                        hasPast()
-                                            ? shown()
-                                                ? "h-[calc(100%-12rem)] max-h-[32rem]"
-                                                : "max-h-[calc(100%-12rem)]"
-                                            : shown()
-                                              ? "h-full"
-                                              : "max-h-[calc(100%-12rem)]"
+                                        !hasPast() && shown()
+                                            ? "pb-0"
+                                            : undefined,
+                                        splitTop()
                                     )}
                                 >
                                     <Show
@@ -203,6 +210,9 @@ export function TimelinePage() {
                                         openedId={review()?.session.id}
                                         onShowLive={showSession}
                                     />
+                                </Show>
+                                <Show when={!hasPast() && shown()}>
+                                    <AwaitingFirstRecord />
                                 </Show>
                                 <Show when={!hasPast() && !shown()}>
                                     <EmptyPast />
@@ -231,6 +241,21 @@ function EmptyPast() {
                         <LaunchAccButton />
                     </div>
                 </Show>
+            </div>
+        </section>
+    )
+}
+
+function AwaitingFirstRecord() {
+    return (
+        <section class="flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6">
+            <div class="flex min-h-0 flex-1 flex-col items-center justify-center rounded border border-line bg-surface px-6 py-12 text-center">
+                <h2 class="font-mono text-sm font-medium tracking-wide text-ink uppercase">
+                    {t("app.awaitingFirstTitle")}
+                </h2>
+                <p class="mt-3 max-w-md font-mono text-sm leading-5 text-secondary">
+                    {t("app.awaitingFirstBody")}
+                </p>
             </div>
         </section>
     )

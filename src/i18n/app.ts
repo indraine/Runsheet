@@ -30,6 +30,9 @@ const en = {
     emptyPastTitle: "No sessions yet",
     emptyPastBody:
         "Launch the game and start a stint — Runsheet will record it automatically.",
+    awaitingFirstTitle: "Session in progress",
+    awaitingFirstBody:
+        "The first record will appear after you leave the session (return to the game menu).",
     previousDay: "Previous day",
     nextDay: "Next day",
     openCalendar: "Choose a day",
@@ -244,6 +247,9 @@ const ru: typeof en = {
     emptyPastTitle: "Заездов пока нет",
     emptyPastBody:
         "Запустите игру и начните заезд — Runsheet запишет его автоматически.",
+    awaitingFirstTitle: "Заезд идёт",
+    awaitingFirstBody:
+        "Первая запись появится после завершения сессии (выход в меню игры).",
     previousDay: "Предыдущий день",
     nextDay: "Следующий день",
     openCalendar: "Выбрать день",
