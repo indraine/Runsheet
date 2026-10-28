@@ -29,6 +29,8 @@ pub(crate) struct CleanSessionGraphic {
     pub session_index: i32,
     pub track: String,
     pub car: String,
+    pub driver: String,
+    pub car_id: i32,
     pub online: bool,
     pub car_count: i32,
     pub setup_menu: bool,

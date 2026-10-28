@@ -31,6 +31,10 @@ pub(crate) struct Frame {
     pub session_index: i32,
     pub track: String,
     pub car: String,
+    /// `player_nick`, or the first and last name when the nick is empty.
+    pub driver: String,
+    /// Player car index from the graphics page (`player_car_id`).
+    pub car_id: i32,
     pub online: bool,
     pub car_count: i32,
     pub setup_menu: bool,
@@ -47,6 +51,8 @@ pub(crate) struct Session {
     pub online: bool,
     pub track: String,
     pub car: String,
+    pub driver: String,
+    pub car_id: i32,
     pub kind: SessionKind,
     pub car_count: i32,
     pub air_c: f32,

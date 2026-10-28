@@ -13,7 +13,6 @@ import { DB_VERSION, type RunsheetDatabase } from "~/db/schema"
 export const DUMP_FORMAT = "runsheet.dump" as const
 export const DUMP_VERSION = 1 as const
 
-
 export type RunsheetDump = {
     format: typeof DUMP_FORMAT
     version: typeof DUMP_VERSION
@@ -25,7 +24,6 @@ export type RunsheetDump = {
 }
 
 export type EncodedTrace = { lapId: string } & Record<TraceChannel, number[]>
-
 
 export async function readDump(db: RunsheetDatabase): Promise<RunsheetDump> {
     const [sessions, laps, traces] = await Promise.all([
@@ -43,7 +41,6 @@ export async function readDump(db: RunsheetDatabase): Promise<RunsheetDump> {
         traces: traces.map(encodeTrace),
     }
 }
-
 
 export async function writeDump(
     db: RunsheetDatabase,
@@ -65,7 +62,6 @@ export async function writeDump(
     ])
 }
 
-
 export async function parseDumpFile(file: File): Promise<RunsheetDump> {
     let raw: unknown
     try {
@@ -75,7 +71,6 @@ export async function parseDumpFile(file: File): Promise<RunsheetDump> {
     }
     return parseDump(raw)
 }
-
 
 export function parseDump(raw: unknown): RunsheetDump {
     if (!isRecord(raw)) throw new Error("Снимок должен быть объектом")
@@ -115,7 +110,6 @@ export function parseDump(raw: unknown): RunsheetDump {
         traces,
     }
 }
-
 
 export async function downloadDump(dump: RunsheetDump): Promise<void> {
     const contents = JSON.stringify(dump)
@@ -205,6 +199,11 @@ function parseSession(raw: unknown): Session {
         online: requireBoolean(raw, "online"),
         track,
         car,
+        driver: typeof raw.driver === "string" ? raw.driver : "",
+        carId:
+            typeof raw.carId === "number" && Number.isInteger(raw.carId)
+                ? raw.carId
+                : 0,
         type: typeRaw,
         carCount: requireFinite(raw, "carCount"),
         status: status as SessionStatus,

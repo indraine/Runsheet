@@ -28,6 +28,7 @@ export {
     type SessionFilter,
 } from "~/domain/sheet"
 export {
+    completeSession,
     isSessionType,
     SESSION_TYPES,
     type Session,

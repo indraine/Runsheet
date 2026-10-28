@@ -95,10 +95,10 @@ impl Sequencer {
             sight: Sight::Frame(frame_from(&tick.graphic)),
         });
         let session_id = self.machine.session().map(|session| session.id);
-        let packet = self.record(session_id, status, &tick, moment.mono_ms);
+        let closed = self.record(session_id, status, &tick, moment.mono_ms);
         let _ = self.laps.take_events();
         let snap = self.snap(Some(&tick), moment.mono_ms);
-        self.finish(snap, packet, outing_events, moment)
+        self.finish(snap, closed, outing_events, moment)
     }
 
     pub(crate) fn on_absent(&mut self, moment: Moment) -> Outcome {
@@ -108,10 +108,12 @@ impl Sequencer {
             wall_ms: moment.wall_ms,
             sight: Sight::Absent,
         });
-        let packet = release_foreign(&self.machine, &mut self.laps);
+        let closed = release_foreign(&self.machine, &mut self.laps)
+            .into_iter()
+            .collect();
         let _ = self.laps.take_events();
         let snap = self.snap(None, moment.mono_ms);
-        self.finish(snap, packet, outing_events, moment)
+        self.finish(snap, closed, outing_events, moment)
     }
 
     fn stale(&self) -> Outcome {
@@ -140,22 +142,29 @@ impl Sequencer {
         self.car = next;
     }
 
+    /// The open lap is packed while it still carries the previous session id.
+    /// `push` may then start a lap on the id the machine just adopted.
     fn record(
         &mut self,
         session_id: Option<SessionId>,
         status: GameStatus,
         tick: &CleanTick,
         mono_ms: u64,
-    ) -> Option<Vec<u8>> {
-        let abandoned = release_foreign(&self.machine, &mut self.laps);
-        let finished = match (status == GameStatus::Live, session_id) {
+    ) -> Vec<Vec<u8>> {
+        let mut closed = Vec::new();
+        if let Some(abandoned) = release_foreign(&self.machine, &mut self.laps) {
+            closed.push(abandoned);
+        }
+        if let Some(finished) = match (status == GameStatus::Live, session_id) {
             (true, Some(session_id)) => {
                 let sample = sample_from(tick, mono_ms, session_id);
                 self.laps.push(&sample)
             }
             _ => None,
-        };
-        finished.or(abandoned)
+        } {
+            closed.push(finished);
+        }
+        closed
     }
 
     fn note_motion(&mut self, tick: &CleanTick) {
@@ -257,14 +266,14 @@ impl Sequencer {
     fn finish(
         &mut self,
         snap: Snap,
-        packet: Option<Vec<u8>>,
+        closed: Vec<Vec<u8>>,
         outing_events: Vec<OutingEvent>,
         moment: Moment,
     ) -> Outcome {
         let emit_status = self
             .clock
             .status_due(moment.mono_ms, !outing_events.is_empty());
-        let laps = self.take_packets(packet, moment.mono_ms);
+        let laps = self.take_packets(closed, moment.mono_ms);
         Outcome {
             stale: false,
             emit_status,
@@ -274,16 +283,14 @@ impl Sequencer {
         }
     }
 
-    fn take_packets(&mut self, closed: Option<Vec<u8>>, mono_ms: u64) -> Vec<Vec<u8>> {
+    fn take_packets(&mut self, closed: Vec<Vec<u8>>, mono_ms: u64) -> Vec<Vec<u8>> {
         let mut packets = Vec::new();
         match self
             .clock
-            .preview_due(mono_ms, self.laps.open_id(), closed.is_some())
+            .preview_due(mono_ms, self.laps.open_id(), !closed.is_empty())
         {
             LapSend::Closed => {
-                if let Some(packet) = closed {
-                    packets.push(packet);
-                }
+                packets.extend(closed);
                 if self.clock.preview_due(mono_ms, self.laps.open_id(), false) == LapSend::Preview {
                     if let Some(preview) = self.laps.preview() {
                         packets.push(preview);
@@ -308,6 +315,8 @@ fn frame_from(graphic: &CleanSessionGraphic) -> Frame {
         session_index: graphic.session_index,
         track: graphic.track.clone(),
         car: graphic.car.clone(),
+        driver: graphic.driver.clone(),
+        car_id: graphic.car_id,
         online: graphic.online,
         car_count: graphic.car_count,
         setup_menu: graphic.setup_menu,
@@ -356,9 +365,162 @@ fn lap_ms(time: Option<LapTime>) -> i32 {
 }
 
 fn release_foreign(machine: &OutingMachine, laps: &mut Collector) -> Option<Vec<u8>> {
-    let current = machine.session().map(|session| session.id);
-    if laps.bound_session() == current {
+    let Some(bound) = laps.bound_session() else {
+        return None;
+    };
+    if machine.session().is_some_and(|session| session.id == bound) {
         return None;
     }
     laps.abandon()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Moment, Sequencer};
+    use crate::domain::{
+        BrakePosition, CarState, Celsius, CleanSessionGraphic, CleanTelemetryFrame, GameStatus,
+        LapTime, OutingEvent, Psi, SessionKind, Speed, ThrottlePosition, TireSet, TrackProgress,
+    };
+    use crate::ingress::CleanTick;
+    use crate::services::outing::OUTING_GAP_MS;
+
+    fn tick(
+        packet_id: i32,
+        kind: SessionKind,
+        status: GameStatus,
+        progress: f32,
+        lap_ms: i32,
+    ) -> CleanTick {
+        let live = status == GameStatus::Live;
+        CleanTick {
+            physics: CleanTelemetryFrame {
+                packet_id,
+                speed: Speed::from_kmh_unchecked(if live { 120.0 } else { 0.0 }),
+                throttle: ThrottlePosition::from_fraction_unchecked(0.4),
+                brake: BrakePosition::from_fraction_unchecked(0.0),
+                steer_deg: 1.0,
+                gear: 4,
+                progress: TrackProgress::from_fraction_unchecked(progress),
+                fuel_l: 40.0,
+                g_long: 0.1,
+                g_lat: 0.2,
+                ground_x: 3.0,
+                ground_z: 4.0,
+                pressure: TireSet::new(
+                    Psi::from_psi_unchecked(27.0),
+                    Psi::from_psi_unchecked(27.1),
+                    Psi::from_psi_unchecked(26.0),
+                    Psi::from_psi_unchecked(26.1),
+                ),
+                brake_temp_fl: Celsius::from_celsius_unchecked(80.0),
+                brake_temp_fr: Celsius::from_celsius_unchecked(81.0),
+            },
+            graphic: CleanSessionGraphic {
+                status,
+                kind,
+                session_index: 1,
+                track: "spa".into(),
+                car: "bmw_m4_gt3".into(),
+                driver: "Nick".into(),
+                car_id: 3,
+                online: true,
+                car_count: 20,
+                setup_menu: false,
+                air: Celsius::from_celsius_unchecked(20.0),
+                road: Celsius::from_celsius_unchecked(28.0),
+                car_state: if live {
+                    CarState::OnTrack
+                } else {
+                    CarState::InGarage
+                },
+                completed_lap: 0,
+                last_time: None,
+                last_sector_time: None,
+                current_lap_time: Some(LapTime::from_ms_unchecked(lap_ms)),
+                sector_index: 0,
+                valid_lap: true,
+                green: true,
+                distance_m: progress * 7_000.0,
+                packet_id,
+            },
+        }
+    }
+
+    fn moment(mono_ms: u64) -> Moment {
+        Moment {
+            mono_ms,
+            wall_ms: 1_700_000_000_000 + mono_ms,
+        }
+    }
+
+    fn packet_session(bytes: &[u8]) -> [u8; 16] {
+        bytes[16..32].try_into().expect("lap header")
+    }
+
+    fn open_qualifying(sequencer: &mut Sequencer) {
+        sequencer.on_tick(
+            tick(1, SessionKind::Qualifying, GameStatus::Live, 0.9, 10_000),
+            false,
+            moment(0),
+        );
+        let opened = sequencer.on_tick(
+            tick(2, SessionKind::Qualifying, GameStatus::Live, 0.05, 10_100),
+            false,
+            moment(100),
+        );
+        assert!(opened.snap.lap_number.is_some());
+    }
+
+    #[test]
+    fn session_change_writes_the_open_lap_before_the_new_id() {
+        let mut sequencer = Sequencer::default();
+        open_qualifying(&mut sequencer);
+        let previous = sequencer.machine.session().unwrap().id;
+
+        let outcome = sequencer.on_tick(
+            tick(3, SessionKind::Race, GameStatus::Live, 0.06, 10_200),
+            false,
+            moment(200),
+        );
+
+        let next = outcome.snap.session.expect("new session");
+        assert_ne!(previous, next.id);
+        assert_eq!(next.driver, "Nick");
+        assert_eq!(next.car_id, 3);
+        assert!(outcome.outing_events.iter().any(|event| matches!(
+            event,
+            OutingEvent::SessionChanged { previous_id, session, .. }
+                if *previous_id == previous && session.id == next.id
+        )));
+        let lap = outcome.laps.first().expect("flushed lap");
+        assert_eq!(packet_session(lap), previous.as_bytes());
+    }
+
+    #[test]
+    fn reconnect_flushes_the_open_lap_onto_the_closed_session() {
+        let mut sequencer = Sequencer::default();
+        open_qualifying(&mut sequencer);
+        let previous = sequencer.machine.session().unwrap().id;
+
+        sequencer.on_tick(
+            tick(3, SessionKind::Qualifying, GameStatus::Off, 0.05, 10_100),
+            false,
+            moment(150),
+        );
+        let outcome = sequencer.on_tick(
+            tick(4, SessionKind::Qualifying, GameStatus::Live, 0.06, 10_200),
+            false,
+            moment(150 + OUTING_GAP_MS),
+        );
+
+        let next = outcome.snap.session.expect("rejoined session");
+        assert_ne!(previous, next.id);
+        assert!(outcome.outing_events.iter().any(|event| matches!(
+            event,
+            OutingEvent::SessionChanged { previous_id, session, .. }
+                if *previous_id == previous && session.id == next.id
+        )));
+        let lap = outcome.laps.first().expect("flushed lap");
+        assert_eq!(packet_session(lap), previous.as_bytes());
+    }
 }

@@ -189,6 +189,8 @@ const parseSession = (value: unknown): Session | undefined => {
         return undefined
     }
     if (typeof value.online !== "boolean") return undefined
+    if (typeof value.driver !== "string") return undefined
+    if (!isInteger(value.carId)) return undefined
     if (value.status !== "live") return undefined
     if (value.endedAt !== null && !isFiniteNumber(value.endedAt))
         return undefined
@@ -201,6 +203,8 @@ const parseSession = (value: unknown): Session | undefined => {
         online: value.online,
         track,
         car,
+        driver: value.driver,
+        carId: value.carId,
         type: value.type,
         carCount: value.carCount,
         status: "live",

@@ -47,6 +47,8 @@ pub(crate) struct SessionBody {
     pub online: bool,
     pub track: String,
     pub car: String,
+    pub driver: String,
+    pub car_id: i32,
     #[serde(rename = "type")]
     pub kind: &'static str,
     pub car_count: i32,
@@ -132,6 +134,8 @@ impl SessionBody {
             online: session.online,
             track: session.track.clone(),
             car: session.car.clone(),
+            driver: session.driver.clone(),
+            car_id: session.car_id,
             kind: kind_name(session.kind),
             car_count: session.car_count,
             status: LIVE,

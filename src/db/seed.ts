@@ -19,7 +19,7 @@ const SESSION_MONZA = "seed-monza-practice"
 const SESSION_SPA_PRACTICE = "seed-spa-practice"
 const SESSION_SPA_QUALIFYING = "seed-spa-qualifying"
 
-const SEED_VERSION = "6"
+const SEED_VERSION = "7"
 const SEED_VERSION_KEY = "runsheet.seed"
 
 const LAP_METRES = 7004
@@ -159,6 +159,8 @@ export function devDay(now: number): DevDay {
             online: false,
             track: TRACK_MONZA,
             car: CAR_BMW_M4,
+            driver: "Alex",
+            carId: 0,
             type: "practice",
             carCount: 1,
             status: "closed",
@@ -173,6 +175,8 @@ export function devDay(now: number): DevDay {
             online: true,
             track: TRACK_SPA,
             car: CAR_BMW_M4,
+            driver: "Alex",
+            carId: 0,
             type: "practice",
             carCount: 22,
             status: "closed",
@@ -187,6 +191,8 @@ export function devDay(now: number): DevDay {
             online: true,
             track: TRACK_SPA,
             car: CAR_BMW_M4,
+            driver: "Alex",
+            carId: 0,
             type: "qualifying",
             carCount: 22,
             status: "closed",
@@ -201,6 +207,8 @@ export function devDay(now: number): DevDay {
             online: false,
             track: TRACK_MONZA,
             car: CAR_BMW_M4,
+            driver: "Alex",
+            carId: 0,
             type: "practice",
             carCount: 1,
             status: "closed",
@@ -215,6 +223,8 @@ export function devDay(now: number): DevDay {
             online: true,
             track: TRACK_SPA,
             car: CAR_BMW_M4,
+            driver: "Alex",
+            carId: 0,
             type: "practice",
             carCount: 20,
             status: "closed",
@@ -229,6 +239,8 @@ export function devDay(now: number): DevDay {
             online: true,
             track: TRACK_SPA,
             car: CAR_BMW_M4,
+            driver: "Alex",
+            carId: 0,
             type: "qualifying",
             carCount: 22,
             status: "closed",
@@ -243,6 +255,8 @@ export function devDay(now: number): DevDay {
             online: true,
             track: TRACK_SPA,
             car: CAR_BMW_M4,
+            driver: "Alex",
+            carId: 0,
             type: "race",
             carCount: 22,
             status: "closed",

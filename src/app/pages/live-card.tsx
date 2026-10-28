@@ -119,6 +119,13 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                     </Show>
                 </div>
                 <p class="font-mono text-[13px] text-ink">
+                    <Show when={card().session.driver}>
+                        {card().session.driver}
+                        <span class="text-muted" aria-hidden="true">
+                            {" "}
+                            ·{" "}
+                        </span>
+                    </Show>
                     {carName(card().session.car)}
                 </p>
                 <p class="font-mono text-[11px] text-secondary">

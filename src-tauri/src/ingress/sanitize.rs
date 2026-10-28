@@ -114,6 +114,8 @@ impl TryFrom<&RawGraphicPage> for CleanSessionGraphic {
             session_index: page.session_index,
             track: String::new(),
             car: String::new(),
+            driver: String::new(),
+            car_id: page.player_car_id,
             online: false,
             car_count: page.active_cars,
             setup_menu: page.is_setup_menu_visible,
@@ -154,10 +156,31 @@ fn apply_session_context(
 ) -> Result<(), BoundaryError> {
     graphic.track = statics.track.clone();
     graphic.car = statics.car_model.clone();
+    graphic.driver = driver_name(
+        &statics.player_nick,
+        &statics.player_name,
+        &statics.player_surname,
+    );
     graphic.online = statics.is_online;
     graphic.air = Celsius::from_celsius_unchecked(finite("air_temp", physics.air_temp)?);
     graphic.road = Celsius::from_celsius_unchecked(finite("road_temp", physics.road_temp)?);
     Ok(())
+}
+
+/// Nick wins. An empty nick falls back to the first and last name.
+pub(crate) fn driver_name(nick: &str, name: &str, surname: &str) -> String {
+    let nick = nick.trim();
+    if !nick.is_empty() {
+        return nick.to_string();
+    }
+    let name = name.trim();
+    let surname = surname.trim();
+    match (name.is_empty(), surname.is_empty()) {
+        (true, true) => String::new(),
+        (false, true) => name.to_string(),
+        (true, false) => surname.to_string(),
+        (false, false) => format!("{name} {surname}"),
+    }
 }
 
 fn player_ground(graphic: &RawGraphicPage) -> Result<(f32, f32), BoundaryError> {
@@ -248,6 +271,23 @@ fn finite(field: &'static str, value: f32) -> Result<f32, BoundaryError> {
 
 fn unit_interval(field: &'static str, value: f32) -> Result<f32, BoundaryError> {
     Ok(finite(field, value)?.clamp(0.0, 1.0))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::driver_name;
+
+    #[test]
+    fn nick_wins_over_the_real_name() {
+        assert_eq!(driver_name(" Nick ", "Ada", "Lovelace"), "Nick");
+    }
+
+    #[test]
+    fn an_empty_nick_uses_the_first_and_last_name() {
+        assert_eq!(driver_name("  ", "Ada", "Lovelace"), "Ada Lovelace");
+        assert_eq!(driver_name("", "Ada", " "), "Ada");
+        assert_eq!(driver_name("", "", ""), "");
+    }
 }
 
 fn finite_set(names: [&'static str; 4], wheels: Wheels) -> Result<TireSet<f32>, BoundaryError> {

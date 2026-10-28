@@ -119,13 +119,23 @@ const closeSession = (memory: DayMemory, write: SessionWrite): DayMemory => {
         : write.lap
           ? [write.lap]
           : []
+    const previous = memory.past.find(row => row.session.id === session.id)
     return {
         past: upsertPast(memory.past, {
             session,
-            bestLap: fastestValidLap(laps),
+            bestLap: preferLap(fastestValidLap(laps), previous?.bestLap),
         }),
         live: buffer ? undefined : memory.live,
     }
+}
+
+const preferLap = (
+    incoming: Lap | undefined,
+    previous: Lap | undefined
+): Lap | undefined => {
+    if (!incoming || incoming.timeMs === null) return previous ?? incoming
+    if (!previous || previous.timeMs === null) return incoming
+    return incoming.timeMs <= previous.timeMs ? incoming : previous
 }
 
 const bufferFrom = (write: SessionWrite): LiveBuffer => ({

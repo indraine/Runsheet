@@ -9,6 +9,8 @@ const session = {
     online: false,
     track: "monza",
     car: "bmw_m4_gt3",
+    driver: "Nick",
+    carId: 3,
     type: "practice",
     carCount: 1,
     status: "live",

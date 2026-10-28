@@ -60,6 +60,14 @@ fn publish(
     outcome: &Outcome,
     last_presence: &mut Option<game::Presence>,
 ) {
+    // The open lap has to land before the status that adopts the new session id.
+    if outcome.laps.is_empty() {
+        outbox.drain();
+    } else {
+        for bytes in &outcome.laps {
+            outbox.send_lap(bytes.clone());
+        }
+    }
     publish_status(
         outbox,
         link,
@@ -69,13 +77,6 @@ fn publish(
         last_presence,
         outcome.emit_status,
     );
-    if outcome.laps.is_empty() {
-        outbox.drain();
-    } else {
-        for bytes in &outcome.laps {
-            outbox.send_lap(bytes.clone());
-        }
-    }
 }
 
 fn publish_status(

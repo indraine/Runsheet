@@ -88,9 +88,10 @@ export const createAccIngest = (): AccIngest => {
         if (!close) return
 
         closedAt.set(close.sessionId, close.endedAt)
-        const stored = (await repo.readSessions()).find(
-            session => session.id === close.sessionId
-        )
+        const stored =
+            (await repo.readSessions()).find(
+                session => session.id === close.sessionId
+            ) ?? (remembered?.id === close.sessionId ? remembered : undefined)
         if (!stored) return
         await seal(repo, stored, close.endedAt)
     }
@@ -197,6 +198,8 @@ const sameSession = (left: Session, right: Session): boolean =>
     left.online === right.online &&
     left.track === right.track &&
     left.car === right.car &&
+    left.driver === right.driver &&
+    left.carId === right.carId &&
     left.type === right.type &&
     left.carCount === right.carCount &&
     left.status === right.status &&

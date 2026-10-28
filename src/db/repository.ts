@@ -1,5 +1,6 @@
 import { batch, createSignal, type Accessor, type Setter } from "solid-js"
 import {
+    completeSession,
     fastestValidLap,
     groupDay,
     type DayItem,
@@ -42,15 +43,16 @@ export class SessionRepository {
     }
 
     async readSessions(): Promise<Session[]> {
-        return this.database.getAll("sessions")
+        return loadSessions(this.database)
     }
 
     async readSession(id: string): Promise<Session | undefined> {
-        return this.database.get("sessions", id)
+        const session = await this.database.get("sessions", id)
+        return session ? completeSession(session) : undefined
     }
 
     async readDay(at: number = Date.now()): Promise<DayItem[]> {
-        const sessions = await this.database.getAll("sessions")
+        const sessions = await loadSessions(this.database)
         const onDay = sessions.filter(session =>
             sameLocalDay(session.startedAt, at)
         )
@@ -127,12 +129,10 @@ export class SessionRepository {
         })
     }
 
-    
     async exportAll(): Promise<RunsheetDump> {
         return readDump(this.database)
     }
 
-    
     async importAll(dump: RunsheetDump): Promise<void> {
         await writeDump(this.database, dump)
         this.setRevision(current => current + 1)
@@ -156,6 +156,10 @@ export class SessionRepository {
     }
 }
 
+function loadSessions(database: RunsheetDatabase): Promise<Session[]> {
+    return database.getAll("sessions").then(rows => rows.map(completeSession))
+}
+
 function assertWrite(write: SessionWrite): void {
     const { session, lap, trace } = write
     if (lap && lap.sessionId !== session.id) {
@@ -167,7 +171,6 @@ function assertWrite(write: SessionWrite): void {
         throw new Error(`Trace ${trace.lapId} does not match lap ${lap.id}`)
     }
 }
-
 
 function pickReference(
     laps: readonly Lap[],
