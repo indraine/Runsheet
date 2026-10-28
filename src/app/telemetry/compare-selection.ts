@@ -1,9 +1,9 @@
 const COMPARE_KEY = "runsheet.telemetry-compare"
+export const MAX_COMPARE_LAPS = 4
 
-/** Lap pair last confirmed on the telemetry page. */
+/** Lap set last confirmed on the telemetry page. First id is the baseline. */
 export type StoredComparison = {
-    primaryId: string
-    referenceId: string | undefined
+    lapIds: string[]
 }
 
 /** A lap that can be checked against a stored comparison. */
@@ -23,13 +23,13 @@ export type SessionLapRef = {
 /**
  * Read a stored comparison payload.
  *
- * Empty ids and broken JSON are dropped so a corrupt entry cannot
- * reopen a comparison that no longer makes sense.
+ * Accepts the current `{ lapIds }` shape and the older primary/reference
+ * pair so a reload after the upgrade keeps the last selection.
  *
  * @example
  * ```ts
- * parseStoredComparison('{"primaryId":"a","referenceId":"b"}')
- * // { primaryId: "a", referenceId: "b" }
+ * parseStoredComparison('{"lapIds":["a","b"]}')
+ * // { lapIds: ["a", "b"] }
  * ```
  */
 export const parseStoredComparison = (
@@ -43,52 +43,74 @@ export const parseStoredComparison = (
         return undefined
     }
     if (!isRecord(value)) return undefined
+    const fromList = parseLapIds(value.lapIds)
+    if (fromList) return { lapIds: fromList }
     const primaryId = value.primaryId
     if (typeof primaryId !== "string" || primaryId === "") return undefined
+    const ids = [primaryId]
     const referenceId = value.referenceId
-    if (referenceId == null) return { primaryId, referenceId: undefined }
-    if (typeof referenceId !== "string" || referenceId === "") {
-        return { primaryId, referenceId: undefined }
+    if (typeof referenceId === "string" && referenceId !== "" && referenceId !== primaryId) {
+        ids.push(referenceId)
     }
-    if (referenceId === primaryId) return { primaryId, referenceId: undefined }
-    return { primaryId, referenceId }
+    return { lapIds: ids }
 }
 
 /**
- * Keep a stored pair only when both laps still exist on the same track.
+ * Keep stored ids that still exist on the same track as the first lap.
  *
- * A missing reference is dropped and the primary lap is kept. An unknown
- * primary lap drops the whole pair.
+ * An unknown first lap drops the whole set. Later ids on another track or
+ * past the four-lap ceiling are dropped.
  *
  * @example
  * ```ts
  * restoreComparison(
  *   [{ id: "a", track: "spa" }, { id: "b", track: "spa" }],
- *   { primaryId: "a", referenceId: "b" }
+ *   { lapIds: ["a", "b"] }
  * )
- * // { primaryId: "a", referenceId: "b" }
+ * // { lapIds: ["a", "b"] }
  * ```
  */
 export const restoreComparison = (
     laps: readonly CompareLap[],
     stored: StoredComparison | undefined
 ): StoredComparison | undefined => {
-    if (!stored) return undefined
-    const primary = laps.find(lap => lap.id === stored.primaryId)
+    if (!stored || stored.lapIds.length === 0) return undefined
+    const primary = laps.find(lap => lap.id === stored.lapIds[0])
     if (!primary) return undefined
-    const reference = stored.referenceId
-        ? laps.find(
-              lap =>
-                  lap.id === stored.referenceId &&
-                  lap.track === primary.track &&
-                  lap.id !== primary.id
-          )
-        : undefined
-    return { primaryId: primary.id, referenceId: reference?.id }
+    const kept = [primary.id]
+    for (const id of stored.lapIds.slice(1)) {
+        if (kept.length >= MAX_COMPARE_LAPS) break
+        if (kept.includes(id)) continue
+        const match = laps.find(
+            lap => lap.id === id && lap.track === primary.track
+        )
+        if (match) kept.push(match.id)
+    }
+    return { lapIds: kept }
 }
 
 /**
- * Lap that should open on the left when a timeline session is compared.
+ * Cap and dedupe a manual selection. The first id stays the baseline.
+ *
+ * @example
+ * ```ts
+ * normalizeLapIds(["a", "a", "b", "c", "d", "e"])
+ * // ["a", "b", "c", "d"]
+ * ```
+ */
+export const normalizeLapIds = (ids: readonly string[]): string[] => {
+    const kept: string[] = []
+    for (const id of ids) {
+        if (typeof id !== "string" || id === "") continue
+        if (kept.includes(id)) continue
+        kept.push(id)
+        if (kept.length >= MAX_COMPARE_LAPS) break
+    }
+    return kept
+}
+
+/**
+ * Lap that should open first when a timeline session is compared.
  *
  * The preferred lap wins when it still belongs to that session. Otherwise
  * the fastest valid lap is used, then any timed lap.
@@ -139,11 +161,9 @@ export const readStoredComparison = (): StoredComparison | undefined => {
 export const writeStoredComparison = (comparison: StoredComparison): void => {
     if (typeof localStorage === "undefined") return
     try {
-        const payload: { primaryId: string; referenceId?: string } = {
-            primaryId: comparison.primaryId,
-        }
-        if (comparison.referenceId) payload.referenceId = comparison.referenceId
-        localStorage.setItem(COMPARE_KEY, JSON.stringify(payload))
+        const lapIds = normalizeLapIds(comparison.lapIds)
+        if (lapIds.length === 0) return
+        localStorage.setItem(COMPARE_KEY, JSON.stringify({ lapIds }))
     } catch {
         // Storage can be unavailable in private mode. The page still works.
     }
@@ -157,6 +177,14 @@ export const clearStoredComparison = (): void => {
     } catch {
         // Same as write: a storage failure leaves the in-memory page usable.
     }
+}
+
+const parseLapIds = (value: unknown): string[] | undefined => {
+    if (!Array.isArray(value) || value.length === 0) return undefined
+    const ids = normalizeLapIds(
+        value.filter((item): item is string => typeof item === "string")
+    )
+    return ids.length > 0 ? ids : undefined
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

@@ -12,12 +12,17 @@ import { ensurePlotSize, followPlotBox, plotResolution } from "~/app/plot-frame"
 import { uiScale } from "~/app/scale"
 import { cssColor } from "~/app/telemetry/css-color"
 import {
+    lapColorFallback,
+    lapColorVar,
+} from "~/app/telemetry/lap-colors"
+import {
     guardPointerCapture,
     popupBlocksCanvas,
     releaseHeldPointer,
 } from "~/app/telemetry/pointer-capture"
 import { layoutPoint, layoutTravel } from "~/app/zoom-space"
 import { downsampleIndices, sampleAtDistance } from "~/app/telemetry/sample"
+import type { DivergenceZone } from "~/app/telemetry/divergence"
 import {
     cursorIsProgrammatic,
     readStoredMapView,
@@ -44,14 +49,13 @@ import { Button, cn } from "~/ui"
 
 const PADDING = 2
 const MAX_POINTS = 900
-const CAR_RADIUS = 4
+const CAR_LENGTH = 11
+const CAR_WIDTH = 5
 const MIN_ZOOM = 1
 const FALLBACK_FOLLOW = 8
 const MIN_BIAS = 0.45
 const MAX_BIAS = 8
 const MAX_ZOOM = 96
-const FALLBACK_LAP_A = 0xea580c
-const FALLBACK_LAP_B = 0x2563eb
 const FALLBACK_MUTED = 0x94a3b8
 const FALLBACK_EDGE = 0x475569
 const FALLBACK_SURFACE = 0xffffff
@@ -60,7 +64,8 @@ export type TrajectoryLine = {
     id: string
     label: string
     trace: Trace
-    role: "primary" | "reference"
+    /** Palette slot; `0` is the baseline. */
+    colorIndex: number
 }
 
 type HitPoint = {
@@ -73,6 +78,7 @@ export const TrajectoryView = (props: {
     track?: string
     lines: readonly TrajectoryLine[]
     cursorM: number
+    zones?: readonly DivergenceZone[]
     onCursor?: (distanceM: number) => void
     registerZoom?: (zoom: ((factor: number) => void) | undefined) => void
     class?: string
@@ -184,17 +190,19 @@ export const TrajectoryView = (props: {
         const { width, height } = box
 
         const colors = {
-            lapA: cssColor("--lap-a", FALLBACK_LAP_A),
-            lapB: cssColor("--lap-b", FALLBACK_LAP_B),
             muted: cssColor("--muted", FALLBACK_MUTED),
             edge: cssColor("--secondary", FALLBACK_EDGE),
             surface: cssColor("--surface", FALLBACK_SURFACE),
         }
-        const roleColor = (role: TrajectoryLine["role"]): number =>
-            role === "primary" ? colors.lapA : colors.lapB
+        const lineColor = (line: TrajectoryLine): number =>
+            cssColor(
+                lapColorVar(line.colorIndex),
+                lapColorFallback(line.colorIndex)
+            )
 
         const bounds = props.track ? boundariesFor(props.track) : undefined
-        const primary = props.lines.find(line => line.role === "primary")
+        const primary =
+            props.lines.find(line => line.colorIndex === 0) ?? props.lines[0]
         const fit = resolveFit(bounds?.center, props.track, primary, placement)
         if (fit.placement) placement = fit.placement
 
@@ -212,14 +220,17 @@ export const TrajectoryView = (props: {
         }
 
         const lineMeta: {
-            role: TrajectoryLine["role"]
+            colorIndex: number
             distances: number[]
         }[] = []
         for (const line of props.lines) {
             const placed = placedTrace(line.trace, fit.similarity)
             series.push(placed.ground)
             kinds.push("line")
-            lineMeta.push({ role: line.role, distances: placed.distances })
+            lineMeta.push({
+                colorIndex: line.colorIndex,
+                distances: placed.distances,
+            })
         }
 
         const carLines: TrajectoryLine[] = []
@@ -282,15 +293,16 @@ export const TrajectoryView = (props: {
             lineIndex += 1
             if (!line || !meta) continue
             const screen = (fitted[index] ?? []).map(transform)
+            const baseline = line.colorIndex === 0
             stroke(
                 lines,
                 screen,
-                line.role === "primary" ? 2.5 : 2,
-                roleColor(line.role),
+                baseline ? 2.5 : 2,
+                lineColor(line),
                 false,
-                line.role === "primary" ? 1 : 0.8
+                baseline ? 1 : 0.8
             )
-            if (line.role === "primary") {
+            if (baseline) {
                 for (let point = 0; point < screen.length; point += 1) {
                     const at = screen[point]
                     const distance = meta.distances[point]
@@ -308,10 +320,16 @@ export const TrajectoryView = (props: {
             const at = fitted[index]?.[0]
             if (!at || !line) continue
             const mapped = transform(at)
-            car.circle(mapped.x, mapped.y, CAR_RADIUS + 2)
-            car.fill({ color: colors.surface })
-            car.circle(mapped.x, mapped.y, CAR_RADIUS)
-            car.fill({ color: roleColor(line.role) })
+            const tip = sampleAtDistance(line.trace, props.cursorM)
+            const heading = tip?.heading ?? 0
+            drawCarSilhouette(
+                car,
+                mapped.x,
+                mapped.y,
+                heading,
+                lineColor(line),
+                colors.surface
+            )
         }
         app.render()
     }
@@ -469,8 +487,10 @@ export const TrajectoryView = (props: {
             line.trace.x
             line.trace.z
             line.trace.distance
-            line.role
+            line.trace.heading
+            line.colorIndex
         }
+        props.zones
         themeGeneration()
         if (
             cursorMoved &&
@@ -546,7 +566,7 @@ export const TrajectoryView = (props: {
 const cursorSamples = (
     fitted: readonly GroundPoint[][],
     kinds: readonly string[],
-    metas: readonly { distances: number[]; role: TrajectoryLine["role"] }[]
+    metas: readonly { distances: number[]; colorIndex: number }[]
 ): { x: number; y: number; distance: number }[] => {
     const samples: { x: number; y: number; distance: number }[] = []
     let lineIndex = 0
@@ -554,7 +574,7 @@ const cursorSamples = (
         if (kinds[index] !== "line") continue
         const meta = metas[lineIndex]
         lineIndex += 1
-        if (!meta || meta.role !== "primary") continue
+        if (!meta || meta.colorIndex !== 0) continue
         const points = fitted[index] ?? []
         for (let point = 0; point < points.length; point += 1) {
             const at = points[point]
@@ -564,6 +584,41 @@ const cursorSamples = (
         }
     }
     return samples
+}
+
+/** Wedge pointing along ACC heading (radians, yaw around world Y). */
+const drawCarSilhouette = (
+    graphics: Graphics,
+    x: number,
+    y: number,
+    heading: number,
+    fill: number,
+    outline: number
+) => {
+    const noseX = Math.sin(heading)
+    const noseY = -Math.cos(heading)
+    const sideX = Math.cos(heading)
+    const sideY = Math.sin(heading)
+    const halfL = CAR_LENGTH / 2
+    const halfW = CAR_WIDTH / 2
+    const nose = {
+        x: x + noseX * halfL,
+        y: y + noseY * halfL,
+    }
+    const left = {
+        x: x - noseX * halfL + sideX * halfW,
+        y: y - noseY * halfL + sideY * halfW,
+    }
+    const right = {
+        x: x - noseX * halfL - sideX * halfW,
+        y: y - noseY * halfL - sideY * halfW,
+    }
+    graphics.moveTo(nose.x, nose.y)
+    graphics.lineTo(left.x, left.y)
+    graphics.lineTo(right.x, right.y)
+    graphics.closePath()
+    graphics.fill({ color: fill })
+    graphics.stroke({ width: 1.25, color: outline, alpha: 0.9 })
 }
 
 const followPan = (

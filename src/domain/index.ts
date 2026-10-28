@@ -16,6 +16,7 @@ export {
     type SectorRead,
 } from "~/domain/live"
 export {
+    completeLap,
     fastestValidLap,
     realTimeMs,
     withRealTimes,

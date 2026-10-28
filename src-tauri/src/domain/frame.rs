@@ -11,6 +11,9 @@ pub(crate) struct CleanTelemetryFrame {
     pub steer_deg: f32,
     /// ACC: `0` = N, `1..` = forward, negative = reverse.
     pub gear: i32,
+    pub rpm: i32,
+    /// Yaw in radians from the physics page.
+    pub heading: f32,
     pub progress: TrackProgress,
     pub fuel_l: f32,
     pub g_long: f32,
@@ -20,6 +23,8 @@ pub(crate) struct CleanTelemetryFrame {
     pub pressure: TireSet<Psi>,
     pub brake_temp_fl: Celsius,
     pub brake_temp_fr: Celsius,
+    /// Front brake bias, fraction 0..1 from physics.
+    pub brake_bias: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,6 +41,9 @@ pub(crate) struct CleanSessionGraphic {
     pub setup_menu: bool,
     pub air: Celsius,
     pub road: Celsius,
+    pub tc: i32,
+    pub abs: i32,
+    pub engine_map: i32,
     pub car_state: CarState,
     pub completed_lap: i32,
     pub last_time: Option<LapTime>,

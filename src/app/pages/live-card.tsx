@@ -1,5 +1,6 @@
+import { Popover } from "@ark-ui/solid/popover"
 import { Select, createListCollection } from "@ark-ui/solid/select"
-import { Check } from "lucide-solid"
+import { Check, ChevronDown, ChevronUp, Settings2 } from "lucide-solid"
 import {
     createEffect,
     createMemo,
@@ -16,6 +17,15 @@ import {
     screenPositioning,
 } from "~/app/screen-position"
 import { liveClock } from "~/app/status"
+import {
+    moveLiveBlock,
+    readLiveLayout,
+    toggleLiveBlock,
+    visibleLiveBlocks,
+    writeLiveLayout,
+    type LiveBlock,
+    type LiveLayout,
+} from "~/app/telemetry/live-layout"
 import { hasAsphalt } from "~/app/track-catalog"
 import { TrackView } from "~/app/track-view"
 import {
@@ -37,6 +47,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
     })
     const card = () => held()!
     const [preview, setPreview] = createSignal<string>()
+    const [layout, setLayout] = createSignal<LiveLayout>(readLiveLayout())
     const shownTrack = () => preview() ?? card().session.track
     const tracks = createMemo(() =>
         createListCollection({
@@ -46,6 +57,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
         })
     )
     const ownTrack = () => shownTrack() === card().session.track
+    const blocks = createMemo(() => visibleLiveBlocks(layout()))
     const clockFor = (): LiveClock | undefined => {
         const tick = liveClock()
         const current = card()
@@ -55,6 +67,11 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
     }
     const seedDev = () =>
         import.meta.env.DEV && card().session.id.startsWith("seed-")
+
+    const applyLayout = (next: LiveLayout) => {
+        setLayout(next)
+        writeLiveLayout(next)
+    }
 
     createEffect(() => {
         card().session.id
@@ -137,86 +154,252 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                     </Show>
                     {carName(card().session.car)}
                 </p>
-                <p class="font-mono text-[11px] text-secondary">
-                    <span class="tracking-wide uppercase">
-                        {t("app.liveAir")}
-                    </span>{" "}
-                    {formatCelsius(card().session.airTemp)}
-                    <span class="text-muted" aria-hidden="true">
-                        {" "}
-                        ·{" "}
-                    </span>
-                    <span class="tracking-wide uppercase">
-                        {t("app.liveRoad")}
-                    </span>{" "}
-                    {formatCelsius(card().session.roadTemp)}
-                </p>
+                <div class="flex items-center gap-3">
+                    <p class="font-mono text-[11px] text-secondary">
+                        <span class="tracking-wide uppercase">
+                            {t("app.liveAir")}
+                        </span>{" "}
+                        {formatCelsius(card().session.airTemp)}
+                        <span class="text-muted" aria-hidden="true">
+                            {" "}
+                            ·{" "}
+                        </span>
+                        <span class="tracking-wide uppercase">
+                            {t("app.liveRoad")}
+                        </span>{" "}
+                        {formatCelsius(card().session.roadTemp)}
+                    </p>
+                    <LiveLayoutMenu
+                        layout={layout()}
+                        onChange={applyLayout}
+                    />
+                </div>
             </header>
 
-            <div class="grid shrink-0 border-b border-line sm:grid-cols-3 sm:divide-x sm:divide-line">
-                <Summary
-                    label={t("app.liveBest")}
-                    value={bestTime(card().bestLap?.timeMs)}
-                    hint={lapLabel(card().bestLap)}
-                />
-                <Summary
-                    label={t("app.liveCurrent")}
-                    value={currentValue(card(), clockFor())}
-                    hint={currentHint(card(), clockFor())}
-                    hintClass={deltaClass(currentRow(card()))}
-                />
-                <Summary
-                    label={t("app.livePressure")}
-                    value={pressureText(card().pressurePsi)}
-                    hint={t("app.psi")}
-                />
-            </div>
-
-            <div class="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:grid-rows-[minmax(0,1fr)]">
-                <LapTable
-                    rows={card().rows}
-                    best={card().bestLap}
-                    clock={clockFor()}
-                />
-                <div class="relative min-h-0 overflow-hidden border-t border-line lg:border-t-0 lg:border-l">
-                    <Show
-                        when={
-                            (ownTrack() && (card().road || card().car)) ||
-                            hasAsphalt(shownTrack())
-                        }
-                        fallback={
-                            <p class="flex h-full items-center justify-center font-mono text-[11px] text-muted">
-                                {t("app.empty")}
-                            </p>
-                        }
-                    >
-                        <TrackView
-                            class="absolute inset-0 min-h-0"
-                            track={shownTrack()}
-                            road={ownTrack() ? card().road : undefined}
-                            car={ownTrack() ? card().car : undefined}
-                            s1EndM={
-                                ownTrack()
-                                    ? (card().currentLap?.s1EndM ??
-                                      card().bestLap?.s1EndM)
-                                    : undefined
-                            }
-                            s2EndM={
-                                ownTrack()
-                                    ? (card().currentLap?.s2EndM ??
-                                      card().bestLap?.s2EndM)
-                                    : undefined
-                            }
-                            sector={
-                                ownTrack()
-                                    ? (clockFor()?.sector ?? card().sector)
-                                    : undefined
-                            }
-                        />
+            <For each={blocks()}>
+                {block => (
+                    <Show when={block === "summary"}>
+                        <div class="grid shrink-0 border-b border-line sm:grid-cols-3 sm:divide-x sm:divide-line">
+                            <Summary
+                                label={t("app.liveBest")}
+                                value={bestTime(card().bestLap?.timeMs)}
+                                hint={lapLabel(card().bestLap)}
+                            />
+                            <Summary
+                                label={t("app.liveCurrent")}
+                                value={currentValue(card(), clockFor())}
+                                hint={currentHint(card(), clockFor())}
+                                hintClass={deltaClass(currentRow(card()))}
+                            />
+                            <Summary
+                                label={t("app.livePressure")}
+                                value={pressureText(card().pressurePsi)}
+                                hint={t("app.psi")}
+                            />
+                        </div>
                     </Show>
-                </div>
+                )}
+            </For>
+
+            <div
+                class={cn(
+                    "grid min-h-0 flex-1",
+                    blocks().includes("laps") && blocks().includes("map")
+                        ? "grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:grid-rows-[minmax(0,1fr)]"
+                        : "grid-rows-[minmax(0,1fr)]"
+                )}
+            >
+                <For each={blocks().filter(block => block !== "summary")}>
+                    {block => (
+                        <Show
+                            when={block === "laps"}
+                            fallback={
+                                <div class="relative min-h-0 overflow-hidden border-t border-line lg:border-t-0 lg:border-l">
+                                    <Show
+                                        when={
+                                            (ownTrack() &&
+                                                (card().road || card().car)) ||
+                                            hasAsphalt(shownTrack())
+                                        }
+                                        fallback={
+                                            <p class="flex h-full items-center justify-center font-mono text-[11px] text-muted">
+                                                {t("app.empty")}
+                                            </p>
+                                        }
+                                    >
+                                        <TrackView
+                                            class="absolute inset-0 min-h-0"
+                                            track={shownTrack()}
+                                            road={
+                                                ownTrack()
+                                                    ? card().road
+                                                    : undefined
+                                            }
+                                            car={
+                                                ownTrack()
+                                                    ? card().car
+                                                    : undefined
+                                            }
+                                            s1EndM={
+                                                ownTrack()
+                                                    ? (card().currentLap
+                                                          ?.s1EndM ??
+                                                      card().bestLap?.s1EndM)
+                                                    : undefined
+                                            }
+                                            s2EndM={
+                                                ownTrack()
+                                                    ? (card().currentLap
+                                                          ?.s2EndM ??
+                                                      card().bestLap?.s2EndM)
+                                                    : undefined
+                                            }
+                                            sector={
+                                                ownTrack()
+                                                    ? (clockFor()?.sector ??
+                                                      card().sector)
+                                                    : undefined
+                                            }
+                                        />
+                                    </Show>
+                                </div>
+                            }
+                        >
+                            <LapTable
+                                rows={card().rows}
+                                best={card().bestLap}
+                                clock={clockFor()}
+                            />
+                        </Show>
+                    )}
+                </For>
             </div>
         </section>
+    )
+}
+
+const BLOCK_LABEL = {
+    summary: "app.liveLayoutSummary",
+    laps: "app.liveLayoutLaps",
+    map: "app.liveLayoutMap",
+} as const satisfies Record<LiveBlock, `app.${string}`>
+
+const LiveLayoutMenu = (props: {
+    layout: LiveLayout
+    onChange: (layout: LiveLayout) => void
+}) => {
+    const [open, setOpen] = createSignal(false)
+    return (
+        <Popover.Root
+            open={open()}
+            onOpenChange={details => setOpen(details.open)}
+            positioning={screenPositioning({ placement: "bottom-end" })}
+        >
+            <Popover.Trigger
+                class="inline-flex size-8 cursor-pointer items-center justify-center rounded border border-line bg-inset text-secondary outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20"
+                aria-label={t("app.liveLayout")}
+            >
+                <Settings2 class="size-3.5" strokeWidth={1.75} />
+            </Popover.Trigger>
+            <Portal>
+                <Popover.Positioner class={screenPopupClass}>
+                    <Popover.Content class="flex w-56 flex-col overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
+                        <div class="border-b border-line px-3 py-2">
+                            <Popover.Title class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
+                                {t("app.liveLayout")}
+                            </Popover.Title>
+                        </div>
+                        <ul class="flex flex-col gap-0.5 p-1.5">
+                            <For each={props.layout.order}>
+                                {(block, index) => {
+                                    const hidden = () =>
+                                        props.layout.hidden.includes(block)
+                                    return (
+                                        <li class="flex items-center gap-1 rounded px-1 py-1">
+                                            <button
+                                                type="button"
+                                                class={cn(
+                                                    "flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-left font-mono text-sm outline-none hover:bg-inset",
+                                                    hidden()
+                                                        ? "text-muted"
+                                                        : "text-ink"
+                                                )}
+                                                onClick={() =>
+                                                    props.onChange(
+                                                        toggleLiveBlock(
+                                                            props.layout,
+                                                            block
+                                                        )
+                                                    )
+                                                }
+                                            >
+                                                <span
+                                                    class={cn(
+                                                        "size-3 shrink-0 rounded-sm border",
+                                                        hidden()
+                                                            ? "border-line"
+                                                            : "border-accent bg-accent"
+                                                    )}
+                                                />
+                                                <span class="truncate">
+                                                    {t(BLOCK_LABEL[block])}
+                                                </span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="inline-flex size-7 cursor-pointer items-center justify-center rounded text-secondary outline-none hover:bg-inset hover:text-ink disabled:opacity-30"
+                                                aria-label={t("app.liveLayoutUp")}
+                                                disabled={index() === 0}
+                                                onClick={() =>
+                                                    props.onChange(
+                                                        moveLiveBlock(
+                                                            props.layout,
+                                                            block,
+                                                            -1
+                                                        )
+                                                    )
+                                                }
+                                            >
+                                                <ChevronUp
+                                                    class="size-3.5"
+                                                    strokeWidth={2}
+                                                />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="inline-flex size-7 cursor-pointer items-center justify-center rounded text-secondary outline-none hover:bg-inset hover:text-ink disabled:opacity-30"
+                                                aria-label={t(
+                                                    "app.liveLayoutDown"
+                                                )}
+                                                disabled={
+                                                    index() ===
+                                                    props.layout.order.length -
+                                                        1
+                                                }
+                                                onClick={() =>
+                                                    props.onChange(
+                                                        moveLiveBlock(
+                                                            props.layout,
+                                                            block,
+                                                            1
+                                                        )
+                                                    )
+                                                }
+                                            >
+                                                <ChevronDown
+                                                    class="size-3.5"
+                                                    strokeWidth={2}
+                                                />
+                                            </button>
+                                        </li>
+                                    )
+                                }}
+                            </For>
+                        </ul>
+                    </Popover.Content>
+                </Popover.Positioner>
+            </Portal>
+        </Popover.Root>
     )
 }
 

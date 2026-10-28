@@ -16,6 +16,8 @@ export const TRACE_CHANNELS = [
     "pressureRr",
     "brakeTempFl",
     "brakeTempFr",
+    "rpm",
+    "heading",
 ] as const
 
 export type TraceChannel = (typeof TRACE_CHANNELS)[number]

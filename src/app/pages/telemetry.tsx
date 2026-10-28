@@ -8,12 +8,13 @@ import {
     createResource,
     createSignal,
     For,
+    type JSX,
     onCleanup,
     onMount,
     Show,
 } from "solid-js"
 import { Portal } from "solid-js/web"
-import { ArrowLeftRight, ChevronDown } from "lucide-solid"
+import { ArrowLeftRight, ChevronDown, X } from "lucide-solid"
 import { DayNav } from "~/app/pages/day-nav"
 import {
     screenMenuListClass,
@@ -22,26 +23,50 @@ import {
     screenPositioning,
 } from "~/app/screen-position"
 import { setAnalysisHeading } from "~/app/status"
-import { ChannelView } from "~/app/telemetry/channel-view"
+import { ChannelDrawer, CHANNEL_LABEL } from "~/app/telemetry/channel-drawer"
+import {
+    readChannelLayout,
+    toggleChannel,
+    visibleChannels,
+    writeChannelLayout,
+    type AnalysisChannel,
+    type ChannelLayout,
+} from "~/app/telemetry/channel-layout"
+import {
+    ChannelView,
+    type ChannelKind,
+    type ChannelTrace,
+} from "~/app/telemetry/channel-view"
 import {
     clearStoredComparison,
+    MAX_COMPARE_LAPS,
+    normalizeLapIds,
     primaryLapForSession,
     readStoredComparison,
     restoreComparison,
     writeStoredComparison,
 } from "~/app/telemetry/compare-selection"
 import {
-    divergenceZones,
+    compareDivergenceZones,
     zoneWindow,
     type DivergenceCause,
     type DivergenceZone,
 } from "~/app/telemetry/divergence"
+import { fuelPerLap, meanFuelPerLap, stintLapsLeft } from "~/app/telemetry/fuel"
 import { InstantHud } from "~/app/telemetry/instant-hud"
+import {
+    makeBaselineId,
+    replaceLapId,
+    toggleLapId,
+} from "~/app/telemetry/lap-order"
+import { lapTone } from "~/app/telemetry/lap-tone"
 import {
     distanceSpan,
     sampleAtDistance,
     steerPeak,
 } from "~/app/telemetry/sample"
+import { SetupCard, type SetupRow } from "~/app/telemetry/setup-card"
+import { previousLap } from "~/app/telemetry/setup-format"
 import {
     TrajectoryView,
     type TrajectoryLine,
@@ -60,7 +85,6 @@ import {
     type Lap,
     type Session,
     type SessionType,
-    type Trace,
 } from "~/domain"
 import { carName, fmt, t, trackName } from "~/i18n"
 import { Button, cn } from "~/ui"
@@ -72,8 +96,8 @@ export type LapChoice = {
 
 type Catalog = {
     choices: LapChoice[]
-    initialPrimaryId: string
-    initialReferenceId: string | undefined
+    /** Every lap of a session, ordered by number, for fuel deltas. */
+    sessionLaps: ReadonlyMap<string, Lap[]>
 }
 
 const floatingMenuOpen = (): boolean =>
@@ -95,15 +119,8 @@ export const TelemetryPage = () => {
         remembered === undefined && requestedSession() === undefined
     )
     const [confirmed, setConfirmed] = createSignal(false)
-    const [primaryOverride, setPrimaryOverride] = createSignal(
-        remembered?.primaryId
-    )
-    const [referenceOverride, setReferenceOverride] = createSignal(
-        remembered?.referenceId
-    )
-    const [referenceTouched, setReferenceTouched] = createSignal(
-        remembered !== undefined
-    )
+    const [lapIds, setLapIds] = createSignal<string[]>(remembered?.lapIds ?? [])
+    const [layout, setLayout] = createSignal(readChannelLayout())
 
     const [catalog] = createResource(
         () => {
@@ -132,9 +149,7 @@ export const TelemetryPage = () => {
             )
             batch(() => {
                 setConfirmed(false)
-                setReferenceTouched(true)
-                setReferenceOverride(undefined)
-                setPrimaryOverride(primary?.id)
+                setLapIds(primary ? [primary.id] : [])
                 setPickerOpen(true)
             })
             return
@@ -149,126 +164,93 @@ export const TelemetryPage = () => {
         if (!restored) {
             batch(() => {
                 setConfirmed(false)
-                setPrimaryOverride(undefined)
-                setReferenceOverride(undefined)
-                setReferenceTouched(false)
+                setLapIds([])
                 setPickerOpen(true)
             })
             if (remembered) clearStoredComparison()
             return
         }
         batch(() => {
-            setPrimaryOverride(restored.primaryId)
-            setReferenceTouched(true)
-            setReferenceOverride(restored.referenceId)
+            setLapIds(restored.lapIds)
             setConfirmed(true)
             setPickerOpen(false)
         })
     })
 
-    const primaryId = createMemo(() =>
-        confirmed() ? primaryOverride() : undefined
-    )
-    const referenceId = createMemo(() => {
-        const primary = primaryId()
-        if (!primary) return undefined
-        const list = choices()
-        const primaryChoice = list.find(item => item.lap.id === primary)
-        if (!primaryChoice) return undefined
-        const sameTrack = list.filter(
-            item => item.session.track === primaryChoice.session.track
-        )
-        const chosen = referenceTouched()
-            ? referenceOverride()
-            : catalog()?.initialReferenceId
-        if (
-            chosen &&
-            chosen !== primary &&
-            sameTrack.some(item => item.lap.id === chosen)
-        ) {
-            return chosen
-        }
-        return sameTrack.find(item => item.lap.id !== primary)?.lap.id
-    })
-    const primaryChoice = createMemo(() =>
-        choices().find(item => item.lap.id === primaryId())
+    const baselineChoice = createMemo(() =>
+        confirmed()
+            ? choices().find(item => item.lap.id === lapIds()[0])
+            : undefined
     )
     const trackChoices = createMemo(() => {
-        const primary = primaryChoice()
-        if (!primary) return []
+        const baseline = baselineChoice()
+        if (!baseline) return []
         return choices().filter(
-            item => item.session.track === primary.session.track
+            item => item.session.track === baseline.session.track
         )
     })
-    const referenceChoice = createMemo(() =>
-        choices().find(item => item.lap.id === referenceId())
+    /** Selected laps in slot order; slot index is the compare color. */
+    const selectedChoices = createMemo((): LapChoice[] => {
+        const pool = trackChoices()
+        return lapIds().flatMap(id => {
+            const choice = pool.find(item => item.lap.id === id)
+            return choice ? [choice] : []
+        })
+    })
+    const activeIds = createMemo(() =>
+        selectedChoices().map(item => item.lap.id)
     )
 
     createEffect(() => {
         if (!confirmed()) return
-        const primary = primaryId()
-        if (!primary) return
-        writeStoredComparison({
-            primaryId: primary,
-            referenceId: referenceId(),
-        })
+        const ids = activeIds()
+        if (ids.length === 0) return
+        writeStoredComparison({ lapIds: ids })
     })
 
     const [traces] = createResource(
         () => {
             const repo = repository()
-            const primary = primaryId()
-            if (!repo || !primary) return undefined
-            const reference = referenceId()
-            const ids =
-                reference && reference !== primary
-                    ? [primary, reference]
-                    : [primary]
+            const ids = activeIds()
+            if (!repo || ids.length === 0) return undefined
             return { repo, ids }
         },
         source => source.repo.readTraces(source.ids)
     )
 
-    const primaryTrace = createMemo(() => {
-        const id = primaryId()
-        return id ? traces()?.get(id) : undefined
-    })
-    const referenceTrace = createMemo(() => {
-        const id = referenceId()
-        return id ? traces()?.get(id) : undefined
+    const traceOf = (choice: LapChoice | undefined) =>
+        choice ? traces()?.get(choice.lap.id) : undefined
+    const baselineTrace = createMemo(() => traceOf(selectedChoices()[0]))
+    const otherTraces = createMemo(() =>
+        selectedChoices().slice(1).map(traceOf)
+    )
+    const chartTraces = createMemo((): ChannelTrace[] => {
+        const baseline = baselineTrace()
+        if (!baseline) return []
+        const list: ChannelTrace[] = [{ trace: baseline, colorIndex: 0 }]
+        otherTraces().forEach((trace, index) => {
+            if (trace) list.push({ trace, colorIndex: index + 1 })
+        })
+        return list
     })
     const chartLines = createMemo((): TrajectoryLine[] => {
-        const primary = primaryChoice()
-        const reference = referenceChoice()
-        const list = choices()
-        const out: TrajectoryLine[] = []
-        const primarySamples = primaryTrace()
-        if (primary && primarySamples) {
-            out.push({
-                id: primary.lap.id,
-                label: choiceLabel(primary.lap, primary.session, list),
-                trace: primarySamples,
-                role: "primary",
-            })
-        }
-        const referenceSamples = referenceTrace()
-        if (
-            reference &&
-            referenceSamples &&
-            reference.lap.id !== primary?.lap.id
-        ) {
-            out.push({
-                id: reference.lap.id,
-                label: choiceLabel(reference.lap, reference.session, list),
-                trace: referenceSamples,
-                role: "reference",
-            })
-        }
-        return out
+        const selected = selectedChoices()
+        return selected.flatMap((choice, colorIndex) => {
+            const trace = traceOf(choice)
+            if (!trace) return []
+            return [
+                {
+                    id: choice.lap.id,
+                    label: choiceLabel(choice.lap, choice.session, selected),
+                    trace,
+                    colorIndex,
+                },
+            ]
+        })
     })
 
     createEffect(() => {
-        const choice = primaryChoice()
+        const choice = baselineChoice()
         if (!choice) {
             setAnalysisHeading({ track: null, car: null })
             return
@@ -282,7 +264,7 @@ export const TelemetryPage = () => {
     onCleanup(() => setAnalysisHeading({ track: null, car: null }))
 
     createEffect(() => {
-        const span = distanceSpan(primaryTrace())
+        const span = distanceSpan(baselineTrace())
         if (!span) return
         const current = cursorM()
         if (current < span.min || current > span.max) {
@@ -292,44 +274,63 @@ export const TelemetryPage = () => {
         }
     })
 
-    const primarySample = createMemo(() =>
-        sampleAtDistance(primaryTrace(), cursorM())
+    const lapSamples = createMemo(() =>
+        selectedChoices().map(choice =>
+            sampleAtDistance(traceOf(choice), cursorM())
+        )
     )
-    const referenceSample = createMemo(() =>
-        sampleAtDistance(referenceTrace(), cursorM())
-    )
-    const primarySteerPeak = createMemo(() => steerPeak(primaryTrace()))
-    const referenceSteerPeak = createMemo(() => steerPeak(referenceTrace()))
+    const overlayTrace = createMemo(() => otherTraces()[0])
+    const baselineSteerPeak = createMemo(() => steerPeak(baselineTrace()))
+    const overlaySteerPeak = createMemo(() => steerPeak(overlayTrace()))
     const zones = createMemo(() =>
-        divergenceZones(primaryTrace(), referenceTrace())
+        compareDivergenceZones(baselineTrace(), otherTraces())
     )
     const chartWindow = createMemo(() => {
         const zone = focus()
         if (!zone) return undefined
         const span =
-            distanceSpan(primaryTrace()) ?? distanceSpan(referenceTrace())
+            distanceSpan(baselineTrace()) ??
+            distanceSpan(otherTraces().find(Boolean))
         if (!span) return undefined
         return zoneWindow(zone, span)
     })
-    const swapLaps = () => {
-        const primary = primaryId()
-        const reference = referenceId()
-        if (!primary || !reference) return
-        batch(() => {
-            setPrimaryOverride(reference)
-            setReferenceTouched(true)
-            setReferenceOverride(primary)
-        })
-    }
 
-    const selectPrimary = (lapId: string) => {
-        if (lapId === primaryId()) return
-        setPrimaryOverride(lapId)
-    }
+    const sessionLapsOf = (choice: LapChoice): Lap[] =>
+        catalog()?.sessionLaps.get(choice.session.id) ?? []
+    const fuelUsedOn = (choice: LapChoice): number | undefined =>
+        fuelPerLap(choice.lap, previousLap(sessionLapsOf(choice), choice.lap))
+    const setupRows = createMemo((): SetupRow[] => {
+        const selected = selectedChoices()
+        const samples = lapSamples()
+        return selected.map((choice, colorIndex) => ({
+            colorIndex,
+            label: choiceLabel(choice.lap, choice.session, selected),
+            lap: choice.lap,
+            sample: samples[colorIndex],
+            fuelPerLap: fuelUsedOn(choice),
+        }))
+    })
+    const stintLeft = createMemo(() => {
+        const baseline = selectedChoices()[0]
+        if (!baseline) return undefined
+        const stint = sessionLapsOf(baseline).filter(
+            lap => lap.number <= baseline.lap.number
+        )
+        return stintLapsLeft(baseline.lap.fuel, meanFuelPerLap(stint))
+    })
 
-    const selectReference = (lapId: string) => {
-        setReferenceTouched(true)
-        setReferenceOverride(lapId)
+    const replaceLap = (index: number, lapId: string) =>
+        setLapIds(replaceLapId(activeIds(), index, lapId))
+    const addLap = (lapId: string) =>
+        setLapIds(normalizeLapIds([...activeIds(), lapId]))
+    const makeBaseline = (index: number) =>
+        setLapIds(makeBaselineId(activeIds(), index))
+
+    const toggleChartChannel = (channel: AnalysisChannel) => {
+        const next = toggleChannel(layout(), channel)
+        if (next === layout()) return
+        setLayout(next)
+        writeChannelLayout(next)
     }
 
     const openZone = (zone: DivergenceZone) => {
@@ -354,8 +355,7 @@ export const TelemetryPage = () => {
     let zoneRestored = false
     createEffect(() => {
         if (zoneRestored || !confirmed() || traces.state !== "ready") return
-        if (!primaryTrace()) return
-        if (referenceId() && !referenceTrace()) return
+        if (!baselineTrace()) return
         zoneRestored = true
         const match = matchStoredZone(zones(), rememberedZone)
         if (!match) {
@@ -403,24 +403,16 @@ export const TelemetryPage = () => {
         onCleanup(() => window.removeEventListener("keydown", onKey))
     })
 
-    const pickerSeed = (): CompareSeed | undefined => {
-        if (!confirmed()) {
-            const sessionId = requestedSession()
-            if (!sessionId) return undefined
-            const lap = primaryLapForSession(
-                choices().map(item => item.lap),
-                sessionId,
-                requestedLap()
-            )
-            const primary = lap
-                ? choices().find(item => item.lap.id === lap.id)
-                : undefined
-            if (!primary) return undefined
-            return { primary, reference: undefined }
-        }
-        const primary = primaryChoice()
-        if (!primary) return undefined
-        return { primary, reference: referenceChoice() }
+    const pickerSeedIds = (): string[] => {
+        if (confirmed()) return activeIds()
+        const sessionId = requestedSession()
+        if (!sessionId) return []
+        const lap = primaryLapForSession(
+            choices().map(item => item.lap),
+            sessionId,
+            requestedLap()
+        )
+        return lap ? [lap.id] : []
     }
 
     let zoomMap = (_factor: number) => {}
@@ -441,19 +433,20 @@ export const TelemetryPage = () => {
         <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
             <CompareBanner
                 choices={confirmed() ? trackChoices() : []}
-                primary={confirmed() ? primaryChoice()?.lap : undefined}
-                reference={confirmed() ? referenceChoice()?.lap : undefined}
-                onPrimary={selectPrimary}
-                onReference={selectReference}
-                onSwap={swapLaps}
+                selected={selectedChoices()}
+                onReplace={replaceLap}
+                onAdd={addLap}
+                onMakeBaseline={makeBaseline}
                 onEdit={confirmed() ? () => setPickerOpen(true) : undefined}
                 zones={zones()}
                 focus={focus()}
                 onZone={openZone}
                 onZoneClose={() => setFocus(undefined)}
+                layout={confirmed() ? layout() : undefined}
+                onToggleChannel={toggleChartChannel}
             />
             <Show
-                when={primaryChoice()}
+                when={baselineChoice()}
                 fallback={
                     <Show when={!pickerOpen() && !catalog.loading}>
                         <p class="font-mono text-base text-secondary">
@@ -462,88 +455,64 @@ export const TelemetryPage = () => {
                     </Show>
                 }
             >
-                {primary => (
+                {baseline => (
                     <>
                         <div class="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1.4fr)_minmax(0,1fr)] gap-4 overflow-hidden lg:grid-cols-12 lg:grid-rows-1">
                             <section class="flex min-h-0 flex-col gap-3 overflow-hidden rounded border border-line bg-surface p-4 lg:col-span-7">
                                 <div class="flex min-h-0 flex-1 flex-col gap-2">
-                                    <ChartStrip
-                                        label={t("app.telemetryThrottle")}
-                                        kind="throttle"
-                                        primary={primaryTrace()}
-                                        reference={referenceTrace()}
-                                        cursorM={cursorM()}
-                                        onCursor={setCursorM}
-                                        distanceWindow={chartWindow()}
-                                        zones={zones()}
-                                        activeZone={focus()}
-                                        onZone={openZone}
-                                        onZoom={factor => zoomMap(factor)}
-                                    />
-                                    <ChartStrip
-                                        label={t("app.telemetryBrake")}
-                                        kind="brake"
-                                        primary={primaryTrace()}
-                                        reference={referenceTrace()}
-                                        cursorM={cursorM()}
-                                        onCursor={setCursorM}
-                                        distanceWindow={chartWindow()}
-                                        zones={zones()}
-                                        activeZone={focus()}
-                                        onZone={openZone}
-                                        onZoom={factor => zoomMap(factor)}
-                                    />
-                                    <ChartStrip
-                                        label={t("app.telemetrySteer")}
-                                        kind="steer"
-                                        primary={primaryTrace()}
-                                        reference={referenceTrace()}
-                                        cursorM={cursorM()}
-                                        onCursor={setCursorM}
-                                        distanceWindow={chartWindow()}
-                                        zones={zones()}
-                                        activeZone={focus()}
-                                        onZone={openZone}
-                                        onZoom={factor => zoomMap(factor)}
-                                    />
-                                    <ChartStrip
-                                        label={t("app.telemetrySpeed")}
-                                        kind="speed"
-                                        primary={primaryTrace()}
-                                        reference={referenceTrace()}
-                                        cursorM={cursorM()}
-                                        onCursor={setCursorM}
-                                        distanceWindow={chartWindow()}
-                                        zones={zones()}
-                                        activeZone={focus()}
-                                        onZone={openZone}
-                                        onZoom={factor => zoomMap(factor)}
-                                    />
+                                    <For each={visibleChannels(layout())}>
+                                        {channel => (
+                                            <ChartStrip
+                                                label={t(
+                                                    CHANNEL_LABEL[channel]
+                                                )}
+                                                kind={channel}
+                                                traces={chartTraces()}
+                                                cursorM={cursorM()}
+                                                onCursor={setCursorM}
+                                                distanceWindow={chartWindow()}
+                                                zones={zones()}
+                                                activeZone={focus()}
+                                                onZone={openZone}
+                                                onZoom={factor =>
+                                                    zoomMap(factor)
+                                                }
+                                            />
+                                        )}
+                                    </For>
                                 </div>
-                                <Show when={!traces.loading && !primaryTrace()}>
+                                <Show
+                                    when={!traces.loading && !baselineTrace()}
+                                >
                                     <p class="font-mono text-sm text-muted">
                                         {t("app.telemetryNoTrace")}
                                     </p>
                                 </Show>
                             </section>
 
-                            <div class="flex min-h-0 flex-col gap-4 overflow-hidden lg:col-span-5">
-                                <div class="relative min-h-0 flex-1 overflow-hidden rounded border border-line bg-inset">
+                            <div class="flex min-h-0 flex-col gap-4 overflow-y-auto lg:col-span-5">
+                                <div class="relative min-h-40 flex-1 overflow-hidden rounded border border-line bg-inset">
                                     <TrajectoryView
                                         class="absolute inset-0"
-                                        track={primary().session.track}
+                                        track={baseline().session.track}
                                         lines={chartLines()}
+                                        zones={zones()}
                                         cursorM={cursorM()}
                                         onCursor={setCursorM}
                                         registerZoom={registerMapZoom}
                                     />
                                 </div>
 
+                                <SetupCard
+                                    rows={setupRows()}
+                                    stintLapsLeft={stintLeft()}
+                                />
+
                                 <InstantHud
-                                    primary={primarySample()}
-                                    reference={referenceSample()}
-                                    primarySteerPeak={primarySteerPeak()}
-                                    referenceSteerPeak={referenceSteerPeak()}
+                                    primary={lapSamples()[0]}
+                                    reference={lapSamples()[1]}
+                                    primarySteerPeak={baselineSteerPeak()}
+                                    referenceSteerPeak={overlaySteerPeak()}
                                 />
                             </div>
                         </div>
@@ -554,15 +523,13 @@ export const TelemetryPage = () => {
                 <ComparePickerModal
                     choices={choices()}
                     mode={confirmed() ? "edit" : "required"}
-                    seed={pickerSeed()}
+                    seedIds={pickerSeedIds()}
                     initialTrack={pickerTrack()}
                     onDismiss={() => setPickerOpen(false)}
                     onLeave={() => navigate("/")}
-                    onConfirm={(primaryId, referenceId) => {
+                    onConfirm={ids => {
                         batch(() => {
-                            setPrimaryOverride(primaryId)
-                            setReferenceTouched(true)
-                            setReferenceOverride(referenceId)
+                            setLapIds(normalizeLapIds(ids))
                             setConfirmed(true)
                             setPickerOpen(false)
                         })
@@ -709,9 +676,8 @@ const DivergenceMenu = (props: {
 
 const ChartStrip = (props: {
     label: string
-    kind: "throttle" | "brake" | "steer" | "speed"
-    primary?: Trace
-    reference?: Trace
+    kind: ChannelKind
+    traces: readonly ChannelTrace[]
     cursorM: number
     onCursor: (distanceM: number) => void
     distanceWindow?: { min: number; max: number }
@@ -727,8 +693,7 @@ const ChartStrip = (props: {
         <div class="min-h-0 flex-1 overflow-hidden rounded border border-line bg-inset">
             <ChannelView
                 kind={props.kind}
-                primary={props.primary}
-                reference={props.reference}
+                traces={props.traces}
                 cursorM={props.cursorM}
                 onCursor={props.onCursor}
                 distanceWindow={props.distanceWindow}
@@ -740,23 +705,6 @@ const ChartStrip = (props: {
             />
         </div>
     </div>
-)
-
-type CompareSeed = {
-    primary: LapChoice
-    reference: LapChoice | undefined
-}
-
-const SwapGlyph = () => (
-    <span class="grid place-items-center">
-        <span class="col-start-1 row-start-1 group-hover:invisible group-focus-visible:invisible">
-            vs
-        </span>
-        <ArrowLeftRight
-            class="invisible col-start-1 row-start-1 size-4 group-hover:visible group-focus-visible:visible"
-            strokeWidth={1.75}
-        />
-    </span>
 )
 
 const TrackMenu = (props: {
@@ -833,11 +781,11 @@ const TrackMenu = (props: {
 const ComparePickerModal = (props: {
     choices: LapChoice[]
     mode: "required" | "edit"
-    seed: CompareSeed | undefined
+    seedIds: string[]
     initialTrack?: string
     onDismiss: () => void
     onLeave: () => void
-    onConfirm: (primaryId: string, referenceId: string | undefined) => void
+    onConfirm: (lapIds: string[]) => void
 }) => {
     const groups = createMemo(() => groupChoices(props.choices))
     const tracks = createMemo(() => {
@@ -850,32 +798,24 @@ const ComparePickerModal = (props: {
         }
         return list
     })
-    const seed = props.seed
+    const choiceById = (lapId: string) =>
+        props.choices.find(item => item.lap.id === lapId)
+    const seedBaseline = choiceById(props.seedIds[0] ?? "")
     const [track, setTrack] = createSignal(
-        seed?.primary.session.track ?? props.initialTrack ?? ""
+        seedBaseline?.session.track ?? props.initialTrack ?? ""
     )
-    const [leftDay, setLeftDay] = createSignal(
-        seed ? localDayStart(seed.primary.session.startedAt) : 0
+    const [selected, setSelected] = createSignal<string[]>(
+        seedBaseline
+            ? props.seedIds.filter(
+                  id =>
+                      choiceById(id)?.session.track ===
+                      seedBaseline.session.track
+              )
+            : []
     )
-    const [rightDay, setRightDay] = createSignal(
-        localDayStart(
-            seed?.reference?.session.startedAt ??
-                seed?.primary.session.startedAt ??
-                0
-        )
+    const [day, setDay] = createSignal(
+        seedBaseline ? localDayStart(seedBaseline.session.startedAt) : 0
     )
-    const [leftSessionId, setLeftSessionId] = createSignal(
-        seed?.primary.session.id ?? ""
-    )
-    const [leftLapId, setLeftLapId] = createSignal(seed?.primary.lap.id ?? "")
-    const [rightSessionId, setRightSessionId] = createSignal(
-        seed?.reference?.session.id ?? ""
-    )
-    const [rightLapId, setRightLapId] = createSignal(
-        seed?.reference?.lap.id ?? ""
-    )
-    const lapsOf = (sessionId: string) =>
-        groups().find(group => group.session.id === sessionId)?.laps ?? []
 
     const onTrack = () =>
         groups().filter(group => group.session.track === track())
@@ -891,107 +831,31 @@ const ComparePickerModal = (props: {
 
     const chooseTrack = (next: string) => {
         if (next === track()) return
-        setTrack(next)
-        const sessions = groups().filter(group => group.session.track === next)
-        const first = sessions[0]
-        if (!first) return
-        setLeftDay(localDayStart(first.session.startedAt))
-        chooseSession("a", first.session.id)
-        const other =
-            sessions.find(group =>
-                group.laps.some(lap => lap.id !== leftLapId())
-            ) ?? first
-        setRightDay(localDayStart(other.session.startedAt))
-        const otherLap =
-            other.laps.find(lap => lap.id !== leftLapId()) ?? other.laps[0]
-        setRightSessionId(other.session.id)
-        setRightLapId(otherLap?.id ?? "")
+        const first = groups().find(group => group.session.track === next)
+        batch(() => {
+            setTrack(next)
+            setSelected([])
+            if (first) setDay(localDayStart(first.session.startedAt))
+        })
     }
 
-    const chooseDay = (side: "a" | "b", start: number) => {
-        if (side === "a") setLeftDay(start)
-        else setRightDay(start)
-        const onDay = sessionsOnDay(start)
-        const current = side === "a" ? leftSessionId() : rightSessionId()
-        if (onDay.some(group => group.session.id === current)) return
-        const next = onDay[0]
-        if (next) chooseSession(side, next.session.id)
-    }
+    const selectedChoices = createMemo(() =>
+        selected().flatMap(id => {
+            const choice = choiceById(id)
+            return choice ? [choice] : []
+        })
+    )
 
-    const lapSummary = (sessionId: string, lapId: string) => {
-        const group = groups().find(item => item.session.id === sessionId)
-        const lap = group?.laps.find(item => item.id === lapId)
-        if (!lap) return t("app.pickLap")
-        return `L${lap.number} · ${formatLapTime(lap.timeMs)}`
-    }
-
-    const pickLap = (side: "a" | "b", sessionId: string, lapId: string) => {
-        if (side === "a") {
-            setLeftSessionId(sessionId)
-            setLeftLapId(lapId)
-            return
-        }
-        setRightSessionId(sessionId)
-        setRightLapId(lapId)
-    }
-
-    const chooseSession = (side: "a" | "b", sessionId: string) => {
-        const laps = lapsOf(sessionId)
-        const current = side === "a" ? leftLapId() : rightLapId()
-        const kept = laps.some(lap => lap.id === current)
-            ? current
-            : fastestLap(laps)?.id
-        if (side === "a") {
-            setLeftSessionId(sessionId)
-            if (kept) setLeftLapId(kept)
-            return
-        }
-        setRightSessionId(sessionId)
-        setRightLapId(kept ?? "")
-    }
-
-    const canApply = () => {
-        const left = leftLapId()
-        const right = rightLapId()
-        if (left === "" || right === "" || right === left) return false
-        const leftSession = groups().find(group =>
-            group.laps.some(lap => lap.id === left)
-        )
-        const rightSession = groups().find(group =>
-            group.laps.some(lap => lap.id === right)
-        )
-        return (
-            leftSession?.session.track === track() &&
-            rightSession?.session.track === track()
-        )
-    }
+    const canApply = () => selectedChoices().length > 0
 
     const dismiss = () => {
         if (props.mode === "edit") props.onDismiss()
     }
 
-    const swapSides = () => {
-        const nextLeftDay = rightDay()
-        const nextRightDay = leftDay()
-        const nextLeftSession = rightSessionId()
-        const nextRightSession = leftSessionId()
-        const nextLeftLap = rightLapId()
-        const nextRightLap = leftLapId()
-        setLeftDay(nextLeftDay)
-        setRightDay(nextRightDay)
-        setLeftSessionId(nextLeftSession)
-        setRightSessionId(nextRightSession)
-        setLeftLapId(nextLeftLap)
-        setRightLapId(nextRightLap)
-    }
-
     onMount(() => {
-        if (!seed && track()) {
+        if (!seedBaseline && track()) {
             const first = days()[0]
-            if (first) {
-                setLeftDay(first.start)
-                setRightDay(first.start)
-            }
+            if (first) setDay(first.start)
         }
         requestAnimationFrame(() => {
             document
@@ -1049,55 +913,38 @@ const ComparePickerModal = (props: {
                             </p>
                         }
                     >
-                        <div class="mt-4 grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch gap-3 overflow-hidden md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:grid-rows-1">
-                            <LapCard
-                                label={t("app.primaryLap")}
-                                tone="a"
+                        <div class="mt-4 grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_auto] items-stretch gap-3 overflow-hidden md:grid-cols-[minmax(0,1fr)_18rem] md:grid-rows-1">
+                            <LapChecklist
                                 days={days()}
-                                day={leftDay()}
-                                groups={sessionsOnDay(leftDay())}
-                                lapId={leftLapId()}
-                                takenLapId={rightLapId()}
-                                onDay={start => chooseDay("a", start)}
-                                onLap={(sessionId, lapId) =>
-                                    pickLap("a", sessionId, lapId)
+                                day={day()}
+                                groups={sessionsOnDay(day())}
+                                selected={selected()}
+                                onDay={setDay}
+                                onToggle={lapId =>
+                                    setSelected(toggleLapId(selected(), lapId))
                                 }
                             />
-                            <button
-                                type="button"
-                                class="group flex h-9 cursor-pointer items-center justify-center self-center rounded border border-line bg-inset px-2.5 font-mono text-sm text-muted outline-none hover:border-secondary hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20 md:size-10 md:rounded-full md:px-0"
-                                aria-label={t("app.telemetrySwap")}
-                                onClick={swapSides}
-                            >
-                                <SwapGlyph />
-                            </button>
-                            <LapCard
-                                label={t("app.referenceLap")}
-                                tone="b"
-                                days={days()}
-                                day={rightDay()}
-                                groups={sessionsOnDay(rightDay())}
-                                lapId={rightLapId()}
-                                takenLapId={leftLapId()}
-                                onDay={start => chooseDay("b", start)}
-                                onLap={(sessionId, lapId) =>
-                                    pickLap("b", sessionId, lapId)
+                            <SelectedLaps
+                                choices={selectedChoices()}
+                                onMakeBaseline={index =>
+                                    setSelected(
+                                        makeBaselineId(selected(), index)
+                                    )
+                                }
+                                onRemove={lapId =>
+                                    setSelected(toggleLapId(selected(), lapId))
                                 }
                             />
                         </div>
                     </Show>
                     <div class="mt-4 flex shrink-0 flex-nowrap items-center gap-3 border-t border-line pt-4">
-                        <Show when={track()}>
-                            <p class="min-w-0 flex-1 truncate font-mono text-base">
-                                <span class="font-semibold text-lap-a">
-                                    {lapSummary(leftSessionId(), leftLapId())}
-                                </span>
-                                <span class="mx-2 text-muted">vs</span>
-                                <span class="font-semibold text-lap-b">
-                                    {lapSummary(rightSessionId(), rightLapId())}
-                                </span>
-                            </p>
-                        </Show>
+                        <p class="min-w-0 flex-1 truncate font-mono text-sm text-muted">
+                            <Show when={track()}>
+                                {t("app.telemetryPickLapsHint", {
+                                    max: MAX_COMPARE_LAPS,
+                                })}
+                            </Show>
+                        </p>
                         <div class="ml-auto flex shrink-0 gap-2">
                             <Button
                                 variant="secondary"
@@ -1113,12 +960,7 @@ const ComparePickerModal = (props: {
                             <Button
                                 class="h-10 px-4 text-sm"
                                 disabled={!canApply()}
-                                onClick={() =>
-                                    props.onConfirm(
-                                        leftLapId(),
-                                        rightLapId() || undefined
-                                    )
-                                }
+                                onClick={() => props.onConfirm(selected())}
                             >
                                 {t("app.telemetryPickApply")}
                             </Button>
@@ -1130,27 +972,16 @@ const ComparePickerModal = (props: {
     )
 }
 
-const LapCard = (props: {
-    label: string
-    tone: "a" | "b"
+const LapChecklist = (props: {
     days: { start: number; sessions: Session[] }[]
     day: number
     groups: { session: Session; laps: Lap[] }[]
-    lapId: string
-    takenLapId: string
+    selected: readonly string[]
     onDay: (start: number) => void
-    onLap: (sessionId: string, lapId: string) => void
+    onToggle: (lapId: string) => void
 }) => (
     <section class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded border border-line bg-surface">
-        <header class="flex items-center justify-between gap-3 border-b border-line bg-inset/60 px-3 py-2">
-            <h3
-                class={cn(
-                    "font-mono text-sm font-semibold tracking-wide uppercase",
-                    props.tone === "a" ? "text-lap-a" : "text-lap-b"
-                )}
-            >
-                {props.label}
-            </h3>
+        <header class="flex items-center justify-end gap-3 border-b border-line bg-inset/60 px-3 py-2">
             <DayNav
                 compact
                 days={props.days}
@@ -1168,22 +999,30 @@ const LapCard = (props: {
                         <ul class="flex flex-col gap-0.5">
                             <For each={group.laps}>
                                 {lap => {
-                                    const active = () => lap.id === props.lapId
-                                    const taken = () =>
-                                        !active() && lap.id === props.takenLapId
+                                    const slot = () =>
+                                        props.selected.indexOf(lap.id)
+                                    const active = () => slot() >= 0
+                                    const full = () =>
+                                        !active() &&
+                                        props.selected.length >=
+                                            MAX_COMPARE_LAPS
                                     return (
                                         <li>
                                             <button
                                                 type="button"
-                                                disabled={taken()}
+                                                role="checkbox"
+                                                aria-checked={active()}
+                                                disabled={full()}
                                                 class={cn(
-                                                    "flex w-full cursor-pointer items-center justify-between gap-3 rounded px-2 py-2 text-left font-mono text-base outline-none transition-colors",
+                                                    "flex w-full cursor-pointer items-center gap-3 rounded px-2 py-2 text-left font-mono text-base outline-none transition-colors",
                                                     active()
-                                                        ? props.tone === "a"
-                                                            ? "bg-lap-a/15 text-ink"
-                                                            : "bg-lap-b/15 text-ink"
+                                                        ? cn(
+                                                              lapTone(slot())
+                                                                  .soft,
+                                                              "text-ink"
+                                                          )
                                                         : "text-ink hover:bg-inset",
-                                                    taken() &&
+                                                    full() &&
                                                         "cursor-not-allowed opacity-40 hover:bg-transparent"
                                                 )}
                                                 aria-current={
@@ -1192,24 +1031,34 @@ const LapCard = (props: {
                                                         : undefined
                                                 }
                                                 onClick={() =>
-                                                    props.onLap(
-                                                        group.session.id,
-                                                        lap.id
-                                                    )
+                                                    props.onToggle(lap.id)
                                                 }
                                             >
                                                 <span
                                                     class={cn(
+                                                        "grid size-5 shrink-0 place-items-center rounded-sm border text-xs font-semibold",
+                                                        active()
+                                                            ? cn(
+                                                                  lapTone(
+                                                                      slot()
+                                                                  ).dot,
+                                                                  "border-transparent text-surface"
+                                                              )
+                                                            : "border-line text-transparent"
+                                                    )}
+                                                >
+                                                    {slot() + 1}
+                                                </span>
+                                                <span
+                                                    class={cn(
                                                         "font-semibold",
                                                         active() &&
-                                                            (props.tone === "a"
-                                                                ? "text-lap-a"
-                                                                : "text-lap-b")
+                                                            lapTone(slot()).text
                                                     )}
                                                 >
                                                     L{lap.number}
                                                 </span>
-                                                <span class="tabular-nums text-secondary">
+                                                <span class="ml-auto tabular-nums text-secondary">
                                                     {formatLapTime(lap.timeMs)}
                                                 </span>
                                             </button>
@@ -1225,29 +1074,111 @@ const LapCard = (props: {
     </section>
 )
 
-const fastestLap = (laps: readonly Lap[]): Lap | undefined => {
-    const ranked = laps.filter(lap => lap.valid && lap.timeMs !== null)
-    const pool = ranked.length > 0 ? ranked : laps
-    return [...pool].sort(
-        (left, right) => (left.timeMs ?? Infinity) - (right.timeMs ?? Infinity)
-    )[0]
-}
+const SelectedLaps = (props: {
+    choices: readonly LapChoice[]
+    onMakeBaseline: (index: number) => void
+    onRemove: (lapId: string) => void
+}) => (
+    <section class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded border border-line bg-surface">
+        <header class="border-b border-line bg-inset/60 px-3 py-2">
+            <h3 class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
+                {t("app.telemetrySelectedLaps", {
+                    n: props.choices.length,
+                    max: MAX_COMPARE_LAPS,
+                })}
+            </h3>
+        </header>
+        <ul class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5">
+            <For each={props.choices}>
+                {(choice, index) => (
+                    <li class="flex items-center gap-2 rounded px-2 py-2 font-mono text-sm">
+                        <span
+                            class={cn(
+                                "size-2.5 shrink-0 rounded-full",
+                                lapTone(index()).dot
+                            )}
+                            aria-hidden="true"
+                        />
+                        <span class="min-w-0 flex-1">
+                            <span
+                                class={cn(
+                                    "block truncate font-semibold",
+                                    lapTone(index()).text
+                                )}
+                            >
+                                L{choice.lap.number} ·{" "}
+                                {formatLapTime(choice.lap.timeMs)}
+                            </span>
+                            <span class="block truncate text-xs text-muted">
+                                {index() === 0
+                                    ? t("app.telemetryBaseline")
+                                    : fmt.clock(choice.session.startedAt)}
+                            </span>
+                        </span>
+                        <Show when={index() > 0}>
+                            <IconButton
+                                label={t("app.telemetryMakeBaseline")}
+                                onClick={() => props.onMakeBaseline(index())}
+                            >
+                                <ArrowLeftRight
+                                    class="size-4"
+                                    strokeWidth={1.75}
+                                />
+                            </IconButton>
+                        </Show>
+                        <IconButton
+                            label={t("app.telemetryRemoveLap")}
+                            onClick={() => props.onRemove(choice.lap.id)}
+                        >
+                            <X class="size-4" strokeWidth={1.75} />
+                        </IconButton>
+                    </li>
+                )}
+            </For>
+        </ul>
+    </section>
+)
+
+const IconButton = (props: {
+    label: string
+    onClick: () => void
+    children: JSX.Element
+}) => (
+    <button
+        type="button"
+        class="grid size-7 shrink-0 cursor-pointer place-items-center rounded border border-line bg-inset text-muted outline-none hover:border-secondary hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20"
+        aria-label={props.label}
+        title={props.label}
+        onClick={() => props.onClick()}
+    >
+        {props.children}
+    </button>
+)
 
 const CompareBanner = (props: {
     choices: LapChoice[]
-    primary: Lap | undefined
-    reference: Lap | undefined
-    onPrimary: (lapId: string) => void
-    onReference: (lapId: string) => void
-    onSwap?: () => void
+    selected: readonly LapChoice[]
+    onReplace: (index: number, lapId: string) => void
+    onAdd: (lapId: string) => void
+    onMakeBaseline: (index: number) => void
     onEdit?: () => void
     zones?: readonly DivergenceZone[]
     focus?: DivergenceZone
     onZone?: (zone: DivergenceZone) => void
     onZoneClose?: () => void
+    layout?: ChannelLayout
+    onToggleChannel?: (channel: AnalysisChannel) => void
 }) => {
-    const referenceChoices = () =>
-        props.choices.filter(item => item.lap.id !== props.primary?.id)
+    const pickable = (ownId: string | undefined) =>
+        props.choices.filter(
+            item =>
+                item.lap.id === ownId ||
+                !props.selected.some(chosen => chosen.lap.id === item.lap.id)
+        )
+    const canAdd = () =>
+        props.selected.length > 0 &&
+        props.selected.length < MAX_COMPARE_LAPS &&
+        pickable(undefined).length > 0
 
     return (
         <section class="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded border border-line bg-surface px-4 py-3">
@@ -1261,36 +1192,63 @@ const CompareBanner = (props: {
                     />
                 </Show>
             </div>
-            <div class="flex w-full min-w-0 items-center justify-center gap-3 font-mono text-base">
-                <div class="min-w-0 w-50">
-                    <LapPicker
-                        label={t("app.primaryLap")}
-                        tone="a"
-                        value={props.primary?.id ?? ""}
-                        choices={props.primary ? props.choices : []}
-                        onChange={props.onPrimary}
-                    />
-                </div>
-                <button
-                    type="button"
-                    class="group inline-flex h-9 shrink-0 cursor-pointer items-center rounded border border-line bg-inset px-2.5 font-mono text-base text-muted outline-none hover:border-secondary hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20 disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label={t("app.telemetrySwap")}
-                    disabled={!props.primary || !props.reference}
-                    onClick={() => props.onSwap?.()}
-                >
-                    <SwapGlyph />
-                </button>
-                <div class="min-w-0 w-50">
-                    <LapPicker
-                        label={t("app.referenceLap")}
-                        tone="b"
-                        value={props.reference?.id ?? ""}
-                        choices={referenceChoices()}
-                        onChange={props.onReference}
-                    />
-                </div>
+            <div class="flex w-full min-w-0 flex-wrap items-center justify-center gap-2 font-mono text-base">
+                <For each={props.selected}>
+                    {(choice, index) => (
+                        <div class="flex w-48 min-w-0 items-center gap-1.5">
+                            <LapPicker
+                                label={
+                                    index() === 0
+                                        ? t("app.telemetryBaseline")
+                                        : `L${choice.lap.number}`
+                                }
+                                colorIndex={index()}
+                                value={choice.lap.id}
+                                choices={pickable(choice.lap.id)}
+                                onChange={lapId =>
+                                    props.onReplace(index(), lapId)
+                                }
+                            />
+                            <Show when={index() > 0}>
+                                <IconButton
+                                    label={t("app.telemetryMakeBaseline")}
+                                    onClick={() =>
+                                        props.onMakeBaseline(index())
+                                    }
+                                >
+                                    <ArrowLeftRight
+                                        class="size-4"
+                                        strokeWidth={1.75}
+                                    />
+                                </IconButton>
+                            </Show>
+                        </div>
+                    )}
+                </For>
+                <Show when={canAdd()}>
+                    <div class="w-48 min-w-0">
+                        <LapPicker
+                            label={t("app.telemetryAddLap")}
+                            colorIndex={props.selected.length}
+                            value=""
+                            choices={pickable(undefined)}
+                            placeholder={t("app.telemetryAddLap")}
+                            onChange={props.onAdd}
+                        />
+                    </div>
+                </Show>
             </div>
-            <div class="justify-self-end">
+            <div class="flex items-center gap-2 justify-self-end">
+                <Show when={props.layout}>
+                    {layout => (
+                        <ChannelDrawer
+                            layout={layout()}
+                            onToggle={channel =>
+                                props.onToggleChannel?.(channel)
+                            }
+                        />
+                    )}
+                </Show>
                 <Show when={props.onEdit}>
                     <Button
                         variant="secondary"
@@ -1307,9 +1265,10 @@ const CompareBanner = (props: {
 
 const LapPicker = (props: {
     label: string
-    tone: "a" | "b"
+    colorIndex: number
     value: string
     choices: LapChoice[]
+    placeholder?: string
     onChange: (lapId: string) => void
 }) => {
     const groups = createMemo(() => groupLapChoices(props.choices))
@@ -1323,11 +1282,7 @@ const LapPicker = (props: {
             itemToString: item => `L${item.lap.number}`,
         })
     )
-    const tone = () => (props.tone === "a" ? "text-lap-a" : "text-lap-b")
-    const checkedTone =
-        props.tone === "a"
-            ? "data-[state=checked]:bg-lap-a/15 data-[state=checked]:text-lap-a"
-            : "data-[state=checked]:bg-lap-b/15 data-[state=checked]:text-lap-b"
+    const tone = () => lapTone(props.colorIndex)
 
     return (
         <Select.Root
@@ -1340,20 +1295,17 @@ const LapPicker = (props: {
                 if (next) props.onChange(next)
             }}
         >
-            <Select.Control class="min-w-0">
+            <Select.Control class="min-w-0 flex-1">
                 <Select.Trigger
                     class={cn(
                         "inline-flex h-9 w-full min-w-0 max-w-full cursor-pointer items-center gap-2 rounded border border-line bg-inset px-3 text-left outline-none transition-colors hover:border-secondary focus-visible:border-ink",
                         "disabled:cursor-not-allowed disabled:hover:border-line",
-                        tone()
+                        tone().text
                     )}
                     aria-label={props.label}
                 >
                     <span
-                        class={cn(
-                            "size-2.5 shrink-0 rounded-full",
-                            props.tone === "a" ? "bg-lap-a" : "bg-lap-b"
-                        )}
+                        class={cn("size-2.5 shrink-0 rounded-full", tone().dot)}
                         aria-hidden="true"
                     />
                     <span class="min-w-0 truncate text-base font-semibold">
@@ -1361,7 +1313,7 @@ const LapPicker = (props: {
                             when={selected()}
                             fallback={
                                 <span class="text-muted">
-                                    {t("app.pickLap")}
+                                    {props.placeholder ?? t("app.pickLap")}
                                 </span>
                             }
                         >
@@ -1374,7 +1326,7 @@ const LapPicker = (props: {
                         </Show>
                     </span>
                     <ChevronDown
-                        class="size-4 shrink-0 text-muted"
+                        class="ml-auto size-4 shrink-0 text-muted"
                         strokeWidth={2}
                     />
                 </Select.Trigger>
@@ -1400,7 +1352,7 @@ const LapPicker = (props: {
                                                     item={choice}
                                                     class={cn(
                                                         "group flex cursor-pointer items-center justify-between gap-3 rounded px-2.5 py-2 text-left font-mono text-base text-ink outline-none data-highlighted:bg-inset",
-                                                        checkedTone
+                                                        tone().checked
                                                     )}
                                                 >
                                                     <span class="font-semibold">
@@ -1514,12 +1466,15 @@ const loadCatalog = async (
     const ordered = [...sessions].sort(
         (left, right) => right.startedAt - left.startedAt
     )
-    const newest = ordered[0]
-    if (!newest) return undefined
 
     const choices: LapChoice[] = []
+    const sessionLaps = new Map<string, Lap[]>()
     for (const item of ordered) {
         const laps = await repo.readLaps(item.id)
+        sessionLaps.set(
+            item.id,
+            [...laps].sort((left, right) => left.number - right.number)
+        )
         for (const lap of laps) {
             if (lap.timeMs !== null) {
                 choices.push({ lap, session: item })
@@ -1528,43 +1483,5 @@ const loadCatalog = async (
     }
     if (choices.length === 0) return undefined
 
-    const newestRanked = choices
-        .filter(
-            item =>
-                item.session.id === newest.id &&
-                item.lap.valid &&
-                item.lap.timeMs !== null
-        )
-        .sort(
-            (left, right) =>
-                (left.lap.timeMs ?? Infinity) - (right.lap.timeMs ?? Infinity)
-        )
-    const primary = newestRanked[0] ?? choices[0]
-    if (!primary) return undefined
-
-    const sameSessionRanked = choices
-        .filter(
-            item =>
-                item.session.id === primary.session.id &&
-                item.lap.valid &&
-                item.lap.timeMs !== null &&
-                item.lap.id !== primary.lap.id
-        )
-        .sort(
-            (left, right) =>
-                (left.lap.timeMs ?? Infinity) - (right.lap.timeMs ?? Infinity)
-        )
-    const reference =
-        sameSessionRanked[0] ??
-        choices.find(
-            item =>
-                item.lap.id !== primary.lap.id &&
-                item.session.track === primary.session.track
-        )
-
-    return {
-        choices,
-        initialPrimaryId: primary.lap.id,
-        initialReferenceId: reference?.lap.id,
-    }
+    return { choices, sessionLaps }
 }

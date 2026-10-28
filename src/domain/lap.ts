@@ -11,7 +11,24 @@ export type Lap = {
     valid: boolean
     maxSpeed: number
     fuel: number
+    /** Traction control level from the graphics page. */
+    tc: number
+    /** ABS level from the graphics page. */
+    abs: number
+    /** Engine map from the graphics page. */
+    engineMap: number
+    /** Front brake bias, fraction 0..1. */
+    brakeBias: number
 }
+
+/** Rows written before electronics existed still load. */
+export const completeLap = (lap: Lap): Lap => ({
+    ...lap,
+    tc: Number.isFinite(lap.tc) ? lap.tc : 0,
+    abs: Number.isFinite(lap.abs) ? lap.abs : 0,
+    engineMap: Number.isFinite(lap.engineMap) ? lap.engineMap : 0,
+    brakeBias: Number.isFinite(lap.brakeBias) ? lap.brakeBias : 0,
+})
 
 
 const MAX_LAP_MS = 2 * 60 * 60 * 1000

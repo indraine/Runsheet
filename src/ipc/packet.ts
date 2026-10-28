@@ -1,6 +1,6 @@
 import { TRACE_CHANNELS, realTimeMs, type Lap, type Trace } from "~/domain"
 
-const HEADER_LEN = 76
+const HEADER_LEN = 92
 const MISSING_MS = -1
 const MISSING_M = -1
 
@@ -15,6 +15,10 @@ const OFF_S2_END = 60
 const OFF_VALID = 64
 const OFF_FUEL = 68
 const OFF_MAX_SPEED = 72
+const OFF_TC = 76
+const OFF_ABS = 80
+const OFF_ENGINE_MAP = 84
+const OFF_BRAKE_BIAS = 88
 
 export type DecodedLap = {
     lap: Lap
@@ -51,10 +55,13 @@ export const encodeLapPacket = (lap: Lap, trace: Trace): ArrayBuffer => {
     view.setUint8(OFF_VALID, lap.valid ? 1 : 0)
     view.setFloat32(OFF_FUEL, lap.fuel, true)
     view.setFloat32(OFF_MAX_SPEED, lap.maxSpeed, true)
+    view.setInt32(OFF_TC, lap.tc, true)
+    view.setInt32(OFF_ABS, lap.abs, true)
+    view.setInt32(OFF_ENGINE_MAP, lap.engineMap, true)
+    view.setFloat32(OFF_BRAKE_BIAS, lap.brakeBias, true)
     writePlane(view, trace, count)
     return buffer
 }
-
 
 export const decodeLapPacket = (
     buffer: ArrayBuffer
@@ -79,6 +86,10 @@ export const decodeLapPacket = (
         valid: view.getUint8(OFF_VALID) !== 0,
         fuel: view.getFloat32(OFF_FUEL, true),
         maxSpeed: view.getFloat32(OFF_MAX_SPEED, true),
+        tc: view.getInt32(OFF_TC, true),
+        abs: view.getInt32(OFF_ABS, true),
+        engineMap: view.getInt32(OFF_ENGINE_MAP, true),
+        brakeBias: view.getFloat32(OFF_BRAKE_BIAS, true),
     }
 
     return { lap, trace: readPlane(view, lapId, count) }

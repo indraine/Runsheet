@@ -41,6 +41,10 @@ const lap = (
     valid,
     maxSpeed: 270,
     fuel: 40,
+    tc: 5,
+    abs: 6,
+    engineMap: 4,
+    brakeBias: 0.57,
 })
 
 describe("applyDayWrite", () => {

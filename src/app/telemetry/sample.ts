@@ -7,9 +7,15 @@ export type TraceSample = {
     steer: number
     speed: number
     gear: number
+    rpm: number
+    heading: number
     x: number
     z: number
     time: number
+    pressureFl: number
+    pressureFr: number
+    pressureRl: number
+    pressureRr: number
 }
 
 /** Inclusive distance span of a trace, or undefined when empty. */
@@ -66,23 +72,51 @@ export const sampleAtDistance = (
     return readSample(trace, previous, previous, 0)
 }
 
+/**
+ * Time delta to the baseline at the same distance, milliseconds.
+ *
+ * Positive means the lap is behind the baseline.
+ *
+ * @example
+ * ```ts
+ * deltaToBaseline(challenger, baseline, 100) // ms
+ * ```
+ */
+export const deltaToBaseline = (
+    lap: Trace | undefined,
+    baseline: Trace | undefined,
+    distance: number
+): number | undefined => {
+    const left = sampleAtDistance(lap, distance)
+    const right = sampleAtDistance(baseline, distance)
+    if (!left || !right) return undefined
+    return left.time - right.time
+}
+
+const CONTINUOUS = [
+    "throttle",
+    "brake",
+    "steer",
+    "speed",
+    "rpm",
+    "heading",
+    "x",
+    "z",
+    "time",
+    "distance",
+    "pressureFl",
+    "pressureFr",
+    "pressureRl",
+    "pressureRr",
+] as const
+
 const readSample = (
     trace: Trace,
     left: number,
     right: number,
     t: number
 ): TraceSample => {
-    const mix = (
-        channel:
-            | "throttle"
-            | "brake"
-            | "steer"
-            | "speed"
-            | "x"
-            | "z"
-            | "time"
-            | "distance"
-    ) => {
+    const mix = (channel: (typeof CONTINUOUS)[number]) => {
         const start = trace[channel][left] ?? 0
         const end = trace[channel][right] ?? start
         const from = Number.isFinite(start) ? start : 0
@@ -97,9 +131,15 @@ const readSample = (
         steer: mix("steer"),
         speed: mix("speed"),
         gear: trace.gear[gearIndex] ?? 0,
+        rpm: mix("rpm"),
+        heading: mix("heading"),
         x: mix("x"),
         z: mix("z"),
         time: mix("time"),
+        pressureFl: mix("pressureFl"),
+        pressureFr: mix("pressureFr"),
+        pressureRl: mix("pressureRl"),
+        pressureRr: mix("pressureRr"),
     }
 }
 

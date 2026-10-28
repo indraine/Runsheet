@@ -8,9 +8,9 @@ const LAP_CLOCK_GUARD_MS: i32 = 3_000;
 
 const CLOCK_DROP_MS: i32 = 1_500;
 
-const CHANNEL_COUNT: usize = 17;
+const CHANNEL_COUNT: usize = 19;
 
-const HEADER_LEN: usize = 76;
+const HEADER_LEN: usize = 92;
 
 const MISSING_MS: i32 = -1;
 
@@ -31,6 +31,8 @@ pub(crate) struct Sample {
     pub brake: f32,
     pub steer: f32,
     pub gear: i32,
+    pub rpm: i32,
+    pub heading: f32,
     pub speed: f32,
     pub lap_time_ms: i32,
     pub progress: f32,
@@ -44,6 +46,10 @@ pub(crate) struct Sample {
     pub pressure_rr: f32,
     pub brake_temp_fl: f32,
     pub brake_temp_fr: f32,
+    pub tc: i32,
+    pub abs: i32,
+    pub engine_map: i32,
+    pub brake_bias: f32,
     /// Race sessions stay closed until the green flag is shown.
     pub race: bool,
     /// Green flag or the global green light from the graphics page.
@@ -168,6 +174,10 @@ impl Collector {
             );
             open.valid = sample.valid;
             open.fuel = sample.fuel;
+            open.tc = sample.tc;
+            open.abs = sample.abs;
+            open.engine_map = sample.engine_map;
+            open.brake_bias = sample.brake_bias;
             open.max_speed = Some(match open.max_speed {
                 Some(seen) => seen.max(sample.speed),
                 None => sample.speed,
@@ -200,6 +210,10 @@ struct OpenLap {
     s2_end_m: Option<f32>,
     valid: bool,
     fuel: f32,
+    tc: i32,
+    abs: i32,
+    engine_map: i32,
+    brake_bias: f32,
     max_speed: Option<f32>,
     last_trace_ms: Option<u64>,
     last_lap_time_ms: Option<i32>,
@@ -222,6 +236,10 @@ impl OpenLap {
             s2_end_m: None,
             valid: false,
             fuel: 0.0,
+            tc: sample.tc,
+            abs: sample.abs,
+            engine_map: sample.engine_map,
+            brake_bias: sample.brake_bias,
             max_speed: None,
             last_trace_ms: None,
             last_lap_time_ms: None,
@@ -251,6 +269,10 @@ impl OpenLap {
             s2_end_m: self.s2_end_m,
             valid: self.valid,
             fuel: self.fuel,
+            tc: self.tc,
+            abs: self.abs,
+            engine_map: self.engine_map,
+            brake_bias: self.brake_bias,
             max_speed: self.max_speed.unwrap_or(0.0),
             points: self.points,
         }
@@ -269,6 +291,10 @@ impl OpenLap {
             s2_end_m: self.s2_end_m,
             valid: false,
             fuel: self.fuel,
+            tc: self.tc,
+            abs: self.abs,
+            engine_map: self.engine_map,
+            brake_bias: self.brake_bias,
             max_speed: self.max_speed.unwrap_or(0.0),
             points: self.points,
         }
@@ -287,6 +313,10 @@ impl OpenLap {
             s2_end_m: self.s2_end_m,
             valid: self.valid,
             fuel: self.fuel,
+            tc: self.tc,
+            abs: self.abs,
+            engine_map: self.engine_map,
+            brake_bias: self.brake_bias,
             max_speed: self.max_speed.unwrap_or(0.0),
             points: self.points.clone(),
         }
@@ -356,6 +386,8 @@ struct LapPoint {
     pressure_rr: f32,
     brake_temp_fl: f32,
     brake_temp_fr: f32,
+    rpm: f32,
+    heading: f32,
 }
 
 impl LapPoint {
@@ -378,6 +410,8 @@ impl LapPoint {
             pressure_rr: sample.pressure_rr,
             brake_temp_fl: sample.brake_temp_fl,
             brake_temp_fr: sample.brake_temp_fr,
+            rpm: sample.rpm as f32,
+            heading: sample.heading,
         }
     }
 }
@@ -394,6 +428,10 @@ struct Finished {
     s2_end_m: Option<f32>,
     valid: bool,
     fuel: f32,
+    tc: i32,
+    abs: i32,
+    engine_map: i32,
+    brake_bias: f32,
     max_speed: f32,
     points: Vec<LapPoint>,
 }
@@ -545,6 +583,10 @@ fn pack(lap: &Finished) -> Vec<u8> {
     out.extend_from_slice(&[0, 0, 0]);
     write_f32(&mut out, lap.fuel);
     write_f32(&mut out, lap.max_speed);
+    write_i32(&mut out, lap.tc);
+    write_i32(&mut out, lap.abs);
+    write_i32(&mut out, lap.engine_map);
+    write_f32(&mut out, lap.brake_bias);
     debug_assert_eq!(out.len(), HEADER_LEN);
     write_plane(&mut out, &lap.points);
     out
@@ -568,6 +610,8 @@ fn write_plane(out: &mut Vec<u8>, points: &[LapPoint]) {
     write_values(out, points, |point| point.pressure_rr);
     write_values(out, points, |point| point.brake_temp_fl);
     write_values(out, points, |point| point.brake_temp_fr);
+    write_values(out, points, |point| point.rpm);
+    write_values(out, points, |point| point.heading);
 }
 
 fn write_values(out: &mut Vec<u8>, points: &[LapPoint], value: impl Fn(&LapPoint) -> f32) {

@@ -15,6 +15,8 @@ export type DivergenceZone = {
     /** Peak normalized disagreement inside the stretch, roughly 0..1. */
     peak: number
     cause: DivergenceCause
+    /** Compare-slot color index of the non-baseline lap (1..3). */
+    colorIndex: number
 }
 
 type Stretch = {
@@ -50,13 +52,14 @@ const PAD_FRACTION = 0.2
  *
  * @example
  * ```ts
- * const zones = divergenceZones(primary, reference)
+ * const zones = divergenceZones(primary, reference, 1)
  * zones[0]?.startM // metres where the laps first pull apart
  * ```
  */
 export const divergenceZones = (
     primary: Trace | undefined,
-    reference: Trace | undefined
+    reference: Trace | undefined,
+    colorIndex = 1
 ): DivergenceZone[] => {
     if (!primary || !reference) return []
     const overlap = overlapSpan(primary, reference)
@@ -93,7 +96,31 @@ export const divergenceZones = (
         endM: zone.endM,
         peak: zone.peak,
         cause: causeFor(primary, reference, zone, steerScale, speedScale),
+        colorIndex,
     }))
+}
+
+/**
+ * Zones of each compare lap against the baseline, tagged with that lap's color.
+ *
+ * @example
+ * ```ts
+ * compareDivergenceZones(baseline, [lapB, lapC])
+ * ```
+ */
+export const compareDivergenceZones = (
+    baseline: Trace | undefined,
+    others: readonly (Trace | undefined)[]
+): DivergenceZone[] => {
+    if (!baseline) return []
+    const zones: DivergenceZone[] = []
+    for (let index = 0; index < others.length; index += 1) {
+        const other = others[index]
+        if (!other || other.lapId === baseline.lapId) continue
+        zones.push(...divergenceZones(baseline, other, index + 1))
+    }
+    zones.sort((left, right) => left.startM - right.startM)
+    return zones
 }
 
 /**

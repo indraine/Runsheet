@@ -1,5 +1,6 @@
 import { batch, createSignal, type Accessor, type Setter } from "solid-js"
 import {
+    completeLap,
     completeSession,
     fastestValidLap,
     groupDay,
@@ -65,7 +66,9 @@ export class SessionRepository {
             "sessionId",
             sessionId
         )
-        return laps.sort((left, right) => left.number - right.number)
+        return laps
+            .map(completeLap)
+            .sort((left, right) => left.number - right.number)
     }
 
     async readTraces(lapIds: readonly string[]): Promise<Map<string, Trace>> {

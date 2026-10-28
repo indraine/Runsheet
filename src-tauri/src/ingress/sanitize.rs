@@ -82,6 +82,8 @@ impl TryFrom<&RawPhysicsPage> for CleanTelemetryFrame {
             brake: BrakePosition::from_fraction_unchecked(unit_interval("brake", page.brake)?),
             steer_deg: finite("steer_angle", page.steer_angle)?,
             gear: page.gear,
+            rpm: page.rpm,
+            heading: finite("heading", page.heading)?,
             progress: TrackProgress::from_fraction_unchecked(0.0),
             fuel_l: finite("fuel", page.fuel)?,
             g_long,
@@ -91,6 +93,7 @@ impl TryFrom<&RawPhysicsPage> for CleanTelemetryFrame {
             pressure: pressure.map(Psi::from_psi_unchecked),
             brake_temp_fl: Celsius::from_celsius_unchecked(brake_temp_fl),
             brake_temp_fr: Celsius::from_celsius_unchecked(brake_temp_fr),
+            brake_bias: unit_interval("brake_bias", page.brake_bias)?,
         })
     }
 }
@@ -121,6 +124,9 @@ impl TryFrom<&RawGraphicPage> for CleanSessionGraphic {
             setup_menu: page.is_setup_menu_visible,
             air: Celsius::from_celsius_unchecked(0.0),
             road: Celsius::from_celsius_unchecked(0.0),
+            tc: page.tc_level,
+            abs: page.abs_level,
+            engine_map: page.engine_map,
             car_state,
             completed_lap: page.completed_lap,
             last_time: known_time(page.last_time),

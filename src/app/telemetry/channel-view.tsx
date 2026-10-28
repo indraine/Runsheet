@@ -4,30 +4,47 @@ import { ensurePlotSize, followPlotBox, plotResolution } from "~/app/plot-frame"
 import { uiScale } from "~/app/scale"
 import { cssColor } from "~/app/telemetry/css-color"
 import {
+    lapColorFallback,
+    lapColorVar,
+} from "~/app/telemetry/lap-colors"
+import {
     guardPointerCapture,
     popupBlocksCanvas,
 } from "~/app/telemetry/pointer-capture"
 import { layoutPoint } from "~/app/zoom-space"
 import type { DistanceWindow, DivergenceZone } from "~/app/telemetry/divergence"
-import { distanceSpan, downsampleIndices } from "~/app/telemetry/sample"
+import {
+    deltaToBaseline,
+    distanceSpan,
+    downsampleIndices,
+} from "~/app/telemetry/sample"
 import { themeGeneration } from "~/app/theme"
 import type { Trace } from "~/domain"
 import { cn } from "~/ui"
 
 const PAD = { top: 10, right: 10, bottom: 8, left: 10 }
 const MAX_POINTS = 720
-const FALLBACK_LAP_A = 0xea580c
-const FALLBACK_LAP_B = 0x2563eb
 const FALLBACK_INK = 0x0f172a
 const FALLBACK_LINE = 0xe2e8f0
-const FALLBACK_LOSS = 0xdc2626
 
-export type ChannelKind = "throttle" | "brake" | "steer" | "speed"
+export type ChannelKind =
+    | "throttle"
+    | "brake"
+    | "steer"
+    | "speed"
+    | "gear"
+    | "rpm"
+    | "delta"
+
+export type ChannelTrace = {
+    trace: Trace
+    colorIndex: number
+}
 
 export const ChannelView = (props: {
     kind: ChannelKind
-    primary?: Trace
-    reference?: Trace
+    /** First entry is the baseline. */
+    traces?: readonly ChannelTrace[]
     cursorM: number
     onCursor: (distanceM: number) => void
     distanceWindow?: DistanceWindow
@@ -46,19 +63,21 @@ export const ChannelView = (props: {
     let disposed = false
     let ready = false
 
+    const series = () => props.traces ?? []
+
     const span = () => {
         const focused = props.distanceWindow
         if (focused && focused.max > focused.min) return focused
-        const primary = distanceSpan(props.primary)
-        const reference = distanceSpan(props.reference)
-        if (!primary && !reference) return undefined
-        return {
-            min: Math.min(primary?.min ?? Infinity, reference?.min ?? Infinity),
-            max: Math.max(
-                primary?.max ?? -Infinity,
-                reference?.max ?? -Infinity
-            ),
+        let min = Infinity
+        let max = -Infinity
+        for (const item of series()) {
+            const next = distanceSpan(item.trace)
+            if (!next) continue
+            if (next.min < min) min = next.min
+            if (next.max > max) max = next.max
         }
+        if (!Number.isFinite(min) || max <= min) return undefined
+        return { min, max }
     }
 
     const redraw = () => {
@@ -81,13 +100,11 @@ export const ChannelView = (props: {
         const range = span()
         if (!range || range.max <= range.min) return
 
-        const colors = {
-            lapA: cssColor("--lap-a", FALLBACK_LAP_A),
-            lapB: cssColor("--lap-b", FALLBACK_LAP_B),
-            ink: cssColor("--ink", FALLBACK_INK),
-            line: cssColor("--line", FALLBACK_LINE),
-            loss: cssColor("--loss", FALLBACK_LOSS),
-        }
+        const ink = cssColor("--ink", FALLBACK_INK)
+        const line = cssColor("--line", FALLBACK_LINE)
+        const palette = series().map(item =>
+            cssColor(lapColorVar(item.colorIndex), lapColorFallback(item.colorIndex))
+        )
 
         drawZoneBands(
             layer,
@@ -96,17 +113,17 @@ export const ChannelView = (props: {
             range,
             innerW,
             innerH,
-            colors.loss
+            palette
         )
         drawChannel(
             layer,
             props.kind,
-            props.primary,
-            props.reference,
+            series(),
             range,
             innerW,
             innerH,
-            colors
+            palette,
+            line
         )
 
         const cursorX =
@@ -116,7 +133,7 @@ export const ChannelView = (props: {
                 innerW
         playhead.moveTo(cursorX, PAD.top)
         playhead.lineTo(cursorX, PAD.top + innerH)
-        playhead.stroke({ width: 1.5, color: colors.ink, alpha: 0.85 })
+        playhead.stroke({ width: 1.5, color: ink, alpha: 0.85 })
         app.render()
     }
 
@@ -213,18 +230,18 @@ export const ChannelView = (props: {
 
     createEffect(() => {
         props.kind
-        props.primary?.lapId
-        props.primary?.distance
-        props.primary?.throttle
-        props.primary?.brake
-        props.primary?.steer
-        props.primary?.speed
-        props.reference?.lapId
-        props.reference?.distance
-        props.reference?.throttle
-        props.reference?.brake
-        props.reference?.steer
-        props.reference?.speed
+        for (const item of series()) {
+            item.trace.lapId
+            item.trace.distance
+            item.trace.throttle
+            item.trace.brake
+            item.trace.steer
+            item.trace.speed
+            item.trace.gear
+            item.trace.rpm
+            item.trace.time
+            item.colorIndex
+        }
         props.cursorM
         props.distanceWindow?.min
         props.distanceWindow?.max
@@ -258,97 +275,128 @@ export const ChannelView = (props: {
 const drawChannel = (
     graphics: Graphics,
     kind: ChannelKind,
-    primary: Trace | undefined,
-    reference: Trace | undefined,
+    traces: readonly ChannelTrace[],
     range: { min: number; max: number },
     innerW: number,
     innerH: number,
-    colors: {
-        lapA: number
-        lapB: number
-        line: number
-    }
+    palette: readonly number[],
+    grid: number
 ) => {
-    const yRange = valueRange(kind, primary, reference, range)
+    const yRange = valueRange(kind, traces, range)
 
     for (const fraction of [0, 0.5, 1]) {
         const y = PAD.top + innerH * (1 - fraction)
         graphics.moveTo(PAD.left, y)
         graphics.lineTo(PAD.left + innerW, y)
-        graphics.stroke({ width: 1, color: colors.line, alpha: 0.7 })
+        graphics.stroke({ width: 1, color: grid, alpha: 0.7 })
     }
 
-    if (reference) {
+    const baseline = traces[0]?.trace
+    // Draw overlays first so the baseline stays on top.
+    for (let index = traces.length - 1; index >= 0; index -= 1) {
+        const item = traces[index]
+        if (!item) continue
+        const points =
+            kind === "delta"
+                ? deltaPoints(item.trace, baseline, range, yRange, innerW, innerH)
+                : kind === "gear"
+                  ? stepPoints(item.trace, range, yRange, innerW, innerH)
+                  : seriesPoints(item.trace, kind, range, yRange, innerW, innerH)
         strokeSeries(
             graphics,
-            seriesPoints(reference, kind, range, yRange, innerW, innerH),
-            colors.lapB,
-            0.85,
-            1.5
-        )
-    }
-    if (primary) {
-        strokeSeries(
-            graphics,
-            seriesPoints(primary, kind, range, yRange, innerW, innerH),
-            colors.lapA,
-            1,
-            2
+            points,
+            palette[index] ?? lapColorFallback(item.colorIndex),
+            index === 0 ? 1 : 0.85,
+            index === 0 ? 2 : 1.5
         )
     }
 }
 
 const valueRange = (
     kind: ChannelKind,
-    primary: Trace | undefined,
-    reference: Trace | undefined,
+    traces: readonly ChannelTrace[],
     range: { min: number; max: number }
 ): { min: number; max: number } => {
     if (kind === "throttle" || kind === "brake") return { min: 0, max: 1 }
-    if (kind === "steer") return signedRange(primary, reference, range)
-    return paddedRange(primary, reference, range)
+    if (kind === "steer") return signedExtent(traces, "steer", range)
+    if (kind === "gear") return gearRange(traces, range)
+    if (kind === "delta") return deltaRange(traces, range)
+    if (kind === "rpm") return paddedExtent(traces, "rpm", range, 1000)
+    return paddedExtent(traces, "speed", range, 1)
 }
 
-const signedRange = (
-    primary: Trace | undefined,
-    reference: Trace | undefined,
+const gearRange = (
+    traces: readonly ChannelTrace[],
+    range: { min: number; max: number }
+): { min: number; max: number } => {
+    let max = 1
+    for (const item of traces) {
+        visitChannel(item.trace, "gear", range, value => {
+            if (value > max) max = value
+        })
+    }
+    return { min: -1, max: Math.max(6, Math.ceil(max) + 0.5) }
+}
+
+const deltaRange = (
+    traces: readonly ChannelTrace[],
+    range: { min: number; max: number }
+): { min: number; max: number } => {
+    const baseline = traces[0]?.trace
+    if (!baseline) return { min: -1000, max: 1000 }
+    let extent = 0
+    for (const item of traces.slice(1)) {
+        visitDistances(item.trace, range, distance => {
+            const delta = deltaToBaseline(item.trace, baseline, distance)
+            if (delta === undefined) return
+            const magnitude = Math.abs(delta)
+            if (magnitude > extent) extent = magnitude
+        })
+    }
+    if (extent < 200) extent = 200
+    const pad = extent * 0.08
+    return { min: -(extent + pad), max: extent + pad }
+}
+
+const signedExtent = (
+    traces: readonly ChannelTrace[],
+    channel: "steer",
     range: { min: number; max: number }
 ): { min: number; max: number } => {
     let extent = 0
-    visitChannel(primary, "steer", range, value => {
-        const magnitude = Math.abs(value)
-        if (magnitude > extent) extent = magnitude
-    })
-    visitChannel(reference, "steer", range, value => {
-        const magnitude = Math.abs(value)
-        if (magnitude > extent) extent = magnitude
-    })
+    for (const item of traces) {
+        visitChannel(item.trace, channel, range, value => {
+            const magnitude = Math.abs(value)
+            if (magnitude > extent) extent = magnitude
+        })
+    }
     if (extent < 1) extent = 1
     const pad = extent * 0.08
     return { min: -(extent + pad), max: extent + pad }
 }
 
-const paddedRange = (
-    primary: Trace | undefined,
-    reference: Trace | undefined,
-    range: { min: number; max: number }
+const paddedExtent = (
+    traces: readonly ChannelTrace[],
+    channel: "speed" | "rpm",
+    range: { min: number; max: number },
+    floor: number
 ): { min: number; max: number } => {
     let min = Infinity
     let max = -Infinity
-    const visit = (value: number) => {
-        if (value < min) min = value
-        if (value > max) max = value
+    for (const item of traces) {
+        visitChannel(item.trace, channel, range, value => {
+            if (value < min) min = value
+            if (value > max) max = value
+        })
     }
-    visitChannel(primary, "speed", range, visit)
-    visitChannel(reference, "speed", range, visit)
-    if (!Number.isFinite(min) || max <= min) return { min: 0, max: 1 }
-    const pad = (max - min) * 0.08
-    return { min: min - pad, max: max + pad }
+    if (!Number.isFinite(min) || max <= min) return { min: 0, max: floor }
+    const pad = Math.max((max - min) * 0.08, floor * 0.02)
+    return { min: Math.max(0, min - pad), max: max + pad }
 }
 
 const visitChannel = (
     trace: Trace | undefined,
-    channel: "steer" | "speed",
+    channel: "steer" | "speed" | "gear" | "rpm",
     range: { min: number; max: number },
     visit: (value: number) => void
 ) => {
@@ -363,9 +411,23 @@ const visitChannel = (
     }
 }
 
+const visitDistances = (
+    trace: Trace,
+    range: { min: number; max: number },
+    visit: (distance: number) => void
+) => {
+    const count = trace.distance.length
+    const indices = indicesInRange(trace.distance, count, range)
+    for (const index of indices) {
+        const distance = trace.distance[index]
+        if (!Number.isFinite(distance)) continue
+        visit(distance)
+    }
+}
+
 const seriesPoints = (
     trace: Trace,
-    kind: ChannelKind,
+    kind: Exclude<ChannelKind, "delta" | "gear">,
     range: { min: number; max: number },
     yRange: { min: number; max: number },
     innerW: number,
@@ -383,6 +445,63 @@ const seriesPoints = (
         if (!Number.isFinite(distance) || !Number.isFinite(value)) continue
         const x = PAD.left + ((distance - range.min) / span) * innerW
         const ratio = clamp((value - yRange.min) / ySpan, 0, 1)
+        const y = PAD.top + innerH * (1 - ratio)
+        points.push({ x, y })
+    }
+    return points
+}
+
+/** Gear as a step line: hold value until the next sample. */
+const stepPoints = (
+    trace: Trace,
+    range: { min: number; max: number },
+    yRange: { min: number; max: number },
+    innerW: number,
+    innerH: number
+): { x: number; y: number }[] => {
+    const count = Math.min(trace.distance.length, trace.gear.length)
+    const indices = indicesInRange(trace.distance, count, range)
+    const span = range.max - range.min
+    const ySpan = yRange.max - yRange.min
+    const points: { x: number; y: number }[] = []
+    let previousY: number | undefined
+    for (const index of indices) {
+        const distance = trace.distance[index]
+        const value = trace.gear[index]
+        if (!Number.isFinite(distance) || !Number.isFinite(value)) continue
+        const x = PAD.left + ((distance - range.min) / span) * innerW
+        const ratio = clamp((value - yRange.min) / ySpan, 0, 1)
+        const y = PAD.top + innerH * (1 - ratio)
+        if (previousY !== undefined && previousY !== y) {
+            points.push({ x, y: previousY })
+        }
+        points.push({ x, y })
+        previousY = y
+    }
+    return points
+}
+
+const deltaPoints = (
+    lap: Trace,
+    baseline: Trace | undefined,
+    range: { min: number; max: number },
+    yRange: { min: number; max: number },
+    innerW: number,
+    innerH: number
+): { x: number; y: number }[] => {
+    if (!baseline || lap.lapId === baseline.lapId) return []
+    const count = lap.distance.length
+    const indices = indicesInRange(lap.distance, count, range)
+    const span = range.max - range.min
+    const ySpan = yRange.max - yRange.min
+    const points: { x: number; y: number }[] = []
+    for (const index of indices) {
+        const distance = lap.distance[index]
+        if (!Number.isFinite(distance)) continue
+        const delta = deltaToBaseline(lap, baseline, distance)
+        if (delta === undefined) continue
+        const x = PAD.left + ((distance - range.min) / span) * innerW
+        const ratio = clamp((delta - yRange.min) / ySpan, 0, 1)
         const y = PAD.top + innerH * (1 - ratio)
         points.push({ x, y })
     }
@@ -420,7 +539,7 @@ const drawZoneBands = (
     range: { min: number; max: number },
     innerW: number,
     innerH: number,
-    color: number
+    palette: readonly number[]
 ) => {
     if (!zones || zones.length === 0) return
     const span = range.max - range.min
@@ -435,8 +554,10 @@ const drawZoneBands = (
             active !== undefined &&
             active.startM === zone.startM &&
             active.endM === zone.endM
+        const color =
+            palette[zone.colorIndex] ?? lapColorFallback(zone.colorIndex)
         graphics.rect(x, PAD.top, Math.max(width, 1), innerH)
-        graphics.fill({ color, alpha: hot ? 0.38 : 0.22 })
+        graphics.fill({ color, alpha: hot ? 0.38 : 0.18 })
     }
 }
 

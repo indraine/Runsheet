@@ -19,7 +19,7 @@ const SESSION_MONZA = "seed-monza-practice"
 const SESSION_SPA_PRACTICE = "seed-spa-practice"
 const SESSION_SPA_QUALIFYING = "seed-spa-qualifying"
 
-const SEED_VERSION = "7"
+const SEED_VERSION = "8"
 const SEED_VERSION_KEY = "runsheet.seed"
 
 const LAP_METRES = 7004
@@ -390,6 +390,10 @@ function qualifyingLap(row: LapRow): Lap {
         valid: row.valid,
         maxSpeed: row.maxSpeed,
         fuel: row.fuel,
+        tc: 5,
+        abs: 6,
+        engineMap: 4,
+        brakeBias: 0.57,
     }
 }
 
@@ -418,6 +422,10 @@ function closedLap(
         valid: true,
         maxSpeed,
         fuel,
+        tc: 5,
+        abs: 6,
+        engineMap: 4,
+        brakeBias: 0.57,
     }
 }
 

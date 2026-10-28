@@ -227,6 +227,10 @@ function parseLap(raw: unknown): Lap {
         valid: requireBoolean(raw, "valid"),
         maxSpeed: requireFinite(raw, "maxSpeed"),
         fuel: requireFinite(raw, "fuel"),
+        tc: optionalFinite(raw.tc) ?? 0,
+        abs: optionalFinite(raw.abs) ?? 0,
+        engineMap: optionalFinite(raw.engineMap) ?? 0,
+        brakeBias: optionalFinite(raw.brakeBias) ?? 0,
     }
 }
 
