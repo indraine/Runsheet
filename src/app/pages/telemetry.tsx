@@ -14,7 +14,13 @@ import {
     Show,
 } from "solid-js"
 import { Portal } from "solid-js/web"
-import { ArrowLeftRight, ChevronDown, X } from "lucide-solid"
+import {
+    ArrowLeftRight,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    X,
+} from "lucide-solid"
 import { DayNav } from "~/app/pages/day-nav"
 import {
     screenMenuListClass,
@@ -37,6 +43,10 @@ import {
     type ChannelKind,
     type ChannelTrace,
 } from "~/app/telemetry/channel-view"
+import {
+    driversOnTrack,
+    filterChoices,
+} from "~/app/telemetry/compare-filters"
 import {
     clearStoredComparison,
     MAX_COMPARE_LAPS,
@@ -321,10 +331,6 @@ export const TelemetryPage = () => {
 
     const replaceLap = (index: number, lapId: string) =>
         setLapIds(replaceLapId(activeIds(), index, lapId))
-    const addLap = (lapId: string) =>
-        setLapIds(normalizeLapIds([...activeIds(), lapId]))
-    const makeBaseline = (index: number) =>
-        setLapIds(makeBaselineId(activeIds(), index))
 
     const toggleChartChannel = (channel: AnalysisChannel) => {
         const next = toggleChannel(layout(), channel)
@@ -435,8 +441,6 @@ export const TelemetryPage = () => {
                 choices={confirmed() ? trackChoices() : []}
                 selected={selectedChoices()}
                 onReplace={replaceLap}
-                onAdd={addLap}
-                onMakeBaseline={makeBaseline}
                 onEdit={confirmed() ? () => setPickerOpen(true) : undefined}
                 zones={zones()}
                 focus={focus()}
@@ -570,34 +574,64 @@ const DivergenceMenu = (props: {
         if (!current) return -1
         return props.zones.findIndex(zone => sameZone(zone, current))
     }
+    const canPrev = () => selected() > 0
+    const canNext = () => {
+        const current = selected()
+        const last = props.zones.length - 1
+        if (last < 0) return false
+        return current < 0 ? true : current < last
+    }
+    const step = (delta: -1 | 1) => {
+        const count = props.zones.length
+        if (count === 0) return
+        const current = selected()
+        const next =
+            current < 0
+                ? delta > 0
+                    ? 0
+                    : -1
+                : current + delta
+        if (next < 0 || next >= count) return
+        const zone = props.zones[next]
+        if (zone) props.onOpen(zone)
+    }
 
     return (
-        <Popover.Root
-            open={open()}
-            onOpenChange={details => setOpen(details.open)}
-            positioning={screenPositioning({ placement: "bottom-end" })}
-        >
-            <Popover.Trigger
-                class={cn(
-                    "inline-flex h-9 cursor-pointer items-center gap-2 rounded border px-3 font-mono text-base outline-none",
-                    "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20",
-                    selected() >= 0
-                        ? "border-loss bg-loss/15 text-loss"
-                        : "border-line bg-inset text-secondary hover:border-loss/70 hover:text-loss"
-                )}
-                aria-label={t("app.telemetryDivergence")}
+        <div class="flex items-center gap-1">
+            <IconButton
+                class="size-9"
+                label={t("app.telemetryPrevTurn")}
+                disabled={!canPrev()}
+                onClick={() => step(-1)}
             >
-                <span
-                    class="size-2 shrink-0 rounded-sm bg-loss"
-                    aria-hidden="true"
-                />
-                <span>
-                    {selected() >= 0
-                        ? t("app.telemetryTurn", { n: selected() + 1 })
-                        : t("app.telemetryDivergence")}
-                </span>
-                <ChevronDown class="size-4 shrink-0" strokeWidth={2} />
-            </Popover.Trigger>
+                <ChevronLeft class="size-4" strokeWidth={2} />
+            </IconButton>
+            <Popover.Root
+                open={open()}
+                onOpenChange={details => setOpen(details.open)}
+                positioning={screenPositioning({ placement: "bottom-end" })}
+            >
+                <Popover.Trigger
+                    class={cn(
+                        "inline-flex h-9 cursor-pointer items-center gap-2 rounded border px-3 font-mono text-base outline-none",
+                        "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20",
+                        selected() >= 0
+                            ? "border-loss bg-loss/15 text-loss"
+                            : "border-line bg-inset text-secondary hover:border-loss/70 hover:text-loss"
+                    )}
+                    aria-label={t("app.telemetryDivergence")}
+                >
+                    <span
+                        class="size-2 shrink-0 rounded-sm bg-loss"
+                        aria-hidden="true"
+                    />
+                    <span>
+                        {selected() >= 0
+                            ? t("app.telemetryTurn", { n: selected() + 1 })
+                            : t("app.telemetryDivergence")}
+                    </span>
+                    <ChevronDown class="size-4 shrink-0" strokeWidth={2} />
+                </Popover.Trigger>
             <Portal>
                 <Popover.Positioner class={screenPopupClass}>
                     <Popover.Content class="flex max-h-(--available-height) w-64 flex-col overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
@@ -670,7 +704,16 @@ const DivergenceMenu = (props: {
                     </Popover.Content>
                 </Popover.Positioner>
             </Portal>
-        </Popover.Root>
+            </Popover.Root>
+            <IconButton
+                class="size-9"
+                label={t("app.telemetryNextTurn")}
+                disabled={!canNext()}
+                onClick={() => step(1)}
+            >
+                <ChevronRight class="size-4" strokeWidth={2} />
+            </IconButton>
+        </div>
     )
 }
 
@@ -706,6 +749,10 @@ const ChartStrip = (props: {
         </div>
     </div>
 )
+
+const ALL_DRIVERS = "__all__"
+
+type DriverOption = { id: string; label: string }
 
 const TrackMenu = (props: {
     tracks: string[]
@@ -778,6 +825,123 @@ const TrackMenu = (props: {
     )
 }
 
+/** Single-select driver filter with an in-menu search field. */
+const DriverMenu = (props: {
+    drivers: string[]
+    value: string | null
+    onChange: (driver: string | null) => void
+}) => {
+    const [filter, setFilter] = createSignal("")
+    const options = createMemo((): DriverOption[] => {
+        const all: DriverOption = {
+            id: ALL_DRIVERS,
+            label: t("app.telemetryPickDriverAll"),
+        }
+        const named: DriverOption[] = props.drivers.map(name => ({
+            id: name === "" ? "__unknown__" : name,
+            label: driverLabel(name),
+        }))
+        const rows = [all, ...named]
+        const q = filter().trim().toLowerCase()
+        if (!q) return rows
+        return rows.filter(
+            item =>
+                item.id === ALL_DRIVERS ||
+                item.label.toLowerCase().includes(q) ||
+                item.id.toLowerCase().includes(q)
+        )
+    })
+    const selectedId = () => {
+        if (props.value === null) return ALL_DRIVERS
+        if (props.value === "") return "__unknown__"
+        return props.value
+    }
+    const collection = createMemo(() =>
+        createListCollection({
+            items: options(),
+            itemToValue: item => item.id,
+            itemToString: item => item.label,
+        })
+    )
+    const resolve = (id: string): string | null => {
+        if (id === ALL_DRIVERS) return null
+        if (id === "__unknown__") return ""
+        return id
+    }
+
+    return (
+        <Select.Root
+            collection={collection()}
+            value={[selectedId()]}
+            positioning={screenPositioning({
+                placement: "bottom-start",
+                sameWidth: true,
+            })}
+            onValueChange={details => {
+                const next = details.value[0]
+                if (next) props.onChange(resolve(next))
+            }}
+            onOpenChange={details => {
+                if (details.open) setFilter("")
+            }}
+        >
+            <Select.Control>
+                <Select.Trigger
+                    class={cn(
+                        "inline-flex h-11 w-full cursor-pointer items-center justify-between gap-2 rounded border border-line bg-inset px-3 text-left font-mono text-base outline-none",
+                        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20",
+                        "text-ink"
+                    )}
+                >
+                    <Select.ValueText class="min-w-0 truncate select-text" />
+                    <ChevronDown class="size-4 shrink-0" strokeWidth={2} />
+                </Select.Trigger>
+            </Select.Control>
+            <Portal>
+                <Select.Positioner class={screenPopupOverModalClass}>
+                    <Select.Content
+                        class={cn(
+                            "flex max-h-(--available-height) flex-col overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none"
+                        )}
+                    >
+                        <div class="shrink-0 border-b border-line p-1.5">
+                            <input
+                                type="search"
+                                value={filter()}
+                                placeholder={t("app.telemetryPickSearch")}
+                                class="h-9 w-full rounded border border-line bg-inset px-2.5 font-mono text-sm text-ink outline-none placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20"
+                                onInput={event =>
+                                    setFilter(event.currentTarget.value)
+                                }
+                                onKeyDown={event => event.stopPropagation()}
+                            />
+                        </div>
+                        <div
+                            class={cn(
+                                screenMenuListClass,
+                                "min-h-0 flex-1 p-1"
+                            )}
+                        >
+                            <For each={options()}>
+                                {item => (
+                                    <Select.Item
+                                        item={item}
+                                        class="flex cursor-pointer rounded px-2.5 py-2 text-left font-mono text-base text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-[state=checked]:text-ink"
+                                    >
+                                        <Select.ItemText class="select-text">
+                                            {item.label}
+                                        </Select.ItemText>
+                                    </Select.Item>
+                                )}
+                            </For>
+                        </div>
+                    </Select.Content>
+                </Select.Positioner>
+            </Portal>
+        </Select.Root>
+    )
+}
+
 const ComparePickerModal = (props: {
     choices: LapChoice[]
     mode: "required" | "edit"
@@ -787,14 +951,13 @@ const ComparePickerModal = (props: {
     onLeave: () => void
     onConfirm: (lapIds: string[]) => void
 }) => {
-    const groups = createMemo(() => groupChoices(props.choices))
     const tracks = createMemo(() => {
         const seen = new Set<string>()
         const list: string[] = []
-        for (const group of groups()) {
-            if (seen.has(group.session.track)) continue
-            seen.add(group.session.track)
-            list.push(group.session.track)
+        for (const choice of props.choices) {
+            if (seen.has(choice.session.track)) continue
+            seen.add(choice.session.track)
+            list.push(choice.session.track)
         }
         return list
     })
@@ -816,28 +979,71 @@ const ComparePickerModal = (props: {
     const [day, setDay] = createSignal(
         seedBaseline ? localDayStart(seedBaseline.session.startedAt) : 0
     )
+    /** `null` = every driver on the track. */
+    const [driver, setDriver] = createSignal<string | null>(null)
 
-    const onTrack = () =>
-        groups().filter(group => group.session.track === track())
-
-    const days = createMemo(() =>
-        groupByDay(onTrack().map(group => group.session))
+    const driversAvailable = createMemo(() =>
+        driversOnTrack(props.choices, track())
     )
 
-    const sessionsOnDay = (start: number) =>
-        onTrack().filter(
-            group => localDayStart(group.session.startedAt) === start
+    const driverFilter = (): string[] => {
+        const current = driver()
+        return current === null ? [] : [current]
+    }
+
+    const days = createMemo(() =>
+        groupByDay(
+            filterChoices(props.choices, {
+                track: track(),
+                drivers: driverFilter(),
+                dayStart: null,
+                query: "",
+            }).map(choice => choice.session)
         )
+    )
+
+    const sessionsOnDay = createMemo(() =>
+        groupChoices(
+            filterChoices(props.choices, {
+                track: track(),
+                drivers: driverFilter(),
+                dayStart: day(),
+                query: "",
+            })
+        )
+    )
 
     const chooseTrack = (next: string) => {
         if (next === track()) return
-        const first = groups().find(group => group.session.track === next)
+        const first = groupByDay(
+            filterChoices(props.choices, {
+                track: next,
+                drivers: [],
+                dayStart: null,
+                query: "",
+            }).map(choice => choice.session)
+        )[0]
         batch(() => {
             setTrack(next)
             setSelected([])
-            if (first) setDay(localDayStart(first.session.startedAt))
+            setDriver(null)
+            setDay(first?.start ?? 0)
         })
     }
+
+    createEffect(() => {
+        const current = driver()
+        if (current === null) return
+        if (!driversAvailable().includes(current)) setDriver(null)
+    })
+
+    createEffect(() => {
+        const list = days()
+        if (list.length === 0) return
+        if (!list.some(item => item.start === day())) {
+            setDay(list[0]!.start)
+        }
+    })
 
     const selectedChoices = createMemo(() =>
         selected().flatMap(id => {
@@ -853,10 +1059,6 @@ const ComparePickerModal = (props: {
     }
 
     onMount(() => {
-        if (!seedBaseline && track()) {
-            const first = days()[0]
-            if (first) setDay(first.start)
-        }
         requestAnimationFrame(() => {
             document
                 .querySelector<HTMLElement>('[aria-current="true"]')
@@ -880,9 +1082,9 @@ const ComparePickerModal = (props: {
                 onClick={dismiss}
             >
                 <div
-                    class="flex w-full max-w-4xl flex-col overflow-hidden rounded border border-line bg-surface p-5 text-ink shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)]"
+                    class="flex w-full max-w-5xl flex-col overflow-hidden rounded border border-line bg-surface p-5 text-ink shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)]"
                     style={{
-                        height: "min(40rem, calc(100dvh / var(--ui-zoom) - 12rem))",
+                        height: "min(42rem, calc(100dvh / var(--ui-zoom) - 12rem))",
                     }}
                     role="dialog"
                     aria-modal="true"
@@ -895,16 +1097,30 @@ const ComparePickerModal = (props: {
                     >
                         {t("app.telemetryPickTitle")}
                     </h2>
-                    <label class="mt-4 flex max-w-sm shrink-0 flex-col gap-1.5">
-                        <span class="font-mono text-sm font-semibold tracking-wide text-muted uppercase">
-                            {t("app.telemetryPickTrack")}
-                        </span>
-                        <TrackMenu
-                            tracks={tracks()}
-                            value={track()}
-                            onChange={chooseTrack}
-                        />
-                    </label>
+                    <div class="mt-4 grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                        <label class="flex min-w-0 flex-col gap-1.5">
+                            <span class="font-mono text-sm font-semibold tracking-wide text-muted uppercase">
+                                {t("app.telemetryPickTrack")}
+                            </span>
+                            <TrackMenu
+                                tracks={tracks()}
+                                value={track()}
+                                onChange={chooseTrack}
+                            />
+                        </label>
+                        <Show when={track()}>
+                            <label class="flex min-w-0 flex-col gap-1.5">
+                                <span class="font-mono text-sm font-semibold tracking-wide text-muted uppercase">
+                                    {t("app.telemetryPickDriver")}
+                                </span>
+                                <DriverMenu
+                                    drivers={driversAvailable()}
+                                    value={driver()}
+                                    onChange={setDriver}
+                                />
+                            </label>
+                        </Show>
+                    </div>
                     <Show
                         when={track()}
                         fallback={
@@ -917,7 +1133,7 @@ const ComparePickerModal = (props: {
                             <LapChecklist
                                 days={days()}
                                 day={day()}
-                                groups={sessionsOnDay(day())}
+                                groups={sessionsOnDay()}
                                 selected={selected()}
                                 onDay={setDay}
                                 onToggle={lapId =>
@@ -982,12 +1198,14 @@ const LapChecklist = (props: {
 }) => (
     <section class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded border border-line bg-surface">
         <header class="flex items-center justify-end gap-3 border-b border-line bg-inset/60 px-3 py-2">
-            <DayNav
-                compact
-                days={props.days}
-                value={props.day}
-                onChange={props.onDay}
-            />
+            <Show when={props.days.length > 0}>
+                <DayNav
+                    compact
+                    days={props.days}
+                    value={props.day}
+                    onChange={props.onDay}
+                />
+            </Show>
         </header>
         <ul class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5 [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
             <For each={props.groups}>
@@ -1106,7 +1324,8 @@ const SelectedLaps = (props: {
                                     lapTone(index()).text
                                 )}
                             >
-                                L{choice.lap.number} ·{" "}
+                                {driverLabel(choice.session.driver)} · L
+                                {choice.lap.number} ·{" "}
                                 {formatLapTime(choice.lap.timeMs)}
                             </span>
                             <span class="block truncate text-xs text-muted">
@@ -1143,12 +1362,19 @@ const IconButton = (props: {
     label: string
     onClick: () => void
     children: JSX.Element
+    class?: string
+    disabled?: boolean
 }) => (
     <button
         type="button"
-        class="grid size-7 shrink-0 cursor-pointer place-items-center rounded border border-line bg-inset text-muted outline-none hover:border-secondary hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20"
+        class={cn(
+            "grid size-7 shrink-0 cursor-pointer place-items-center rounded border border-line bg-inset text-muted outline-none hover:border-secondary hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20",
+            "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:text-muted",
+            props.class
+        )}
         aria-label={props.label}
         title={props.label}
+        disabled={props.disabled}
         onClick={() => props.onClick()}
     >
         {props.children}
@@ -1159,8 +1385,6 @@ const CompareBanner = (props: {
     choices: LapChoice[]
     selected: readonly LapChoice[]
     onReplace: (index: number, lapId: string) => void
-    onAdd: (lapId: string) => void
-    onMakeBaseline: (index: number) => void
     onEdit?: () => void
     zones?: readonly DivergenceZone[]
     focus?: DivergenceZone
@@ -1169,16 +1393,12 @@ const CompareBanner = (props: {
     layout?: ChannelLayout
     onToggleChannel?: (channel: AnalysisChannel) => void
 }) => {
-    const pickable = (ownId: string | undefined) =>
+    const pickable = (ownId: string) =>
         props.choices.filter(
             item =>
                 item.lap.id === ownId ||
                 !props.selected.some(chosen => chosen.lap.id === item.lap.id)
         )
-    const canAdd = () =>
-        props.selected.length > 0 &&
-        props.selected.length < MAX_COMPARE_LAPS &&
-        pickable(undefined).length > 0
 
     return (
         <section class="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded border border-line bg-surface px-4 py-3">
@@ -1195,7 +1415,7 @@ const CompareBanner = (props: {
             <div class="flex w-full min-w-0 flex-wrap items-center justify-center gap-2 font-mono text-base">
                 <For each={props.selected}>
                     {(choice, index) => (
-                        <div class="flex w-48 min-w-0 items-center gap-1.5">
+                        <div class="w-48 min-w-0">
                             <LapPicker
                                 label={
                                     index() === 0
@@ -1209,34 +1429,9 @@ const CompareBanner = (props: {
                                     props.onReplace(index(), lapId)
                                 }
                             />
-                            <Show when={index() > 0}>
-                                <IconButton
-                                    label={t("app.telemetryMakeBaseline")}
-                                    onClick={() =>
-                                        props.onMakeBaseline(index())
-                                    }
-                                >
-                                    <ArrowLeftRight
-                                        class="size-4"
-                                        strokeWidth={1.75}
-                                    />
-                                </IconButton>
-                            </Show>
                         </div>
                     )}
                 </For>
-                <Show when={canAdd()}>
-                    <div class="w-48 min-w-0">
-                        <LapPicker
-                            label={t("app.telemetryAddLap")}
-                            colorIndex={props.selected.length}
-                            value=""
-                            choices={pickable(undefined)}
-                            placeholder={t("app.telemetryAddLap")}
-                            onChange={props.onAdd}
-                        />
-                    </div>
-                </Show>
             </div>
             <div class="flex items-center gap-2 justify-self-end">
                 <Show when={props.layout}>
@@ -1411,8 +1606,11 @@ const groupChoices = (
     return order.map(id => map.get(id)!)
 }
 
+const driverLabel = (driver: string): string =>
+    driver.trim() === "" ? t("app.telemetryPickDriverUnknown") : driver
+
 const groupLabel = (session: Session): string =>
-    `${fmt.clock(session.startedAt)} · ${sessionTypeLabel(session.type)} · ${carName(session.car)}`
+    `${driverLabel(session.driver)} · ${fmt.clock(session.startedAt)} · ${sessionTypeLabel(session.type)} · ${carName(session.car)}`
 
 const choiceLabel = (
     lap: Lap,

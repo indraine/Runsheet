@@ -7,7 +7,17 @@ import {
     onMount,
     untrack,
 } from "solid-js"
-import { fitFrame, type GroundPoint, type GroundSeries } from "~/app/fit-ground"
+import {
+    fitFrame,
+    framePixelsPerMeter,
+    type GroundPoint,
+    type GroundSeries,
+} from "~/app/fit-ground"
+import {
+    carScreenLength,
+    drawCarIcon,
+    pathHeading,
+} from "~/app/telemetry/car-marker"
 import { ensurePlotSize, followPlotBox, plotResolution } from "~/app/plot-frame"
 import { uiScale } from "~/app/scale"
 import { cssColor } from "~/app/telemetry/css-color"
@@ -49,8 +59,6 @@ import { Button, cn } from "~/ui"
 
 const PADDING = 2
 const MAX_POINTS = 900
-const CAR_LENGTH = 11
-const CAR_WIDTH = 5
 const MIN_ZOOM = 1
 const FALLBACK_FOLLOW = 8
 const MIN_BIAS = 0.45
@@ -248,6 +256,12 @@ export const TrajectoryView = (props: {
                 ? [asGround(bounds.left), asGround(bounds.right)]
                 : series.filter((_, index) => kinds[index] === "line")
         const fitted = fitFrame(series, width, height, PADDING, frame)
+        const metersToPixels = framePixelsPerMeter(
+            frame,
+            width,
+            height,
+            PADDING
+        )
         const centerX = width / 2
         const centerY = height / 2
         const aim = midpoint(carAims(fitted, kinds))
@@ -273,6 +287,7 @@ export const TrajectoryView = (props: {
             x: (point.x - centerX) * scale + centerX + offset.x,
             y: (point.y - centerY) * scale + centerY + offset.y,
         })
+        const carLength = carScreenLength(metersToPixels, scale)
 
         for (let index = 0; index < kinds.length; index += 1) {
             const kind = kinds[index]
@@ -285,6 +300,11 @@ export const TrajectoryView = (props: {
             }
         }
 
+        const pathsOnScreen: {
+            line: TrajectoryLine
+            points: GroundPoint[]
+            distances: number[]
+        }[] = []
         let lineIndex = 0
         for (let index = 0; index < kinds.length; index += 1) {
             if (kinds[index] !== "line") continue
@@ -292,7 +312,13 @@ export const TrajectoryView = (props: {
             const line = props.lines[lineIndex]
             lineIndex += 1
             if (!line || !meta) continue
-            const screen = (fitted[index] ?? []).map(transform)
+            const fittedLine = fitted[index] ?? []
+            pathsOnScreen.push({
+                line,
+                points: fittedLine,
+                distances: meta.distances,
+            })
+            const screen = fittedLine.map(transform)
             const baseline = line.colorIndex === 0
             stroke(
                 lines,
@@ -320,13 +346,21 @@ export const TrajectoryView = (props: {
             const at = fitted[index]?.[0]
             if (!at || !line) continue
             const mapped = transform(at)
-            const tip = sampleAtDistance(line.trace, props.cursorM)
-            const heading = tip?.heading ?? 0
-            drawCarSilhouette(
+            const path = pathsOnScreen.find(item => item.line === line)
+            const heading =
+                path === undefined
+                    ? 0
+                    : (pathHeading(
+                          path.points,
+                          path.distances,
+                          props.cursorM
+                      ) ?? 0)
+            drawCarIcon(
                 car,
                 mapped.x,
                 mapped.y,
                 heading,
+                carLength,
                 lineColor(line),
                 colors.surface
             )
@@ -584,41 +618,6 @@ const cursorSamples = (
         }
     }
     return samples
-}
-
-/** Wedge pointing along ACC heading (radians, yaw around world Y). */
-const drawCarSilhouette = (
-    graphics: Graphics,
-    x: number,
-    y: number,
-    heading: number,
-    fill: number,
-    outline: number
-) => {
-    const noseX = Math.sin(heading)
-    const noseY = -Math.cos(heading)
-    const sideX = Math.cos(heading)
-    const sideY = Math.sin(heading)
-    const halfL = CAR_LENGTH / 2
-    const halfW = CAR_WIDTH / 2
-    const nose = {
-        x: x + noseX * halfL,
-        y: y + noseY * halfL,
-    }
-    const left = {
-        x: x - noseX * halfL + sideX * halfW,
-        y: y - noseY * halfL + sideY * halfW,
-    }
-    const right = {
-        x: x - noseX * halfL - sideX * halfW,
-        y: y - noseY * halfL - sideY * halfW,
-    }
-    graphics.moveTo(nose.x, nose.y)
-    graphics.lineTo(left.x, left.y)
-    graphics.lineTo(right.x, right.y)
-    graphics.closePath()
-    graphics.fill({ color: fill })
-    graphics.stroke({ width: 1.25, color: outline, alpha: 0.9 })
 }
 
 const followPan = (

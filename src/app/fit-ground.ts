@@ -8,6 +8,18 @@ export type GroundSeries = {
     z: ArrayLike<number>
 }
 
+/** Metres → fitted pixels for the frame (before view zoom). */
+export const framePixelsPerMeter = (
+    frame: readonly GroundSeries[],
+    width: number,
+    height: number,
+    padding: number
+): number => {
+    if (width <= padding * 2 || height <= padding * 2) return 0
+    const bounds = frame.map(item => collect(item.x, item.z))
+    return pixelsPerMeter(bounds, width, height, padding)
+}
+
 export const fitFrame = (
     series: readonly GroundSeries[],
     width: number,

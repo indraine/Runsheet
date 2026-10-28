@@ -1,4 +1,7 @@
-import { For, Show } from "solid-js"
+import { Tooltip } from "@ark-ui/solid/tooltip"
+import { For, Show, type JSX } from "solid-js"
+import { Portal } from "solid-js/web"
+import { screenPopupClass, screenPositioning } from "~/app/screen-position"
 import type { TraceSample } from "~/app/telemetry/sample"
 import {
     formatBrakeBias,
@@ -21,6 +24,110 @@ export type SetupRow = {
 
 const CELL = "px-1.5 py-1 text-right tabular-nums"
 const HEAD = "px-1.5 py-1 text-right font-semibold text-muted"
+
+type ColKey =
+    | "tc"
+    | "abs"
+    | "map"
+    | "bb"
+    | "fl"
+    | "fr"
+    | "rl"
+    | "rr"
+    | "fuel"
+
+const COL = {
+    tc: {
+        short: "TC",
+        title: "app.telemetryTc",
+        wiki: "app.telemetryTcWiki",
+    },
+    abs: {
+        short: "ABS",
+        title: "app.telemetryAbs",
+        wiki: "app.telemetryAbsWiki",
+    },
+    map: {
+        short: "MAP",
+        title: "app.telemetryEngineMap",
+        wiki: "app.telemetryEngineMapWiki",
+    },
+    bb: {
+        short: "BB",
+        title: "app.telemetryBrakeBias",
+        wiki: "app.telemetryBrakeBiasWiki",
+    },
+    fl: {
+        short: "FL",
+        title: "app.telemetryPressureFl",
+        wiki: "app.telemetryPressureWiki",
+    },
+    fr: {
+        short: "FR",
+        title: "app.telemetryPressureFr",
+        wiki: "app.telemetryPressureWiki",
+    },
+    rl: {
+        short: "RL",
+        title: "app.telemetryPressureRl",
+        wiki: "app.telemetryPressureWiki",
+    },
+    rr: {
+        short: "RR",
+        title: "app.telemetryPressureRr",
+        wiki: "app.telemetryPressureWiki",
+    },
+    fuel: {
+        short: "L/lap",
+        title: "app.telemetryFuelPerLap",
+        wiki: "app.telemetryFuelPerLapWiki",
+    },
+} as const satisfies Record<
+    ColKey,
+    { short: string; title: `app.${string}`; wiki: `app.${string}` }
+>
+
+const TipHead = (props: { col: ColKey }) => {
+    const meta = COL[props.col]
+    return (
+        <th class={HEAD}>
+            <WikiTip title={t(meta.title)} wiki={t(meta.wiki)}>
+                {meta.short}
+            </WikiTip>
+        </th>
+    )
+}
+
+const WikiTip = (props: {
+    title: string
+    wiki: string
+    children: JSX.Element
+}) => (
+    <Tooltip.Root
+        openDelay={180}
+        closeDelay={80}
+        positioning={screenPositioning({ placement: "top" })}
+    >
+        <Tooltip.Trigger
+            type="button"
+            class="inline-flex cursor-help rounded-sm px-0.5 outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20"
+        >
+            {props.children}
+        </Tooltip.Trigger>
+        <Portal>
+            <Tooltip.Positioner class={screenPopupClass}>
+                <Tooltip.Content class="z-50 max-w-sm rounded border border-line bg-surface px-4 py-3 shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
+                    <p class="font-mono text-sm font-semibold text-ink">
+                        {props.title}
+                    </p>
+                    <p class="mt-2 font-sans text-sm leading-relaxed text-secondary">
+                        {props.wiki}
+                    </p>
+                </Tooltip.Content>
+            </Tooltip.Positioner>
+        </Portal>
+    </Tooltip.Root>
+)
 
 /** Electronics, hot pressures at the cursor and fuel use for each compared lap. */
 export const SetupCard = (props: {
@@ -45,21 +152,15 @@ export const SetupCard = (props: {
                 <thead>
                     <tr>
                         <th class="px-1.5 py-1 text-left" />
-                        <th class={HEAD}>TC</th>
-                        <th class={HEAD}>ABS</th>
-                        <th class={HEAD} title={t("app.telemetryEngineMap")}>
-                            MAP
-                        </th>
-                        <th class={HEAD} title={t("app.telemetryBrakeBias")}>
-                            BB
-                        </th>
-                        <th class={HEAD}>FL</th>
-                        <th class={HEAD}>FR</th>
-                        <th class={HEAD}>RL</th>
-                        <th class={HEAD}>RR</th>
-                        <th class={HEAD} title={t("app.telemetryFuelPerLap")}>
-                            L/lap
-                        </th>
+                        <TipHead col="tc" />
+                        <TipHead col="abs" />
+                        <TipHead col="map" />
+                        <TipHead col="bb" />
+                        <TipHead col="fl" />
+                        <TipHead col="fr" />
+                        <TipHead col="rl" />
+                        <TipHead col="rr" />
+                        <TipHead col="fuel" />
                     </tr>
                 </thead>
                 <tbody>
