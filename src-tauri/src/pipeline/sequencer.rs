@@ -215,7 +215,10 @@ impl Sequencer {
 
     fn snap(&self, tick: Option<&CleanTick>) -> Snap {
         let split = self.laps.open_split();
-        let lap_ms = if split.is_some() {
+        // On track (and pause/menu) the graphics clock may keep advancing; only
+        // the pits should drop the running lap/sector paint.
+        let running = split.is_some() && self.place() != SessionPlace::InPits;
+        let lap_ms = if running {
             tick.and_then(|tick| tick.graphic.current_lap_time.map(LapTime::ms))
         } else {
             None
