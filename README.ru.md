@@ -60,23 +60,19 @@ https://github.com/user-attachments/assets/0669f286-4e5b-4b5b-856e-6f346069dacf
 
 ### Каталог трасс
 
-![Каталог трасс — Dark](docs/screenshots/01_tracks_dark.png)
+![Каталог трасс](docs/screenshots/schemes-bicolor-dark-left.png)
 
 ### Живая карточка
 
 Спа · таблица кругов с S1/S2/S3, топливом, дельтой и мини-картой.
 
-| Slate | Light |
-|:----:|:-----:|
-| ![Живая карточка — Dark](docs/screenshots/01_spa_livecard_dark.png) | ![Живая карточка — Light](docs/screenshots/01_spa_livecard_light.png) |
+![Живая карточка](docs/screenshots/live-card-bicolor-dark-left.png)
 
 ### Сравнение телеметрии
 
 Монца · BMW M4 · наложение двух кругов — газ, тормоз, руль, скорость, гоночная линия и зоны расхождения.
 
-| Dark | Light |
-|:----:|:-----:|
-| ![Телеметрия — Dark](docs/screenshots/telemetry-dark.png) | ![Телеметрия — Light](docs/screenshots/telemetry-light.png) |
+![Телеметрия](docs/screenshots/telemetry-bicolor-dark-left.png)
 
 ---
 

@@ -60,23 +60,19 @@ https://github.com/user-attachments/assets/0669f286-4e5b-4b5b-856e-6f346069dacf
 
 ### Track catalog
 
-![Track catalog — Dark](docs/screenshots/01_tracks_dark.png)
+![Track catalog](docs/screenshots/schemes-bicolor-dark-left.png)
 
 ### Live card
 
 Spa · lap table with S1/S2/S3, fuel, delta, and mini-map.
 
-| Slate | Light |
-|:----:|:-----:|
-| ![Live card — Dark](docs/screenshots/01_spa_livecard_dark.png) | ![Live card — Light](docs/screenshots/01_spa_livecard_light.png) |
+![Live card](docs/screenshots/live-card-bicolor-dark-left.png)
 
 ### Telemetry comparison
 
 Monza · BMW M4 · two-lap overlay — throttle, brake, steer, speed, racing line, and divergence zones.
 
-| Dark | Light |
-|:----:|:-----:|
-| ![Telemetry — Dark](docs/screenshots/telemetry-dark.png) | ![Telemetry — Light](docs/screenshots/telemetry-light.png) |
+![Telemetry](docs/screenshots/telemetry-bicolor-dark-left.png)
 
 ---
 
