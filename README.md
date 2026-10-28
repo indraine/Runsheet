@@ -50,12 +50,6 @@
 
 ---
 
-## Demo
-
-https://github.com/user-attachments/assets/0669f286-4e5b-4b5b-856e-6f346069dacf
-
----
-
 ## Screenshots
 
 ### Track catalog
