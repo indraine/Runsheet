@@ -54,19 +54,19 @@
 
 ### Каталог трасс
 
-![Каталог трасс](docs/screenshots/schemes-bicolor-dark-left.png)
+![Каталог трасс](docs/screenshots/schemes-60deg.png)
 
 ### Живая карточка
 
 Спа · таблица кругов с S1/S2/S3, топливом, дельтой и мини-картой.
 
-![Живая карточка](docs/screenshots/live-card-bicolor-dark-left.png)
+![Живая карточка](docs/screenshots/live-card-60deg.png)
 
 ### Сравнение телеметрии
 
 Монца · BMW M4 · наложение двух кругов — газ, тормоз, руль, скорость, гоночная линия и зоны расхождения.
 
-![Телеметрия](docs/screenshots/telemetry-bicolor-dark-left.png)
+![Телеметрия](docs/screenshots/telemetry-60deg.png)
 
 ---
 
