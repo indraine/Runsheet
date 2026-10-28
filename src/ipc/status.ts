@@ -26,11 +26,33 @@ export type AccStatus = {
     packetId: number | null
     session: Session | null
     lapNumber: number | null
+    /** Game sector index, `0..2`, once a lap is open. */
     sector: number | null
+    /** Running lap clock from the graphics page, in milliseconds. */
+    currentLapMs: number | null
+    /** Running time inside the current sector, in milliseconds. */
+    sectorMs: number | null
+    /** Official first-sector split already recorded on the open lap. */
+    s1Ms: number | null
+    /** Official second-sector split already recorded on the open lap. */
+    s2Ms: number | null
+    /** Driving to the line. The sheet shows a hint and does not store a lap. */
+    outlap: boolean
     speed: number | null
     airTemp: number | null
     roadTemp: number | null
     events: AccStatusEvent[]
+}
+
+/** Lap clock painted on the live card. It is not written to the sheet. */
+export type LiveClock = {
+    sessionId: string
+    outlap: boolean
+    lapMs: number | null
+    sectorMs: number | null
+    sector: 1 | 2 | 3 | null
+    s1Ms: number | null
+    s2Ms: number | null
 }
 
 export type RateMark = {
@@ -53,11 +75,87 @@ export const parseAccStatus = (payload: unknown): AccStatus | undefined => {
             body.session == null ? null : (parseSession(body.session) ?? null),
         lapNumber: optionalInt(body.lapNumber),
         sector: optionalInt(body.sector),
+        currentLapMs: optionalInt(body.currentLapMs),
+        sectorMs: optionalInt(body.sectorMs),
+        s1Ms: optionalInt(body.s1Ms),
+        s2Ms: optionalInt(body.s2Ms),
+        outlap: body.outlap === true,
         speed: optionalNumber(body.speed),
         airTemp: optionalNumber(body.airTemp),
         roadTemp: optionalNumber(body.roadTemp),
         events: parseEvents(body.events),
     }
+}
+
+/**
+ * Live lap clock, or an outlap marker while the car is driving to the line.
+ *
+ * Without a lap number and without `outlap`, the car is on the grid or in
+ * the formation lap. A stale graphics time stays off the card.
+ *
+ * @example
+ * ```ts
+ * liveClockFromStatus({
+ *   link: "linked",
+ *   presence: "onTrack",
+ *   packetId: 1,
+ *   session: null,
+ *   lapNumber: null,
+ *   sector: null,
+ *   currentLapMs: 111_000,
+ *   sectorMs: null,
+ *   s1Ms: null,
+ *   s2Ms: null,
+ *   outlap: false,
+ *   speed: null,
+ *   airTemp: null,
+ *   roadTemp: null,
+ *   events: [],
+ * })
+ * // undefined
+ * ```
+ */
+export const liveClockFromStatus = (
+    status: AccStatus
+): LiveClock | undefined => {
+    if (status.link !== "linked" || !status.session) return undefined
+    if (status.lapNumber == null) {
+        return status.outlap ? outlapClock(status.session.id) : undefined
+    }
+    if (
+        status.currentLapMs == null &&
+        status.sectorMs == null &&
+        status.s1Ms == null &&
+        status.s2Ms == null
+    ) {
+        return undefined
+    }
+    return {
+        sessionId: status.session.id,
+        outlap: false,
+        lapMs: status.currentLapMs,
+        sectorMs: status.sectorMs,
+        sector: sectorNumber(status.sector),
+        s1Ms: status.s1Ms,
+        s2Ms: status.s2Ms,
+    }
+}
+
+const outlapClock = (sessionId: string): LiveClock => ({
+    sessionId,
+    outlap: true,
+    lapMs: null,
+    sectorMs: null,
+    sector: null,
+    s1Ms: null,
+    s2Ms: null,
+})
+
+const sectorNumber = (index: number | null): 1 | 2 | 3 | null => {
+    if (index === 0) return 1
+    if (index === 1) return 2
+    if (index === 2) return 3
+    return null
 }
 
 export const packetRate = (

@@ -1,4 +1,3 @@
-
 use crate::domain::{Frame, GameStatus, OutingEvent, OutingId, Session, SessionId, SessionKind};
 
 pub(crate) const OUTING_GAP_MS: u64 = 500;

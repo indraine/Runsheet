@@ -1,4 +1,3 @@
-
 pub(crate) const PHYSICS_SEGMENT_BYTES: usize = 800;
 
 pub(crate) const GRAPHICS_SEGMENT_BYTES: usize = 1_588;

@@ -1,4 +1,3 @@
-
 use uuid::Uuid;
 
 use crate::domain::{LapId, LapTime, SessionEvent, SessionId};
@@ -45,12 +44,17 @@ pub(crate) struct Sample {
     pub pressure_rr: f32,
     pub brake_temp_fl: f32,
     pub brake_temp_fr: f32,
+    /// Race sessions stay closed until the green flag is shown.
+    pub race: bool,
+    /// Green flag or the global green light from the graphics page.
+    pub green: bool,
 }
 
 #[derive(Debug, Default)]
 pub(crate) struct Collector {
     open: Option<OpenLap>,
     carry_completed: Option<i32>,
+    watch: StartWatch,
     events: Vec<SessionEvent>,
 }
 
@@ -61,6 +65,7 @@ impl Collector {
 
     pub(crate) fn abandon(&mut self) -> Option<Vec<u8>> {
         self.carry_completed = None;
+        self.watch = StartWatch::default();
         let open = self.open.take()?;
         if open.points.is_empty() {
             return None;
@@ -74,6 +79,16 @@ impl Collector {
 
     pub(crate) fn open_number(&self) -> Option<i32> {
         self.open.as_ref().map(|open| open.number)
+    }
+
+    /// Splits of the lap currently being driven, if the start line has been crossed.
+    pub(crate) fn open_split(&self) -> Option<OpenSplit> {
+        let open = self.open.as_ref()?;
+        Some(OpenSplit {
+            sector_index: open.sector,
+            s1_ms: open.s1_ms,
+            s2_ms: open.s2_ms,
+        })
     }
 
     pub(crate) fn preview(&self) -> Option<Vec<u8>> {
@@ -93,16 +108,24 @@ impl Collector {
         {
             self.open = None;
             self.carry_completed = None;
+            self.watch = StartWatch::default();
         }
 
         let closed = self.take_closed(sample);
         if self.open.is_none() {
+            // The sample that closed a lap is already past the line, so it
+            // starts the next one. The first lap of a stint waits for that line.
+            if closed.is_none() && !self.watch.ready(sample) {
+                self.watch.observe(sample);
+                return closed;
+            }
             let completed_at_open = self.carry_completed.take().unwrap_or(sample.completed_lap);
             let open = OpenLap::begin(sample, completed_at_open);
             self.events.push(SessionEvent::LapStarted {
                 lap_number: open.number,
             });
             self.open = Some(open);
+            self.watch = StartWatch::default();
         }
         self.observe(sample);
         closed
@@ -208,8 +231,8 @@ impl OpenLap {
     }
 
     fn finish(self, boundary: &Sample) -> Finished {
-        let time_ms = real_ms(boundary.last_time_ms)
-            .or_else(|| self.last_lap_time_ms.and_then(real_ms));
+        let time_ms =
+            real_ms(boundary.last_time_ms).or_else(|| self.last_lap_time_ms.and_then(real_ms));
         let s3_ms = match (time_ms, self.s1_ms, self.s2_ms) {
             (Some(total), Some(s1), Some(s2)) => {
                 real_ms(total.saturating_sub(s1.saturating_add(s2)))
@@ -287,8 +310,8 @@ impl OpenLap {
             }
             ms
         } else if sector_index == 2 && self.s2_ms.is_none() {
-            let ms = sector_duration(sector_ms, self.s1_ms)
-                .or_else(|| split_after(lap_ms, self.s1_ms));
+            let ms =
+                sector_duration(sector_ms, self.s1_ms).or_else(|| split_after(lap_ms, self.s1_ms));
             if let Some(ms) = ms {
                 self.s2_ms = Some(ms);
                 self.s2_end_m = Some(along_m);
@@ -392,6 +415,98 @@ fn split_after(lap_ms: i32, previous: Option<i32>) -> Option<i32> {
     sector_duration(lap_ms, previous)
 }
 
+/// Where the open lap is on track. The game's sector index is `0`, `1`, or `2`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OpenSplit {
+    pub sector_index: i32,
+    pub s1_ms: Option<i32>,
+    pub s2_ms: Option<i32>,
+}
+
+/// Progress and lap clock seen before a lap is allowed to open.
+///
+/// Sitting on the grid has a sector index and a frozen clock, but the car
+/// has not crossed the start line. That must not become lap 1 sector 1.
+#[derive(Debug, Default)]
+struct StartWatch {
+    progress: Option<f32>,
+    lap_ms: Option<i32>,
+}
+
+impl StartWatch {
+    fn observe(&mut self, sample: &Sample) {
+        self.progress = Some(sample.progress);
+        self.lap_ms = Some(sample.lap_time_ms);
+    }
+
+    fn ready(&self, sample: &Sample) -> bool {
+        let crossed = self.wrapped(sample) || self.clock_reset(sample);
+        if !crossed {
+            return false;
+        }
+        if !sample.race {
+            return true;
+        }
+        // Formation and the grid can cross the line while the flag is still out.
+        sample.green && (clock_ticking(sample.lap_time_ms) || sample.lap_time_ms == 0)
+    }
+
+    fn wrapped(&self, sample: &Sample) -> bool {
+        self.progress
+            .is_some_and(|previous| progress_wrapped(previous, sample.progress))
+    }
+
+    fn clock_reset(&self, sample: &Sample) -> bool {
+        let Some(previous) = self.lap_ms else {
+            return false;
+        };
+        if previous < LAP_CLOCK_GUARD_MS {
+            return false;
+        }
+        let reset =
+            sample.lap_time_ms < 0 || sample.lap_time_ms.saturating_add(CLOCK_DROP_MS) < previous;
+        reset && (0..LAP_CLOCK_GUARD_MS).contains(&sample.lap_time_ms)
+    }
+}
+
+/// The car is on its way to the start line, so the sheet can show an outlap.
+///
+/// A race with the green flag still down is the grid or the formation lap.
+/// That wait stays blank. The outlap is not stored: it only rides the live status.
+pub(crate) fn show_outlap(lap_open: bool, rolling: bool, race: bool, green: bool) -> bool {
+    rolling && !lap_open && (!race || green)
+}
+
+fn clock_ticking(ms: i32) -> bool {
+    ms > 0 && ms <= MAX_LAP_MS
+}
+
+/// Elapsed time inside the sector the car is in.
+///
+/// Sector `0` is the lap clock. Later sectors subtract the splits already
+/// stored on the open lap. A missing split stays blank instead of repeating
+/// the previous sector.
+pub(crate) fn sector_elapsed(
+    lap_ms: i32,
+    sector_index: i32,
+    s1_ms: Option<i32>,
+    s2_ms: Option<i32>,
+) -> Option<i32> {
+    if !(0..=MAX_LAP_MS).contains(&lap_ms) {
+        return None;
+    }
+    let done = match sector_index {
+        0 => 0,
+        1 => s1_ms?,
+        _ => s1_ms?.saturating_add(s2_ms?),
+    };
+    Some(lap_ms.saturating_sub(done))
+}
+
+fn progress_wrapped(previous: f32, current: f32) -> bool {
+    current >= 0.0 && current < 0.15 && previous > 0.85 && previous - current > 0.5
+}
+
 fn line_crossed(open: &OpenLap, sample: &Sample) -> bool {
     let Some(previous_time) = open.last_lap_time_ms else {
         return false;
@@ -399,11 +514,8 @@ fn line_crossed(open: &OpenLap, sample: &Sample) -> bool {
     if previous_time < LAP_CLOCK_GUARD_MS {
         return false;
     }
-    let clock_reset = sample.lap_time_ms < 0
-        || sample
-            .lap_time_ms
-            .saturating_add(CLOCK_DROP_MS)
-            < previous_time;
+    let clock_reset =
+        sample.lap_time_ms < 0 || sample.lap_time_ms.saturating_add(CLOCK_DROP_MS) < previous_time;
     if clock_reset {
         return true;
     }
@@ -413,10 +525,7 @@ fn line_crossed(open: &OpenLap, sample: &Sample) -> bool {
     let Some(previous) = open.last_progress else {
         return false;
     };
-    sample.progress >= 0.0
-        && sample.progress < 0.15
-        && previous > 0.85
-        && previous - sample.progress > 0.5
+    progress_wrapped(previous, sample.progress)
 }
 
 fn pack(lap: &Finished) -> Vec<u8> {

@@ -11,9 +11,16 @@ import {
 } from "solid-js"
 import { Portal } from "solid-js/web"
 import { screenPositioning } from "~/app/screen-position"
+import { liveClock } from "~/app/status"
 import { hasAsphalt } from "~/app/track-catalog"
 import { TrackView } from "~/app/track-view"
-import type { LiveCard as LiveCardModel, LiveLapRow } from "~/domain"
+import {
+    readSectorMs,
+    type LiveCard as LiveCardModel,
+    type LiveLapRow,
+    type SectorClock,
+} from "~/domain"
+import type { LiveClock } from "~/ipc/status"
 import { carName, fmt, t, trackCodes, trackName } from "~/i18n"
 import { locale } from "~/i18n/locale"
 import { cn } from "~/ui"
@@ -35,6 +42,13 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
         })
     )
     const ownTrack = () => shownTrack() === card().session.track
+    const clockFor = (): LiveClock | undefined => {
+        const tick = liveClock()
+        const current = card()
+        if (!tick || current.session.status !== "live") return undefined
+        if (tick.sessionId !== current.session.id) return undefined
+        return tick
+    }
     const seedDev = () =>
         import.meta.env.DEV && card().session.id.startsWith("seed-")
 
@@ -131,8 +145,8 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                 />
                 <Summary
                     label={t("app.liveCurrent")}
-                    value={lapLabel(card().currentLap)}
-                    hint={currentHint(card())}
+                    value={currentValue(card(), clockFor())}
+                    hint={currentHint(card(), clockFor())}
                     hintClass={deltaClass(currentRow(card()))}
                 />
                 <Summary
@@ -143,7 +157,11 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
             </div>
 
             <div class="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:grid-rows-[minmax(0,1fr)]">
-                <LapTable rows={card().rows} best={card().bestLap} />
+                <LapTable
+                    rows={card().rows}
+                    best={card().bestLap}
+                    clock={clockFor()}
+                />
                 <div class="relative min-h-0 overflow-hidden border-t border-line lg:border-t-0 lg:border-l">
                     <Show
                         when={
@@ -173,7 +191,11 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                                       card().bestLap?.s2EndM)
                                     : undefined
                             }
-                            sector={ownTrack() ? card().sector : undefined}
+                            sector={
+                                ownTrack()
+                                    ? (clockFor()?.sector ?? card().sector)
+                                    : undefined
+                            }
                         />
                     </Show>
                 </div>
@@ -218,6 +240,7 @@ const lapTableMaxHeight = (): string =>
 const LapTable = (props: {
     rows: LiveLapRow[]
     best: LiveCardModel["bestLap"]
+    clock: LiveClock | undefined
 }) => (
     <div
         class="h-full min-h-0 min-w-0 overflow-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]"
@@ -239,15 +262,38 @@ const LapTable = (props: {
             </thead>
             <tbody>
                 <Index each={props.rows}>
-                    {row => <LapRow row={row()} best={props.best} />}
+                    {row => (
+                        <LapRow
+                            row={row()}
+                            best={props.best}
+                            clock={props.clock}
+                        />
+                    )}
                 </Index>
+                <Show when={props.clock?.outlap}>
+                    <OutlapRow />
+                </Show>
             </tbody>
         </table>
     </div>
 )
 
-const LapRow = (props: { row: LiveLapRow; best: LiveCardModel["bestLap"] }) => {
+const LapRow = (props: {
+    row: LiveLapRow
+    best: LiveCardModel["bestLap"]
+    clock: LiveClock | undefined
+}) => {
     const muted = () => !props.row.lap.valid
+    const timeMs = () => {
+        if (props.row.lap.timeMs !== null) return props.row.lap.timeMs
+        return props.clock?.lapMs ?? null
+    }
+    const running = () =>
+        props.row.lap.timeMs === null && props.clock?.lapMs != null
+    const timeLabel = () => {
+        const ms = timeMs()
+        return ms === null ? t("app.empty") : fmt.lap(ms)
+    }
 
     return (
         <tr
@@ -270,28 +316,37 @@ const LapRow = (props: { row: LiveLapRow; best: LiveCardModel["bestLap"] }) => {
                     </Show>
                 </span>
             </th>
-            <td class={cn("px-3 font-mono text-[13px]", timeClass(props.row))}>
-                {props.row.lap.timeMs === null
-                    ? t("app.empty")
-                    : fmt.lap(props.row.lap.timeMs)}
+            <td
+                class={cn(
+                    "px-3 font-mono text-[13px]",
+                    running() ? "text-ink" : timeClass(props.row)
+                )}
+            >
+                {timeLabel()}
             </td>
             <td class={cn("px-3 font-mono text-[13px]", deltaClass(props.row))}>
                 {deltaText(props.row)}
             </td>
             <SectorCell
                 row={props.row}
+                column={1}
                 milliseconds={props.row.lap.s1Ms}
                 bestMilliseconds={props.best?.s1Ms ?? null}
+                clock={props.clock}
             />
             <SectorCell
                 row={props.row}
+                column={2}
                 milliseconds={props.row.lap.s2Ms}
                 bestMilliseconds={props.best?.s2Ms ?? null}
+                clock={props.clock}
             />
             <SectorCell
                 row={props.row}
+                column={3}
                 milliseconds={props.row.lap.s3Ms}
                 bestMilliseconds={props.best?.s3Ms ?? null}
+                clock={props.clock}
             />
             <td class="px-3 font-mono text-[13px]">
                 {props.row.lap.fuel.toFixed(1)} {t("app.litre")}
@@ -305,20 +360,41 @@ const LapRow = (props: { row: LiveLapRow; best: LiveCardModel["bestLap"] }) => {
 
 const SectorCell = (props: {
     row: LiveLapRow
+    column: 1 | 2 | 3
     milliseconds: number | null
     bestMilliseconds: number | null
-}) => (
-    <td
-        class={cn(
-            "px-3 font-mono text-[13px]",
-            sectorClass(props.row, props.milliseconds, props.bestMilliseconds)
-        )}
-    >
-        {props.milliseconds === null
-            ? t("app.empty")
-            : fmt.sector(props.milliseconds)}
-    </td>
-)
+    clock: SectorClock | undefined
+}) => {
+    const read = () =>
+        readSectorMs(
+            props.column,
+            props.milliseconds,
+            props.row.lap.timeMs === null ? props.clock : undefined
+        )
+    const shown = () => read()?.ms
+    const label = () => {
+        const ms = shown()
+        return ms == null ? t("app.empty") : fmt.sector(ms)
+    }
+    return (
+        <td
+            class={cn(
+                "px-3 font-mono text-[13px]",
+                read()?.settled
+                    ? sectorClass(
+                          props.row,
+                          shown() ?? null,
+                          props.bestMilliseconds
+                      )
+                    : shown() == null
+                      ? "text-muted"
+                      : "text-ink"
+            )}
+        >
+            {label()}
+        </td>
+    )
+}
 
 const ValidMark = (props: { valid: boolean }) => (
     <Show
@@ -346,12 +422,58 @@ const currentRow = (card: LiveCardModel): LiveLapRow | undefined => {
     return card.rows.find(row => row.lap.id === current.id)
 }
 
-const currentHint = (card: LiveCardModel): string => {
-    if (!card.currentLap || card.sector === undefined) return t("app.empty")
-    const sector = `${t("app.liveSector")} ${card.sector}`
+const OutlapRow = () => (
+    <tr class="h-9 text-muted">
+        <th scope="row" class="px-3 font-mono text-[13px] font-medium">
+            <span class="inline-flex items-center gap-1.5">
+                {t("app.outlap")}
+                <span
+                    class="size-1.5 rounded-full bg-accent"
+                    aria-hidden="true"
+                />
+            </span>
+        </th>
+        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
+        <td class="px-3">
+            <ValidMark valid={false} />
+        </td>
+    </tr>
+)
+
+const currentValue = (
+    card: LiveCardModel,
+    clock: LiveClock | undefined
+): string => {
+    if (clock?.outlap) return t("app.outlap")
+    if (clock?.lapMs != null) return fmt.lap(clock.lapMs)
+    return lapLabel(card.currentLap)
+}
+
+const currentHint = (
+    card: LiveCardModel,
+    clock: LiveClock | undefined
+): string => {
+    if (clock?.outlap) return t("app.outlapHint")
+    if (!clock) {
+        if (!card.currentLap || card.sector === undefined) return t("app.empty")
+        return hintWithDelta(card, `${t("app.liveSector")} ${card.sector}`)
+    }
+    const parts: string[] = []
+    if (card.currentLap) parts.push(`L${card.currentLap.number}`)
+    if (clock.sector) parts.push(`${t("app.liveSector")} ${clock.sector}`)
+    if (parts.length === 0) return t("app.empty")
+    return hintWithDelta(card, parts.join(" · "))
+}
+
+const hintWithDelta = (card: LiveCardModel, head: string): string => {
     const row = currentRow(card)
-    if (!row || row.deltaMs === null || row.best) return sector
-    return `${sector} · ${fmt.delta(row.deltaMs)}`
+    if (!row || row.deltaMs === null || row.best) return head
+    return `${head} · ${fmt.delta(row.deltaMs)}`
 }
 
 const bestTime = (timeMs: number | null | undefined): string =>

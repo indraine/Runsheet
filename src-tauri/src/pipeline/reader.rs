@@ -1,4 +1,3 @@
-
 use std::time::Duration;
 #[cfg(windows)]
 use std::time::Instant;
@@ -87,6 +86,11 @@ pub(crate) fn run_without_acc(outbox: ipc::Outbox) -> ! {
                 session: None,
                 lap_number: None,
                 sector: None,
+                current_lap_ms: None,
+                sector_ms: None,
+                s1_ms: None,
+                s2_ms: None,
+                outlap: false,
                 speed: None,
                 air_temp: None,
                 road_temp: None,

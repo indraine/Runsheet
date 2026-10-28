@@ -1,8 +1,9 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core"
-import { applyAccLink, type AccLink } from "~/app/status"
+import { applyAccLink, publishLiveClock, type AccLink } from "~/app/status"
 import type { SessionRepository } from "~/db"
 import { createAccIngest } from "~/ipc/ingest"
 import {
+    liveClockFromStatus,
     packetRate,
     parseAccStatus,
     type AccStatus,
@@ -35,6 +36,7 @@ const createFeed = (): AccFeed => {
 
     const applyUi = (status: AccStatus): void => {
         applyAccLink(linkOf(status))
+        publishLiveClock(liveClockFromStatus(status))
         const current = repo
         if (!current) {
             queuedStatus = status

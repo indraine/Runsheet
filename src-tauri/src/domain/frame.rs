@@ -1,4 +1,3 @@
-
 use super::tires::TireSet;
 use super::units::{BrakePosition, Celsius, LapTime, Psi, Speed, ThrottlePosition, TrackProgress};
 use super::{CarState, GameStatus, SessionKind};
@@ -42,6 +41,8 @@ pub(crate) struct CleanSessionGraphic {
     pub current_lap_time: Option<LapTime>,
     pub sector_index: i32,
     pub valid_lap: bool,
+    /// Green flag or the global green light. A race lap stays closed without it.
+    pub green: bool,
     pub distance_m: f32,
     pub packet_id: i32,
 }

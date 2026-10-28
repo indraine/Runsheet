@@ -1,4 +1,3 @@
-
 use super::{OutingId, SessionId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

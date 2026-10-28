@@ -17,12 +17,11 @@ export type LiveCard = {
     pressurePsi: number | undefined
     rows: LiveLapRow[]
     road: Trace | undefined
-    
+
     car: Trace | undefined
 }
 
 const SECTOR_KEYS = ["s1Ms", "s2Ms", "s3Ms"] as const
-
 
 export const shownLive = (
     sessions: readonly Session[],
@@ -97,6 +96,59 @@ const spanOf = (samples: Float32Array): number | undefined => {
     }
     if (!Number.isFinite(min) || max <= min) return undefined
     return max - min
+}
+
+export type SectorColumn = 1 | 2 | 3
+
+/** Splits and the running sector clock for the lap that is still open. */
+export type SectorClock = {
+    sector: SectorColumn | null
+    sectorMs: number | null
+    s1Ms: number | null
+    s2Ms: number | null
+}
+
+export type SectorRead = {
+    ms: number
+    /** A finished split. A running sector time is not settled. */
+    settled: boolean
+}
+
+/**
+ * Value to paint in one sector cell.
+ *
+ * The stored split wins. The live clock fills a split the lap packet has
+ * not delivered yet, and otherwise the running time of the sector the car
+ * is in.
+ *
+ * @example
+ * ```ts
+ * readSectorMs(2, null, {
+ *   sector: 2,
+ *   sectorMs: 4_200,
+ *   s1Ms: 28_000,
+ *   s2Ms: null,
+ * })
+ * // { ms: 4200, settled: false }
+ * ```
+ */
+export const readSectorMs = (
+    column: SectorColumn,
+    official: number | null,
+    clock: SectorClock | undefined
+): SectorRead | undefined => {
+    if (official !== null) return { ms: official, settled: true }
+    if (!clock) return undefined
+    if (column === 1 && clock.s1Ms !== null) {
+        return { ms: clock.s1Ms, settled: true }
+    }
+    if (column === 2 && clock.s2Ms !== null) {
+        return { ms: clock.s2Ms, settled: true }
+    }
+    if (clock.sector === column && clock.sectorMs !== null) {
+        return { ms: clock.sectorMs, settled: false }
+    }
+    return undefined
 }
 
 const sectorOf = (lap: Lap): 1 | 2 | 3 => {

@@ -1,4 +1,3 @@
-
 use serde::Serialize;
 
 use crate::domain::{OutingEvent, OutingId, Session, SessionKind};
@@ -27,6 +26,11 @@ pub(crate) struct Status {
     pub session: Option<SessionBody>,
     pub lap_number: Option<i32>,
     pub sector: Option<i32>,
+    pub current_lap_ms: Option<i32>,
+    pub sector_ms: Option<i32>,
+    pub s1_ms: Option<i32>,
+    pub s2_ms: Option<i32>,
+    pub outlap: bool,
     pub speed: Option<f32>,
     pub air_temp: Option<f32>,
     pub road_temp: Option<f32>,
@@ -84,6 +88,11 @@ pub(crate) struct Capture<'a> {
     pub session: Option<&'a Session>,
     pub lap_number: Option<i32>,
     pub sector: Option<i32>,
+    pub current_lap_ms: Option<i32>,
+    pub sector_ms: Option<i32>,
+    pub s1_ms: Option<i32>,
+    pub s2_ms: Option<i32>,
+    pub outlap: bool,
     pub speed: Option<f32>,
     pub air_temp: Option<f32>,
     pub road_temp: Option<f32>,
@@ -100,6 +109,11 @@ impl Status {
             session: input.session.map(SessionBody::from_session),
             lap_number: input.lap_number,
             sector: input.sector,
+            current_lap_ms: input.current_lap_ms,
+            sector_ms: input.sector_ms,
+            s1_ms: input.s1_ms,
+            s2_ms: input.s2_ms,
+            outlap: input.outlap,
             speed: input.speed,
             air_temp: input.air_temp,
             road_temp: input.road_temp,

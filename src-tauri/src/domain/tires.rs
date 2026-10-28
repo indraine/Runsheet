@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TireSet<T> {
     pub front_left: T,

@@ -1,4 +1,3 @@
-
 use super::response::IpcResponse;
 use crate::platform::game;
 

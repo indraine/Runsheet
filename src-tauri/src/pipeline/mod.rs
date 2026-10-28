@@ -1,4 +1,3 @@
-
 mod broadcast;
 mod reader;
 mod ring;
@@ -42,13 +41,7 @@ pub(crate) async fn run_consumer(ring: TelemetryRing, outbox: ipc::Outbox) {
             continue;
         }
         last_place = outcome.snap.place;
-        publish(
-            &outbox,
-            link,
-            game_running,
-            &outcome,
-            &mut last_presence,
-        );
+        publish(&outbox, link, game_running, &outcome, &mut last_presence);
     }
 }
 
@@ -109,6 +102,11 @@ fn publish_status(
         session: snap.and_then(|snap| snap.session.as_ref()),
         lap_number: snap.and_then(|snap| snap.lap_number),
         sector: snap.and_then(|snap| snap.sector),
+        current_lap_ms: snap.and_then(|snap| snap.lap_ms),
+        sector_ms: snap.and_then(|snap| snap.sector_ms),
+        s1_ms: snap.and_then(|snap| snap.s1_ms),
+        s2_ms: snap.and_then(|snap| snap.s2_ms),
+        outlap: snap.is_some_and(|snap| snap.outlap),
         speed: snap.and_then(|snap| snap.speed),
         air_temp: snap.and_then(|snap| snap.air_c),
         road_temp: snap.and_then(|snap| snap.road_c),

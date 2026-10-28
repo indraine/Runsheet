@@ -7,9 +7,13 @@ export {
 } from "~/domain/day"
 export {
     liveCard,
+    readSectorMs,
     shownLive,
     type LiveCard,
     type LiveLapRow,
+    type SectorClock,
+    type SectorColumn,
+    type SectorRead,
 } from "~/domain/live"
 export {
     fastestValidLap,

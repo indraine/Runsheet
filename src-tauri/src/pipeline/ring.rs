@@ -1,4 +1,3 @@
-
 #![cfg_attr(not(any(windows, test)), allow(dead_code))]
 
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};

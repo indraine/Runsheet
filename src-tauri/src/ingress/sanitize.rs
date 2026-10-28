@@ -1,4 +1,3 @@
-
 use std::fmt;
 
 use acc_shared_memory_rs::datatypes::Wheels;
@@ -124,9 +123,10 @@ impl TryFrom<&RawGraphicPage> for CleanSessionGraphic {
             completed_lap: page.completed_lap,
             last_time: known_time(page.last_time),
             last_sector_time: known_time(page.last_sector_time),
-            current_lap_time: known_time(page.current_time),
+            current_lap_time: running_clock(page.current_time),
             sector_index: page.current_sector_index,
             valid_lap: page.is_valid_lap,
+            green: page.global_green || page.flag == AccFlagType::GreenFlag,
             distance_m: finite("distance_traveled", page.distance_traveled)?,
             packet_id: page.packet_id,
         })
@@ -220,6 +220,18 @@ fn checkered_flag(value: i32) -> Result<bool, BoundaryError> {
 
 fn known_time(ms: i32) -> Option<LapTime> {
     if ms > 0 && ms < i32::MAX {
+        Some(LapTime::from_ms_unchecked(ms))
+    } else {
+        None
+    }
+}
+
+/// Lap clock as the game paints it, including `0` at the start line.
+///
+/// `known_time` treats `0` as "no split". The running clock must keep that
+/// zero, otherwise the first moments of a lap stay blank.
+fn running_clock(ms: i32) -> Option<LapTime> {
+    if ms >= 0 && ms < i32::MAX {
         Some(LapTime::from_ms_unchecked(ms))
     } else {
         None

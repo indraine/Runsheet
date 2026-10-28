@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js"
+import type { LiveClock } from "~/ipc/status"
 
 export type AccPresence = "unknown" | "off" | "menu" | "inPits" | "onTrack"
 
@@ -13,6 +14,31 @@ export type AccLink = {
 export type AnalysisHeading = {
     track: string | null
     car: string | null
+}
+
+const [liveClock, setLiveClock] = createSignal<LiveClock>()
+
+/** Keep the live card still when a status tick repeats the same clock. */
+export const publishLiveClock = (next: LiveClock | undefined): void => {
+    if (sameClock(liveClock(), next)) return
+    setLiveClock(next)
+}
+
+const sameClock = (
+    left: LiveClock | undefined,
+    right: LiveClock | undefined
+): boolean => {
+    if (left === right) return true
+    if (!left || !right) return false
+    return (
+        left.sessionId === right.sessionId &&
+        left.lapMs === right.lapMs &&
+        left.sectorMs === right.sectorMs &&
+        left.sector === right.sector &&
+        left.s1Ms === right.s1Ms &&
+        left.s2Ms === right.s2Ms &&
+        left.outlap === right.outlap
+    )
 }
 
 const [accLink, setAccLink] = createSignal<AccLink>({
@@ -50,4 +76,11 @@ export const applyAccLink = (next: AccLink): void => {
     setAccLink(next)
 }
 
-export { accLink, accPresence, analysisHeading, setAccLink, setAnalysisHeading }
+export {
+    accLink,
+    accPresence,
+    analysisHeading,
+    liveClock,
+    setAccLink,
+    setAnalysisHeading,
+}

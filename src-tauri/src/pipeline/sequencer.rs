@@ -1,10 +1,9 @@
-
 use crate::domain::{
     CarState, CleanSessionGraphic, Frame, GameStatus, LapTime, OutingEvent, OutingId, Session,
-    SessionId, SessionPlace,
+    SessionId, SessionKind, SessionPlace,
 };
 use crate::ingress::CleanTick;
-use crate::services::laps::{Collector, Sample};
+use crate::services::laps::{Collector, Sample, sector_elapsed, show_outlap};
 use crate::services::outing::{OutingMachine, Sight, Tick};
 
 use super::broadcast::{LapSend, UiClock};
@@ -24,6 +23,11 @@ pub(crate) struct Snap {
     pub session: Option<Session>,
     pub lap_number: Option<i32>,
     pub sector: Option<i32>,
+    pub lap_ms: Option<i32>,
+    pub sector_ms: Option<i32>,
+    pub s1_ms: Option<i32>,
+    pub s2_ms: Option<i32>,
+    pub outlap: bool,
     pub speed: Option<f32>,
     pub place: SessionPlace,
     pub air_c: Option<f32>,
@@ -38,6 +42,11 @@ impl Snap {
             session: None,
             lap_number: None,
             sector: None,
+            lap_ms: None,
+            sector_ms: None,
+            s1_ms: None,
+            s2_ms: None,
+            outlap: false,
             speed: None,
             place: SessionPlace::Menu,
             air_c: None,
@@ -179,6 +188,13 @@ impl Sequencer {
             && tick.graphic.car_state == CarState::OnTrack
     }
 
+    /// Moving on the racing surface. The lap clock is still stopped on an outlap.
+    fn rolling(&self, tick: &CleanTick) -> bool {
+        tick.graphic.status == GameStatus::Live
+            && self.car == CarState::OnTrack
+            && tick.physics.speed.kmh() >= MOTION_SPEED_KMH
+    }
+
     fn is_driving(&self, tick: &CleanTick, mono_ms: u64) -> bool {
         if tick.graphic.status != GameStatus::Live || self.car != CarState::OnTrack {
             return false;
@@ -201,12 +217,36 @@ impl Sequencer {
     }
 
     fn snap(&self, tick: Option<&CleanTick>, mono_ms: u64) -> Snap {
+        let split = self.laps.open_split();
+        let lap_ms = if split.is_some() {
+            tick.and_then(|tick| tick.graphic.current_lap_time.map(LapTime::ms))
+        } else {
+            None
+        };
+        let sector_ms = split.as_ref().and_then(|split| {
+            lap_ms.and_then(|lap_ms| {
+                sector_elapsed(lap_ms, split.sector_index, split.s1_ms, split.s2_ms)
+            })
+        });
+        let outlap = tick.is_some_and(|tick| {
+            show_outlap(
+                split.is_some(),
+                self.rolling(tick),
+                tick.graphic.kind == SessionKind::Race,
+                tick.graphic.green,
+            )
+        });
         Snap {
             packet_id: tick.map(|tick| tick.physics.packet_id),
             outing_id: self.machine.outing_id(),
             session: self.machine.session().cloned(),
             lap_number: self.laps.open_number(),
-            sector: tick.map(|tick| tick.graphic.sector_index),
+            sector: split.as_ref().map(|split| split.sector_index),
+            lap_ms,
+            sector_ms,
+            s1_ms: split.as_ref().and_then(|split| split.s1_ms),
+            s2_ms: split.as_ref().and_then(|split| split.s2_ms),
+            outlap,
             speed: tick.map(|tick| tick.physics.speed.kmh()),
             place: self.place(tick, mono_ms),
             air_c: tick.map(|tick| tick.graphic.air.celsius()),
@@ -306,6 +346,8 @@ fn sample_from(tick: &CleanTick, mono_ms: u64, session_id: SessionId) -> Sample 
         pressure_rr: physics.pressure.rear_right.psi(),
         brake_temp_fl: physics.brake_temp_fl.celsius(),
         brake_temp_fr: physics.brake_temp_fr.celsius(),
+        race: graphic.kind == SessionKind::Race,
+        green: graphic.green,
     }
 }
 

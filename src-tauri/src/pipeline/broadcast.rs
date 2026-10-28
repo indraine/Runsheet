@@ -1,4 +1,3 @@
-
 use crate::domain::LapId;
 
 pub(crate) const STATUS_PERIOD_MS: u64 = 33;

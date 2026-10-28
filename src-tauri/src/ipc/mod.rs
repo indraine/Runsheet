@@ -1,4 +1,3 @@
-
 mod commands;
 mod laps;
 mod response;
