@@ -19,6 +19,7 @@ import {
     ChevronDown,
     ChevronLeft,
     ChevronRight,
+    Download,
     X,
 } from "lucide-solid"
 import { DayNav } from "~/app/pages/day-nav"
@@ -88,7 +89,13 @@ import {
     withProgrammaticCursor,
     writeStoredZone,
 } from "~/app/telemetry/view-memory"
-import { SessionRepository, useSessionRepository } from "~/db"
+import {
+    exportMotecLap,
+    formatMotecError,
+    motecAvailable,
+    SessionRepository,
+    useSessionRepository,
+} from "~/db"
 import {
     groupByDay,
     localDayStart,
@@ -332,6 +339,21 @@ export const TelemetryPage = () => {
     const replaceLap = (index: number, lapId: string) =>
         setLapIds(replaceLapId(activeIds(), index, lapId))
 
+    const exportBaselineMotec = async () => {
+        const choice = baselineChoice()
+        const trace = baselineTrace()
+        if (!choice || !trace) return
+        try {
+            await exportMotecLap(choice.session, choice.lap, trace)
+        } catch (error) {
+            const message =
+                error instanceof Error && error.message === "motec.desktopOnly"
+                    ? t("app.motecDesktopOnly")
+                    : formatMotecError(error, t("app.exportMotecFailed"))
+            window.alert(message)
+        }
+    }
+
     const toggleChartChannel = (channel: AnalysisChannel) => {
         const next = toggleChannel(layout(), channel)
         if (next === layout()) return
@@ -442,6 +464,11 @@ export const TelemetryPage = () => {
                 selected={selectedChoices()}
                 onReplace={replaceLap}
                 onEdit={confirmed() ? () => setPickerOpen(true) : undefined}
+                onExportMotec={
+                    confirmed() && baselineTrace() && motecAvailable()
+                        ? () => void exportBaselineMotec()
+                        : undefined
+                }
                 zones={zones()}
                 focus={focus()}
                 onZone={openZone}
@@ -1386,6 +1413,7 @@ const CompareBanner = (props: {
     selected: readonly LapChoice[]
     onReplace: (index: number, lapId: string) => void
     onEdit?: () => void
+    onExportMotec?: () => void
     zones?: readonly DivergenceZone[]
     focus?: DivergenceZone
     onZone?: (zone: DivergenceZone) => void
@@ -1443,6 +1471,15 @@ const CompareBanner = (props: {
                             }
                         />
                     )}
+                </Show>
+                <Show when={props.onExportMotec}>
+                    <IconButton
+                        class="size-9"
+                        label={t("app.telemetryExportMotec")}
+                        onClick={() => props.onExportMotec?.()}
+                    >
+                        <Download class="size-4" strokeWidth={1.75} />
+                    </IconButton>
                 </Show>
                 <Show when={props.onEdit}>
                     <Button

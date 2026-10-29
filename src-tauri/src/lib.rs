@@ -8,7 +8,10 @@ pub mod startup;
 
 use tauri::Manager;
 
-use ipc::{acc_install, launch_acc, listen_laps, listen_status, save_text_file};
+use ipc::{
+    acc_install, export_motec_ld, import_motec_ld, launch_acc, listen_laps, listen_status,
+    save_text_file,
+};
 use startup::StartupProbes;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -20,7 +23,9 @@ pub fn run() {
             listen_status,
             acc_install,
             launch_acc,
-            save_text_file
+            save_text_file,
+            export_motec_ld,
+            import_motec_ld
         ])
         .setup(|app| {
             StartupProbes::verify_memory_layout()?;

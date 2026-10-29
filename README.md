@@ -32,6 +32,7 @@
 - [x] **2D trajectory & racing-line overlay** — GPU-accelerated PixiJS track surface view with asphalt boundaries, apex zoom, and car follow mode
 - [x] **Interactive cockpit HUD** — pedal stack and animated steering wheel cluster showing instant driver inputs at cursor position
 - [x] **Track & session catalog** — all 25 ACC tracks with personal bests, historical session journal grouped by day, and export/import
+- [x] **MoTeC `.ld` export / import** — write baseline laps for i2 / i2 Pro and pull external MoTeC logs into the outing journal
 - [x] **Lightweight & local-first** — tiny binary (~15 MB), minimal RAM usage (<60 MB), zero game FPS impact, multi-theme support, and full localization (English, Russian)
 
 ---
@@ -39,7 +40,7 @@
 ## Roadmap
 
 ### Next
-- [ ] Session export to CSV / MoTeC
+- [ ] Session export to CSV
 - [ ] Interactive UI onboarding tour
 - [ ] AI Driver Coach — automated telemetry feedback and driving advice via user-provided OpenAI-compatible API keys analyzing divergence zones
 

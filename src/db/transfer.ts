@@ -111,6 +111,31 @@ export function parseDump(raw: unknown): RunsheetDump {
     }
 }
 
+/**
+ * Keep only the chosen sessions and their laps / traces.
+ *
+ * @example
+ * ```ts
+ * const subset = filterDump(dump, new Set([dump.sessions[0]!.id]))
+ * subset.sessions.length // 1
+ * ```
+ */
+export function filterDump(
+    dump: RunsheetDump,
+    sessionIds: ReadonlySet<string>
+): RunsheetDump {
+    const sessions = dump.sessions.filter(session => sessionIds.has(session.id))
+    const laps = dump.laps.filter(lap => sessionIds.has(lap.sessionId))
+    const lapIds = new Set(laps.map(lap => lap.id))
+    const traces = dump.traces.filter(trace => lapIds.has(trace.lapId))
+    return {
+        ...dump,
+        sessions,
+        laps,
+        traces,
+    }
+}
+
 export async function downloadDump(dump: RunsheetDump): Promise<void> {
     const contents = JSON.stringify(dump)
     const name = dumpFileName(dump.exportedAt)

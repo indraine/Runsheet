@@ -15,7 +15,19 @@ export {
     downloadDump,
     DUMP_FORMAT,
     DUMP_VERSION,
+    filterDump,
     parseDump,
     parseDumpFile,
     type RunsheetDump,
 } from "~/db/transfer"
+export {
+    exportMotecLap,
+    formatMotecError,
+    importMotecLap,
+    loadMotecLap,
+    motecAvailable,
+    motecFileName,
+    packMotecLap,
+    unpackMotecLap,
+    type MotecLap,
+} from "~/db/motec"

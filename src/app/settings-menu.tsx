@@ -1,9 +1,10 @@
 import { Menu } from "@ark-ui/solid/menu"
 import { createSignal, onCleanup, onMount, Show } from "solid-js"
 import { Portal } from "solid-js/web"
+import { ImportDialog } from "~/app/import-dialog"
 import { screenPopupClass, screenPositioning } from "~/app/screen-position"
 import { Download, RotateCcw, Settings, Trash2, Upload } from "lucide-solid"
-import { downloadDump, parseDumpFile, useSessionRepository } from "~/db"
+import { downloadDump, useSessionRepository } from "~/db"
 import { resetSettings } from "~/app/stored"
 import { t } from "~/i18n"
 import { Button, buttonVariants } from "~/ui"
@@ -17,7 +18,7 @@ const dangerItemClass =
 export function SettingsMenu() {
     const repository = useSessionRepository()
     const [confirming, setConfirming] = createSignal(false)
-    let fileInput!: HTMLInputElement
+    const [importing, setImporting] = createSignal(false)
 
     const exportData = async () => {
         const repo = repository()
@@ -31,38 +32,15 @@ export function SettingsMenu() {
         }
     }
 
-    const importData = async (file: File) => {
-        const repo = repository()
-        if (!repo) return
-        try {
-            await repo.importAll(await parseDumpFile(file))
-        } catch (error) {
-            const detail =
-                error instanceof Error ? error.message : String(error)
-            window.alert(`${t("app.importFailed")}\n${detail}`)
-        }
-    }
-
     return (
         <>
-            <input
-                ref={fileInput}
-                type="file"
-                accept="application/json,.json"
-                class="hidden"
-                onChange={event => {
-                    const file = event.currentTarget.files?.[0]
-                    event.currentTarget.value = ""
-                    if (file) void importData(file)
-                }}
-            />
             <Menu.Root
                 aria-label={t("app.settings")}
                 positioning={screenPositioning({ placement: "bottom-end" })}
                 onSelect={details => {
                     if (details.value === "reset") resetSettings()
                     if (details.value === "export") void exportData()
-                    if (details.value === "import") fileInput.click()
+                    if (details.value === "import") setImporting(true)
                     if (details.value === "clear") setConfirming(true)
                 }}
             >
@@ -105,6 +83,12 @@ export function SettingsMenu() {
                     </Menu.Positioner>
                 </Portal>
             </Menu.Root>
+            <Show when={importing()}>
+                <ImportDialog
+                    onCancel={() => setImporting(false)}
+                    onDone={() => setImporting(false)}
+                />
+            </Show>
             <Show when={confirming()}>
                 <ClearDataDialog
                     onCancel={() => setConfirming(false)}

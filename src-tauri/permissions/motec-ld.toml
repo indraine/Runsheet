@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-motec-ld"
+description = "Диалоги открытия/сохранения и чтение/запись MoTeC .ld."
+commands.allow = ["export_motec_ld", "import_motec_ld"]
