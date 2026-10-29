@@ -18,7 +18,11 @@ export type TraceSample = {
     pressureRr: number
 }
 
-/** Inclusive distance span of a trace, or undefined when empty. */
+/** Distance span used for chart domain, clamped to non-negative values.
+ *
+ * ACC can emit negative `distance` samples when the car is teleported or
+ * reset to the pits, which would otherwise stretch the domain and squash
+ * the visible lap. We ignore negative values for the span. */
 export const distanceSpan = (
     trace: Trace | undefined
 ): { min: number; max: number } | undefined => {
@@ -26,7 +30,7 @@ export const distanceSpan = (
     let min = Infinity
     let max = -Infinity
     for (const sample of trace.distance) {
-        if (!Number.isFinite(sample)) continue
+        if (!Number.isFinite(sample) || sample < 0) continue
         if (sample < min) min = sample
         if (sample > max) max = sample
     }
