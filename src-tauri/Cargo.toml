@@ -1,6 +1,6 @@
 [package]
 name = "runsheet"
-version = "1.2.0"
+version = "1.2.1"
 description = "A Tauri App"
 authors = ["indrane"]
 license = "GPL-3.0-or-later"
