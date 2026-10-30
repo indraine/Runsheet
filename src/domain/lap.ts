@@ -30,7 +30,6 @@ export const completeLap = (lap: Lap): Lap => ({
     brakeBias: Number.isFinite(lap.brakeBias) ? lap.brakeBias : 0,
 })
 
-
 const MAX_LAP_MS = 2 * 60 * 60 * 1000
 
 export const realTimeMs = (ms: number | null | undefined): number | null => {
@@ -39,7 +38,6 @@ export const realTimeMs = (ms: number | null | undefined): number | null => {
     }
     return ms
 }
-
 
 export const withRealTimes = (lap: Lap): Lap => {
     const timeMs = realTimeMs(lap.timeMs)
@@ -64,13 +62,18 @@ export const withRealTimes = (lap: Lap): Lap => {
 }
 
 /** A lap must have actually moved to count as a benchmark. */
-const MIN_LAP_SPEED_KMH = 20
+const MIN_LAP_SPEED_KMH = 5
+const MIN_LAP_FUEL_L = 0.1
 
 export function fastestValidLap(laps: readonly Lap[]): Lap | undefined {
     let best: Lap | undefined
     for (const lap of laps) {
         if (!lap.valid || lap.timeMs === null) continue
-        if (!Number.isFinite(lap.maxSpeed) || lap.maxSpeed < MIN_LAP_SPEED_KMH) {
+        if (
+            !Number.isFinite(lap.maxSpeed) ||
+            lap.maxSpeed < MIN_LAP_SPEED_KMH ||
+            lap.fuel < MIN_LAP_FUEL_L
+        ) {
             continue
         }
         if (!best || best.timeMs === null || lap.timeMs < best.timeMs) {
