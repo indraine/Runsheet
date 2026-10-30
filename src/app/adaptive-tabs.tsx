@@ -25,7 +25,7 @@ const SWITCH = {
 export type TabsBreakpoint = keyof typeof SWITCH
 
 const itemClass =
-    "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[11px] text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-[state=checked]:text-accent"
+    "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[12px] text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-[state=checked]:text-accent"
 
 /**
  * Tabs that fold into a select when their container is too narrow.
@@ -86,7 +86,7 @@ export function AdaptiveTabs<T extends string>(props: {
                     <Select.Control>
                         <Select.Trigger
                             aria-label={props.ariaLabel}
-                            class="inline-flex h-[34px] max-w-40 cursor-pointer items-center gap-1.5 rounded border border-line bg-inset px-2.5 font-mono text-[11px] font-medium tracking-wide text-ink uppercase outline-none hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20"
+                            class="inline-flex h-[34px] max-w-40 cursor-pointer items-center gap-1.5 rounded border border-line bg-inset px-2.5 font-mono text-[12px] font-medium tracking-wide text-ink uppercase outline-none hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20"
                         >
                             <Select.ValueText class="truncate" />
                             <ChevronDown

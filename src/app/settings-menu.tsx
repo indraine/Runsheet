@@ -9,10 +9,10 @@ import { t } from "~/i18n"
 import { Button, buttonVariants } from "~/ui"
 
 const itemClass =
-    "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[11px] text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink"
+    "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[12px] text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink"
 
 const dangerItemClass =
-    "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[11px] text-loss outline-none data-highlighted:bg-loss/10 data-highlighted:text-loss"
+    "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[12px] text-loss outline-none data-highlighted:bg-loss/10 data-highlighted:text-loss"
 
 export function SettingsMenu() {
     const repository = useSessionRepository()

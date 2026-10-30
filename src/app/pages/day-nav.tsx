@@ -111,7 +111,7 @@ export const DayNav = (props: {
                         class={cn(
                             "cursor-pointer rounded font-mono text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20",
                             props.bar
-                                ? "h-7 border border-transparent px-2 text-[11px] font-medium tracking-wide uppercase hover:bg-surface hover:text-accent"
+                                ? "h-7 border border-transparent px-2 text-[12px] font-medium tracking-wide uppercase hover:bg-surface hover:text-accent"
                                 : cn(
                                       "px-1 font-semibold tracking-tight hover:text-accent",
                                       props.compact ? "text-base" : "text-lg"

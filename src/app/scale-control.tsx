@@ -38,7 +38,7 @@ export const ScaleControl = () => {
 
     return (
         <div class="flex items-center gap-1">
-            <span class="mr-1 font-mono text-[11px] text-secondary">
+            <span class="mr-1 font-mono text-[12px] text-secondary">
                 {t("app.scale")}
             </span>
             <button
@@ -56,7 +56,7 @@ export const ScaleControl = () => {
                     type="text"
                     inputMode="numeric"
                     aria-label={t("app.scale")}
-                    class="w-8 bg-transparent text-center font-mono text-[11px] text-ink outline-none"
+                    class="w-8 bg-transparent text-center font-mono text-[12px] text-ink outline-none"
                     value={text()}
                     onFocus={event => event.currentTarget.select()}
                     onInput={event => setText(event.currentTarget.value)}
@@ -80,7 +80,7 @@ export const ScaleControl = () => {
                         }
                     }}
                 />
-                <span class="font-mono text-[10px] text-secondary">%</span>
+                <span class="font-mono text-[12px] text-secondary">%</span>
             </label>
             <button
                 type="button"

@@ -78,7 +78,7 @@ const TrackTile = (props: {
                             <span class="block text-[15px] leading-none font-semibold tracking-tight text-ink">
                                 {record().sessions}
                             </span>
-                            <span class="mt-0.5 block text-[10px] leading-none font-medium tracking-wide text-secondary uppercase">
+                            <span class="mt-0.5 block text-[12px] leading-none font-medium tracking-wide text-secondary uppercase">
                                 {attemptWord(record().sessions)}
                             </span>
                         </p>

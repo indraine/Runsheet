@@ -101,7 +101,7 @@ function AccStatus() {
 }
 
 const presenceBubble =
-    "inline-flex h-6 shrink-0 items-center self-center rounded-full border border-current/30 px-2.5 font-mono text-[11px] leading-none font-semibold tracking-wide whitespace-nowrap uppercase"
+    "inline-flex h-6 shrink-0 items-center self-center rounded-full border border-current/30 px-2.5 font-mono text-[12px] leading-none font-semibold tracking-wide whitespace-nowrap uppercase"
 
 const presenceTone = (value: AccPresence): string => {
     if (value === "onTrack") return "bg-gain/15 text-gain"

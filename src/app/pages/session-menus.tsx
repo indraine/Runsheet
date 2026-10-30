@@ -26,7 +26,7 @@ const contentClass =
     "z-50 min-w-44 rounded border border-line bg-surface p-1 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)] outline-none"
 
 const itemClass =
-    "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[11px] text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-disabled:cursor-default data-disabled:opacity-40"
+    "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[12px] text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-disabled:cursor-default data-disabled:opacity-40"
 
 const iconProps = { class: "size-4", strokeWidth: 1.75 } as const
 

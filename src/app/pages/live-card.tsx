@@ -129,7 +129,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                     </div>
                     <Show when={ownTrack() && card().trackLengthM}>
                         {length => (
-                            <span class="shrink-0 font-mono text-[11px] text-secondary">
+                            <span class="shrink-0 font-mono text-[12px] text-secondary">
                                 {formatMetres(length())}
                             </span>
                         )}
@@ -146,7 +146,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                     {carName(card().session.car)}
                 </p>
                 <div class="flex items-center gap-3">
-                    <p class="font-mono text-[11px] text-secondary">
+                    <p class="font-mono text-[12px] text-secondary">
                         <span class="tracking-wide uppercase">
                             {t("app.liveAir")}
                         </span>{" "}
@@ -197,7 +197,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                             hasAsphalt(shownTrack())
                         }
                         fallback={
-                            <p class="flex h-full items-center justify-center font-mono text-[11px] text-muted">
+                            <p class="flex h-full items-center justify-center font-mono text-[12px] text-muted">
                                 {t("app.empty")}
                             </p>
                         }
@@ -248,7 +248,7 @@ const Summary = (props: {
     class?: string
 }) => (
     <div class={cn("px-4 py-3", props.class)}>
-        <p class="font-mono text-[10px] font-semibold tracking-wide text-secondary uppercase">
+        <p class="font-mono text-[12px] font-semibold tracking-wide text-secondary uppercase">
             {props.label}
         </p>
         <p class="mt-1 font-mono text-[22px] leading-8 font-semibold tracking-tight text-ink @xl:text-[28px]">
@@ -256,7 +256,7 @@ const Summary = (props: {
         </p>
         <p
             class={cn(
-                "mt-1 font-mono text-[11px] text-secondary",
+                "mt-1 font-mono text-[12px] text-secondary",
                 props.hintClass
             )}
         >
@@ -286,7 +286,7 @@ const LapTable = (props: {
         <table class="w-full min-w-[30rem] border-collapse text-left">
             <caption class="sr-only">{t("app.lapTable")}</caption>
             <thead class="sticky top-0 z-10 bg-surface">
-                <tr class="border-b border-line font-mono text-[10px] font-semibold tracking-wide text-secondary uppercase">
+                <tr class="border-b border-line font-mono text-[12px] font-semibold tracking-wide text-secondary uppercase">
                     <th class="h-8 px-3 font-semibold">{t("app.colLap")}</th>
                     <th class="h-8 px-3 font-semibold">{t("app.colTime")}</th>
                     <th class="h-8 px-3 font-semibold">{t("app.colDelta")}</th>

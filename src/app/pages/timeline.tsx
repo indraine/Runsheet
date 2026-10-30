@@ -369,7 +369,7 @@ function PastSheet(props: {
                     <div class="min-h-0 flex-1 overflow-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
                         <table class="w-full border-collapse text-left">
                             <thead class="sticky top-0 z-10 border-b border-line bg-surface">
-                                <tr class="font-mono text-[10px] font-medium tracking-wide text-secondary uppercase">
+                                <tr class="font-mono text-[12px] font-medium tracking-wide text-secondary uppercase">
                                     <For each={sessionColumns()}>
                                         {column => (
                                             <th class="px-4 py-2.5 font-medium whitespace-nowrap">
