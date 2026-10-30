@@ -310,6 +310,13 @@ const LapRow = (props: {
         const ms = timeMs()
         return ms === null ? t("app.empty") : fmt.lap(ms)
     }
+    /** Live delta for the open lap, updated at the same rate as the clock. */
+    const liveDeltaMs = () => {
+        if (props.row.lap.timeMs !== null) return null
+        if (!props.clock || props.clock.lapMs == null) return null
+        if (!props.best || props.best.timeMs == null) return null
+        return props.clock.lapMs - props.best.timeMs
+    }
 
     return (
         <tr
@@ -340,8 +347,13 @@ const LapRow = (props: {
             >
                 {timeLabel()}
             </td>
-            <td class={cn("px-3 font-mono text-[13px]", deltaClass(props.row))}>
-                {deltaText(props.row)}
+            <td
+                class={cn(
+                    "px-3 font-mono text-[13px]",
+                    deltaClass(props.row, liveDeltaMs())
+                )}
+            >
+                {deltaText(props.row, liveDeltaMs())}
             </td>
             <SectorCell
                 row={props.row}
@@ -483,13 +495,19 @@ const currentHint = (
     if (card.currentLap) parts.push(`L${card.currentLap.number}`)
     if (clock.sector) parts.push(`${t("app.liveSector")} ${clock.sector}`)
     if (parts.length === 0) return t("app.empty")
-    return hintWithDelta(card, parts.join(" · "))
+    return hintWithDelta(card, parts.join(" · "), clock)
 }
 
-const hintWithDelta = (card: LiveCardModel, head: string): string => {
+const hintWithDelta = (
+    card: LiveCardModel,
+    head: string,
+    clock?: LiveClock
+): string => {
     const row = currentRow(card)
-    if (!row || row.deltaMs === null || row.best) return head
-    return `${head} · ${fmt.delta(row.deltaMs)}`
+    if (!row || row.best) return head
+    const delta = liveDeltaForRow(row, card.bestLap, clock)
+    if (delta === null) return head
+    return `${head} · ${fmt.delta(delta)}`
 }
 
 const bestTime = (timeMs: number | null | undefined): string =>
@@ -501,10 +519,22 @@ const lapLabel = (lap: { number: number } | undefined): string =>
 const pressureText = (value: number | undefined): string =>
     value === undefined ? t("app.empty") : value.toFixed(1)
 
-const deltaText = (row: LiveLapRow): string => {
+const liveDeltaForRow = (
+    row: LiveLapRow,
+    best: LiveCardModel["bestLap"],
+    clock: LiveClock | undefined
+): number | null => {
+    if (row.lap.timeMs !== null) return row.deltaMs
+    if (!clock || clock.lapMs == null) return row.deltaMs
+    if (!best || best.timeMs == null) return row.deltaMs
+    return clock.lapMs - best.timeMs
+}
+
+const deltaText = (row: LiveLapRow, liveDelta: number | null = null): string => {
     if (row.best) return t("app.bestMark")
-    if (row.deltaMs === null) return t("app.empty")
-    return fmt.delta(row.deltaMs)
+    const delta = liveDelta ?? row.deltaMs
+    if (delta === null) return t("app.empty")
+    return fmt.delta(delta)
 }
 
 const timeClass = (row: LiveLapRow): string => {
@@ -513,11 +543,16 @@ const timeClass = (row: LiveLapRow): string => {
     return "text-ink"
 }
 
-const deltaClass = (row: LiveLapRow | undefined): string => {
-    if (!row || !row.lap.valid || row.deltaMs === null) return "text-muted"
+const deltaClass = (
+    row: LiveLapRow | undefined,
+    liveDelta: number | null = null
+): string => {
+    if (!row || !row.lap.valid) return "text-muted"
+    const delta = liveDelta ?? row.deltaMs
+    if (delta === null) return "text-muted"
     if (row.best) return "text-accent"
-    if (row.deltaMs < 0) return "text-gain"
-    if (row.deltaMs > 0) return "text-loss"
+    if (delta < 0) return "text-gain"
+    if (delta > 0) return "text-loss"
     return "text-ink"
 }
 
