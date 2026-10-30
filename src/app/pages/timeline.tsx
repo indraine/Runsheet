@@ -321,9 +321,9 @@ function PastSheet(props: {
     }
 
     return (
-        <section class="flex min-h-0 flex-1 flex-col">
-            <header class="@container shrink-0">
-                <div class="flex items-center gap-2">
+        <section class="flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-line bg-surface">
+            <header class="@container shrink-0 border-b border-line px-4 py-3">
+                <div class="flex items-center gap-x-3">
                     <Show when={selected()}>
                         {start => (
                             <DayNav

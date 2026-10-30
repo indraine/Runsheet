@@ -26,22 +26,12 @@ export const TrackBoard = (props: {
     const ordered = createMemo(() =>
         sortTracks(trackCodes, props.records, trackBoardSort())
     )
-    const driven = () =>
-        trackCodes.filter(track => props.records.has(track)).length
-
     return (
         <section class="@container flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-line bg-surface">
             <header class="flex shrink-0 items-center gap-x-3 border-b border-line px-4 py-3">
                 <h2 class="min-w-0 truncate font-mono text-lg font-semibold tracking-tight text-ink uppercase">
                     {t("app.trackBoard")}
                 </h2>
-                <p class="hidden shrink-0 font-mono text-[11px] text-secondary @md:block">
-                    <span class="text-[13px] text-ink">{driven()}</span> /{" "}
-                    {trackCodes.length}{" "}
-                    <span class="tracking-wide uppercase">
-                        {t("app.trackBoardDriven")}
-                    </span>
-                </p>
                 <div class="ml-auto flex shrink-0 items-center gap-2">
                     <AdaptiveTabs
                         from="lg"

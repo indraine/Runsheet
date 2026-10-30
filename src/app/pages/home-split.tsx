@@ -124,14 +124,7 @@ function Handle(props: {
                     setHomeSplit(DEFAULT_SPLIT)
                 }
             }}
-        >
-            <div
-                class={cn(
-                    "w-px rounded-full bg-line transition-colors group-hover:w-0.5 group-hover:bg-accent group-focus-visible:w-0.5 group-focus-visible:bg-accent",
-                    dragging() && "w-0.5 bg-accent"
-                )}
-            />
-        </div>
+        ></div>
     )
 }
 
