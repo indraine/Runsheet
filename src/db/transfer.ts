@@ -1,5 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core"
 import {
+    isReference,
     isSessionType,
     TRACE_CHANNELS,
     type Lap,
@@ -31,14 +32,20 @@ export async function readDump(db: RunsheetDatabase): Promise<RunsheetDump> {
         db.getAll("laps"),
         db.getAll("lap_telemetry"),
     ])
+    const recorded = sessions.filter(session => !isReference(session))
+    const ids = new Set(recorded.map(session => session.id))
+    const ownLaps = laps.filter(lap => ids.has(lap.sessionId))
+    const lapIds = new Set(ownLaps.map(lap => lap.id))
     return {
         format: DUMP_FORMAT,
         version: DUMP_VERSION,
         dbVersion: DB_VERSION,
         exportedAt: Date.now(),
-        sessions,
-        laps,
-        traces: traces.map(encodeTrace),
+        sessions: recorded,
+        laps: ownLaps,
+        traces: traces
+            .filter(trace => lapIds.has(trace.lapId))
+            .map(encodeTrace),
     }
 }
 

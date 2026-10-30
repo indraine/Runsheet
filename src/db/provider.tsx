@@ -18,6 +18,12 @@ const RepositoryContext =
 
 async function openDatabase(): Promise<RunsheetDatabase> {
     const opened = await openRunsheetDb()
+    try {
+        const { seedReferenceLaps } = await import("~/db/reference-laps")
+        await seedReferenceLaps(opened)
+    } catch (error) {
+        console.error(error)
+    }
     if (import.meta.env.DEV) {
         const { seedDevDay } = await import("~/db/seed")
         await seedDevDay(opened)

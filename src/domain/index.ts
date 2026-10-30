@@ -33,6 +33,7 @@ export {
     completeSession,
     isSessionType,
     SESSION_TYPES,
+    isReference,
     type Session,
     type SessionStatus,
     type SessionType,
