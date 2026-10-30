@@ -46,12 +46,15 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'Runsheet v__VERSION__'
           releaseBody: |
-            ## Runsheet v1.2.1 — Telemetry comparison fix 🏁
+            ## Runsheet v1.3.0 — Live session lifecycle & telemetry comparison fix 🏁
 
             Desktop session sheet for **Assetto Corsa Competizione**.
             Open the app, drive — sessions, laps, sectors, fuel, and validity are captured automatically.
 
-            ### What's new in 1.2.1
+            ### What's new in 1.3.0
+            - **Live delta updates at clock rate** — the current-lap delta in the live card now refreshes as often as the running clock
+            - **Robust session lifecycle** — closing the game or losing the ACC link now closes the live session and invalidates the open lap
+            - **Stationary lap filtering** — menu/pit artifacts with no speed or fuel no longer appear as best laps
             - **Fixed telemetry comparison squash** — negative distance samples no longer stretch the chart domain when comparing laps
 
             ### Also included

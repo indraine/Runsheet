@@ -33,6 +33,19 @@ export const completeLap = (lap: Lap): Lap => ({
 
 const MAX_LAP_MS = 2 * 60 * 60 * 1000
 
+/** Minimum max speed for a lap to be considered real driving.
+ *
+ * ACC reports near-zero speed when the car is in the menu, in the pitlane
+ * before moving, or when the game is closed mid-lap. A real lap on any
+ * track quickly exceeds this. */
+export const MIN_MEANINGFUL_LAP_SPEED_KMH = 5
+
+/** Minimum fuel recorded on a lap to treat it as real driving.
+ *
+ * Menu/pit artifacts often report exactly zero fuel, while a car that has
+ * left the pits always carries some fuel. */
+export const MIN_MEANINGFUL_LAP_FUEL_L = 0.1
+
 export const realTimeMs = (ms: number | null | undefined): number | null => {
     if (ms == null || !Number.isFinite(ms) || ms <= 0 || ms > MAX_LAP_MS) {
         return null
@@ -63,10 +76,22 @@ export const withRealTimes = (lap: Lap): Lap => {
     return { ...lap, timeMs, s1Ms, s2Ms, s3Ms: repaired }
 }
 
+/** A lap that has actually driven on the track.
+ *
+ * Filters out menu artifacts, unstarted pit-lap records, and laps left
+ * behind when the game is closed. */
+export const isMeaningfulLap = (lap: Lap): boolean => {
+    if (!lap.valid) return false
+    if (!Number.isFinite(lap.maxSpeed)) return false
+    if (lap.maxSpeed < MIN_MEANINGFUL_LAP_SPEED_KMH) return false
+    if (lap.fuel < MIN_MEANINGFUL_LAP_FUEL_L) return false
+    return true
+}
+
 export function fastestValidLap(laps: readonly Lap[]): Lap | undefined {
     let best: Lap | undefined
     for (const lap of laps) {
-        if (!lap.valid || lap.timeMs === null) continue
+        if (!isMeaningfulLap(lap) || lap.timeMs === null) continue
         if (!best || best.timeMs === null || lap.timeMs < best.timeMs) {
             best = lap
         }
