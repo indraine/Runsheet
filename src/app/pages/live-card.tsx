@@ -24,9 +24,7 @@ import {
     type LiveCard as LiveCardModel,
     type LiveLapRow,
     type SectorClock,
-    type Trace,
 } from "~/domain"
-import type { SectorId } from "~/app/track-geometry"
 import type { LiveClock } from "~/ipc/status"
 import { carName, fmt, t, trackCodes, trackName } from "~/i18n"
 import { locale } from "~/i18n/locale"
@@ -66,85 +64,81 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
 
     return (
         <section class="@container flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-line bg-surface">
-            <header class="flex shrink-0 items-start justify-between gap-x-4 border-b border-line px-4 py-3">
-                <div class="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-6 gap-y-2">
-                    <div class="flex min-w-0 items-baseline gap-3">
-                        <div class="relative min-w-0">
-                            <h2
-                                class="truncate font-mono text-lg font-semibold tracking-tight text-ink uppercase select-text"
-                                aria-hidden={seedDev()}
+            <header class="flex shrink-0 flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b border-line px-4 py-3">
+                <div class="flex min-w-0 items-baseline gap-3">
+                    <div class="relative min-w-0">
+                        <h2
+                            class="truncate font-mono text-lg font-semibold tracking-tight text-ink uppercase select-text"
+                            aria-hidden={seedDev()}
+                        >
+                            {trackName(shownTrack())}
+                        </h2>
+                        <Show when={seedDev()}>
+                            <Select.Root
+                                collection={tracks()}
+                                value={[shownTrack()]}
+                                positioning={screenPositioning({
+                                    placement: "bottom-start",
+                                    gutter: 4,
+                                })}
+                                onValueChange={details => {
+                                    const next = details.value[0]
+                                    if (next) setPreview(next)
+                                }}
                             >
-                                {trackName(shownTrack())}
-                            </h2>
-                            <Show when={seedDev()}>
-                                <Select.Root
-                                    collection={tracks()}
-                                    value={[shownTrack()]}
-                                    positioning={screenPositioning({
-                                        placement: "bottom-start",
-                                        gutter: 4,
-                                    })}
-                                    onValueChange={details => {
-                                        const next = details.value[0]
-                                        if (next) setPreview(next)
-                                    }}
-                                >
-                                    <Select.Control class="absolute inset-0">
-                                        <Select.Trigger
-                                            class="size-full cursor-pointer opacity-0"
-                                            aria-label={t("app.previewTrack")}
+                                <Select.Control class="absolute inset-0">
+                                    <Select.Trigger
+                                        class="size-full cursor-pointer opacity-0"
+                                        aria-label={t("app.previewTrack")}
+                                    >
+                                        {trackName(shownTrack())}
+                                    </Select.Trigger>
+                                </Select.Control>
+                                <Portal>
+                                    <Select.Positioner class={screenPopupClass}>
+                                        <Select.Content
+                                            class={cn(
+                                                screenMenuListClass,
+                                                "w-56 rounded border border-line bg-surface p-1 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)] outline-none"
+                                            )}
                                         >
-                                            {trackName(shownTrack())}
-                                        </Select.Trigger>
-                                    </Select.Control>
-                                    <Portal>
-                                        <Select.Positioner
-                                            class={screenPopupClass}
-                                        >
-                                            <Select.Content
-                                                class={cn(
-                                                    screenMenuListClass,
-                                                    "w-56 rounded border border-line bg-surface p-1 shadow-[0_4px_12px_-2px_rgba(15,23,42,0.12),0_1px_3px_-1px_rgba(15,23,42,0.08)] outline-none"
+                                            <For each={trackCodes}>
+                                                {code => (
+                                                    <Select.Item
+                                                        item={code}
+                                                        class="flex cursor-pointer rounded px-2 py-1.5 text-left font-mono text-[13px] text-ink outline-none data-highlighted:bg-inset"
+                                                    >
+                                                        <Select.ItemText class="select-text">
+                                                            {trackName(code)}
+                                                        </Select.ItemText>
+                                                    </Select.Item>
                                                 )}
-                                            >
-                                                <For each={trackCodes}>
-                                                    {code => (
-                                                        <Select.Item
-                                                            item={code}
-                                                            class="flex cursor-pointer rounded px-2 py-1.5 text-left font-mono text-[13px] text-ink outline-none data-highlighted:bg-inset"
-                                                        >
-                                                            <Select.ItemText class="select-text">
-                                                                {trackName(
-                                                                    code
-                                                                )}
-                                                            </Select.ItemText>
-                                                        </Select.Item>
-                                                    )}
-                                                </For>
-                                            </Select.Content>
-                                        </Select.Positioner>
-                                    </Portal>
-                                </Select.Root>
-                            </Show>
-                        </div>
-                        <Show when={ownTrack() && card().trackLengthM}>
-                            {length => (
-                                <span class="shrink-0 font-mono text-[11px] text-secondary">
-                                    {formatMetres(length())}
-                                </span>
-                            )}
+                                            </For>
+                                        </Select.Content>
+                                    </Select.Positioner>
+                                </Portal>
+                            </Select.Root>
                         </Show>
                     </div>
-                    <p class="font-mono text-[13px] text-ink">
-                        <Show when={card().session.driver}>
-                            {card().session.driver}
-                            <span class="text-muted" aria-hidden="true">
-                                {" "}
-                                ·{" "}
+                    <Show when={ownTrack() && card().trackLengthM}>
+                        {length => (
+                            <span class="shrink-0 font-mono text-[11px] text-secondary">
+                                {formatMetres(length())}
                             </span>
-                        </Show>
-                        {carName(card().session.car)}
-                    </p>
+                        )}
+                    </Show>
+                </div>
+                <p class="font-mono text-[13px] text-ink">
+                    <Show when={card().session.driver}>
+                        {card().session.driver}
+                        <span class="text-muted" aria-hidden="true">
+                            {" "}
+                            ·{" "}
+                        </span>
+                    </Show>
+                    {carName(card().session.car)}
+                </p>
+                <div class="flex items-center gap-3">
                     <p class="font-mono text-[11px] text-secondary">
                         <span class="tracking-wide uppercase">
                             {t("app.liveAir")}
@@ -159,51 +153,67 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                         </span>{" "}
                         {formatCelsius(card().session.roadTemp)}
                     </p>
-                </div>
-                <div class="flex shrink-0 items-center gap-2">
-                    <TrackMap
-                        track={shownTrack()}
-                        road={ownTrack() ? card().road : undefined}
-                        car={ownTrack() ? card().car : undefined}
-                        s1EndM={
-                            ownTrack()
-                                ? (card().currentLap?.s1EndM ??
-                                  card().bestLap?.s1EndM)
-                                : undefined
-                        }
-                        s2EndM={
-                            ownTrack()
-                                ? (card().currentLap?.s2EndM ??
-                                  card().bestLap?.s2EndM)
-                                : undefined
-                        }
-                        sector={
-                            ownTrack()
-                                ? (clockFor()?.sector ?? card().sector)
-                                : undefined
-                        }
-                    />
                     <PaneToggle pane="right" />
                 </div>
             </header>
 
-            <div class="grid shrink-0 border-b border-line @md:grid-cols-3 @md:divide-x @md:divide-line">
+            <div class="grid shrink-0 border-b border-line @md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(11rem,16rem)] @md:grid-rows-2">
                 <Summary
                     label={t("app.liveBest")}
                     value={bestTime(card().bestLap?.timeMs)}
                     hint={lapLabel(card().bestLap)}
+                    class="@md:border-r @md:border-line"
                 />
                 <Summary
                     label={t("app.liveCurrent")}
                     value={currentValue(card(), clockFor())}
                     hint={currentHint(card(), clockFor())}
                     hintClass={deltaClass(currentRow(card()))}
+                    class="border-t border-line @md:border-t-0 @md:border-r"
                 />
                 <Summary
                     label={t("app.livePressure")}
                     value={pressureText(card().pressurePsi)}
                     hint={t("app.psi")}
+                    class="border-t border-line @md:col-span-2 @md:border-r"
                 />
+                <div class="relative h-40 border-t border-line @md:col-start-3 @md:row-span-2 @md:row-start-1 @md:h-auto @md:border-t-0">
+                    <Show
+                        when={
+                            (ownTrack() && (card().road || card().car)) ||
+                            hasAsphalt(shownTrack())
+                        }
+                        fallback={
+                            <p class="flex h-full items-center justify-center font-mono text-[11px] text-muted">
+                                {t("app.empty")}
+                            </p>
+                        }
+                    >
+                        <TrackView
+                            class="absolute inset-0 min-h-0"
+                            track={shownTrack()}
+                            road={ownTrack() ? card().road : undefined}
+                            car={ownTrack() ? card().car : undefined}
+                            s1EndM={
+                                ownTrack()
+                                    ? (card().currentLap?.s1EndM ??
+                                      card().bestLap?.s1EndM)
+                                    : undefined
+                            }
+                            s2EndM={
+                                ownTrack()
+                                    ? (card().currentLap?.s2EndM ??
+                                      card().bestLap?.s2EndM)
+                                    : undefined
+                            }
+                            sector={
+                                ownTrack()
+                                    ? (clockFor()?.sector ?? card().sector)
+                                    : undefined
+                            }
+                        />
+                    </Show>
+                </div>
             </div>
 
             <div class="flex min-h-0 flex-1 flex-col">
@@ -217,44 +227,14 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
     )
 }
 
-/** Трек в правом верхнем углу карточки: фиксированная высота. */
-const TrackMap = (props: {
-    track: string
-    road?: Trace
-    car?: Trace
-    s1EndM?: number | null
-    s2EndM?: number | null
-    sector?: SectorId
-}) => (
-    <div class="relative hidden h-24 w-40 shrink-0 overflow-hidden rounded border border-line @md:block">
-        <Show
-            when={props.road || props.car || hasAsphalt(props.track)}
-            fallback={
-                <p class="flex h-full items-center justify-center font-mono text-[11px] text-muted">
-                    {t("app.empty")}
-                </p>
-            }
-        >
-            <TrackView
-                class="absolute inset-0 min-h-0"
-                track={props.track}
-                road={props.road}
-                car={props.car}
-                s1EndM={props.s1EndM}
-                s2EndM={props.s2EndM}
-                sector={props.sector}
-            />
-        </Show>
-    </div>
-)
-
 const Summary = (props: {
     label: string
     value: string
     hint: string
     hintClass?: string
+    class?: string
 }) => (
-    <div class="px-4 py-3">
+    <div class={cn("px-4 py-3", props.class)}>
         <p class="font-mono text-[10px] font-semibold tracking-wide text-secondary uppercase">
             {props.label}
         </p>
