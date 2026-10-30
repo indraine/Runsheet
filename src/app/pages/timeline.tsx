@@ -19,10 +19,7 @@ import {
     setSessionListSort,
     type SessionListSort,
 } from "~/app/session-list-sort"
-import {
-    sessionColumns,
-    type SessionColumn,
-} from "~/app/session-columns"
+import { sessionColumns, type SessionColumn } from "~/app/session-columns"
 import { accLink, accPresence } from "~/app/status"
 import { useSessionRepository } from "~/db"
 import {

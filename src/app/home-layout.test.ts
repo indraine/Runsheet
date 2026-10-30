@@ -20,9 +20,7 @@ describe("clampSplit", () => {
 
     it("gives the default for a value that is not a number", () => {
         expect(clampSplit(Number.NaN)).toBe(DEFAULT_LAYOUT.split)
-        expect(clampSplit(Number.POSITIVE_INFINITY)).toBe(
-            DEFAULT_LAYOUT.split
-        )
+        expect(clampSplit(Number.POSITIVE_INFINITY)).toBe(DEFAULT_LAYOUT.split)
     })
 })
 
@@ -39,15 +37,17 @@ describe("parseHomeLayout", () => {
     })
 
     it("reads a stored layout", () => {
-        expect(
-            parseHomeLayout('{"split":0.4,"expanded":"left"}')
-        ).toEqual({ split: 0.4, expanded: "left" })
+        expect(parseHomeLayout('{"split":0.4,"expanded":"left"}')).toEqual({
+            split: 0.4,
+            expanded: "left",
+        })
     })
 
     it("fixes each bad field on its own", () => {
-        expect(
-            parseHomeLayout('{"split":"wide","expanded":"right"}')
-        ).toEqual({ split: DEFAULT_LAYOUT.split, expanded: "right" })
+        expect(parseHomeLayout('{"split":"wide","expanded":"right"}')).toEqual({
+            split: DEFAULT_LAYOUT.split,
+            expanded: "right",
+        })
         expect(parseHomeLayout('{"split":2,"expanded":"up"}')).toEqual({
             split: MAX_SPLIT,
             expanded: "none",

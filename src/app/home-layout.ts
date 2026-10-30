@@ -79,9 +79,7 @@ const readLayout = (): HomeLayout => {
     }
 }
 
-const [homeLayout, setHomeLayoutSignal] = createSignal<HomeLayout>(
-    readLayout()
-)
+const [homeLayout, setHomeLayoutSignal] = createSignal<HomeLayout>(readLayout())
 
 export { homeLayout }
 
