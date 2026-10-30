@@ -388,6 +388,7 @@ function PastSheet(props: {
                                             opened={
                                                 props.openedId === session.id
                                             }
+                                            onOpen={props.onShowLive}
                                         />
                                     )}
                                 </For>
@@ -421,6 +422,7 @@ function ClosedRow(props: {
     session: Session
     bestLap: Lap | undefined
     opened: boolean
+    onOpen: (session: Session) => void
 }) {
     const lap = () => countableLap(props.bestLap)
 
@@ -428,9 +430,14 @@ function ClosedRow(props: {
         <tr
             data-session-id={props.session.id}
             class={cn(
-                "cursor-context-menu border-b border-line last:border-b-0 hover:bg-inset",
+                "cursor-pointer border-b border-line last:border-b-0 hover:bg-inset",
                 props.opened && "bg-inset"
             )}
+            onClick={() => {
+                // A click that ends a text selection is not a request to open.
+                if (window.getSelection()?.toString()) return
+                if (!props.opened) props.onOpen(props.session)
+            }}
         >
             <For each={sessionColumns()}>
                 {column => (
