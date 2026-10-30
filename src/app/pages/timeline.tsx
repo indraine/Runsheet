@@ -436,7 +436,7 @@ function ClosedRow(props: {
             onClick={() => {
                 // A click that ends a text selection is not a request to open.
                 if (window.getSelection()?.toString()) return
-                if (!props.opened) props.onOpen(props.session)
+                props.onOpen(props.session)
             }}
         >
             <For each={sessionColumns()}>
