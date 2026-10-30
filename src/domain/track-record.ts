@@ -48,19 +48,37 @@ export const trackRecords = (
 }
 
 
+/**
+ * Order of tracks. `name` sorts by the name shown to the reader, in the
+ * rules of `locale`, so the Russian list runs А–Я and the English one A–Z.
+ * The other orders break ties in catalog order.
+ *
+ * With names {cota: "Остин", barcelona: "Барселона"} and locale "ru":
+ * sortTracks(["cota", "barcelona"], new Map(), "name", nameOf, "ru")
+ *   -> ["barcelona", "cota"]
+ */
 export const sortTracks = (
     codes: readonly string[],
     records: ReadonlyMap<string, TrackRecord>,
-    sort: TrackSort
+    sort: TrackSort,
+    nameOf: (code: string) => string = code => code,
+    locale?: string
 ): string[] => {
     const catalog = new Map(codes.map((code, index) => [code, index]))
     const catalogOf = (track: string): number => catalog.get(track) ?? 0
+    const collator = new Intl.Collator(locale, {
+        sensitivity: "base",
+        numeric: true,
+    })
 
     return [...codes].sort((left, right) => {
         const leftRecord = records.get(left)
         const rightRecord = records.get(right)
 
-        if (sort === "name") return catalogOf(left) - catalogOf(right)
+        if (sort === "name") {
+            const byName = collator.compare(nameOf(left), nameOf(right))
+            return byName !== 0 ? byName : catalogOf(left) - catalogOf(right)
+        }
 
         const leftDriven = leftRecord !== undefined
         const rightDriven = rightRecord !== undefined
