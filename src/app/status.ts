@@ -1,7 +1,14 @@
 import { createSignal } from "solid-js"
 import type { LiveClock } from "~/ipc/status"
 
-export type AccPresence = "unknown" | "off" | "menu" | "inPits" | "onTrack"
+export type AccPresence =
+    | "unknown"
+    | "off"
+    | "menu"
+    | "inPits"
+    | "onTrack"
+    | "pause"
+    | "onGrid"
 
 export type AccLink = {
     linked: boolean

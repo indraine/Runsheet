@@ -177,7 +177,9 @@ export function TimelinePage() {
                             const presence = accPresence()
                             if (
                                 presence === "onTrack" ||
-                                presence === "inPits"
+                                presence === "inPits" ||
+                                presence === "pause" ||
+                                presence === "onGrid"
                             ) {
                                 return sheet().live
                             }
