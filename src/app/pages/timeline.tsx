@@ -18,6 +18,10 @@ import {
     setSessionListSort,
     type SessionListSort,
 } from "~/app/session-list-sort"
+import {
+    sessionColumns,
+    type SessionColumn,
+} from "~/app/session-columns"
 import { accLink, accPresence } from "~/app/status"
 import { useSessionRepository } from "~/db"
 import {
@@ -34,7 +38,7 @@ import {
     type SessionType,
 } from "~/domain"
 import { carName, fmt, t, trackName } from "~/i18n"
-import { Button, Tabs, cn } from "~/ui"
+import { Tabs, cn } from "~/ui"
 import { DayNav, activeDayStart } from "~/app/pages/day-nav"
 import {
     applyDayWrite,
@@ -44,6 +48,7 @@ import {
     type DaySession,
 } from "~/app/pages/day-memory"
 import { LiveCard } from "~/app/pages/live-card"
+import { ColumnsMenu, SessionContextMenu } from "~/app/pages/session-menus"
 import { TrackBoard } from "~/app/pages/track-board"
 
 export function TimelinePage() {
@@ -180,21 +185,28 @@ export function TimelinePage() {
                         }
                         const shown = () => review() ?? live()
                         const hasPast = () => sheet().past.length > 0
-                        const splitTop = () =>
-                            shown()
-                                ? "h-[calc(100%-12rem)] max-h-[32rem]"
-                                : "max-h-[calc(100%-12rem)]"
                         return (
-                            <div class="flex min-h-0 flex-1 flex-col">
-                                <div
-                                    class={cn(
-                                        "flex min-h-0 shrink-0 flex-col overflow-hidden px-6 pt-6",
-                                        !hasPast() && shown()
-                                            ? "pb-0"
-                                            : undefined,
-                                        splitTop()
-                                    )}
-                                >
+                            <div class="flex min-h-0 flex-1 gap-6 px-6 py-6">
+                                <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+                                    <Show
+                                        when={hasPast()}
+                                        fallback={
+                                            <Show
+                                                when={shown()}
+                                                fallback={<EmptyPast />}
+                                            >
+                                                <AwaitingFirstRecord />
+                                            </Show>
+                                        }
+                                    >
+                                        <PastSheet
+                                            sessions={sheet().past}
+                                            openedId={review()?.session.id}
+                                            onShowLive={showSession}
+                                        />
+                                    </Show>
+                                </div>
+                                <div class="flex min-h-0 w-1/2 max-w-3xl min-w-[26rem] shrink-0 flex-col">
                                     <Show
                                         when={shown()}
                                         fallback={
@@ -204,19 +216,6 @@ export function TimelinePage() {
                                         <LiveCard card={shown()!} />
                                     </Show>
                                 </div>
-                                <Show when={hasPast()}>
-                                    <PastSheet
-                                        sessions={sheet().past}
-                                        openedId={review()?.session.id}
-                                        onShowLive={showSession}
-                                    />
-                                </Show>
-                                <Show when={!hasPast() && shown()}>
-                                    <AwaitingFirstRecord />
-                                </Show>
-                                <Show when={!hasPast() && !shown()}>
-                                    <EmptyPast />
-                                </Show>
                             </div>
                         )
                     }}
@@ -228,7 +227,7 @@ export function TimelinePage() {
 
 function EmptyPast() {
     return (
-        <section class="flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6">
+        <section class="flex min-h-0 flex-1 flex-col">
             <div class="flex min-h-0 flex-1 flex-col items-center justify-center rounded border border-line bg-surface px-6 py-12 text-center">
                 <h2 class="font-mono text-sm font-medium tracking-wide text-ink uppercase">
                     {t("app.emptyPastTitle")}
@@ -248,7 +247,7 @@ function EmptyPast() {
 
 function AwaitingFirstRecord() {
     return (
-        <section class="flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6">
+        <section class="flex min-h-0 flex-1 flex-col">
             <div class="flex min-h-0 flex-1 flex-col items-center justify-center rounded border border-line bg-surface px-6 py-12 text-center">
                 <h2 class="font-mono text-sm font-medium tracking-wide text-ink uppercase">
                     {t("app.awaitingFirstTitle")}
@@ -291,9 +290,28 @@ function PastSheet(props: {
     }
     const bestLap = (sessionId: string) =>
         props.sessions.find(row => row.session.id === sessionId)?.bestLap
+    const [target, setTarget] = createSignal<string>()
+    const targetSession = () =>
+        sessions().find(session => session.id === target())
+    const navigate = useNavigate()
+    const compare = () => {
+        const session = targetSession()
+        if (!session) return
+        const params = new URLSearchParams({
+            session: session.id,
+            track: session.track,
+        })
+        const lap = bestLap(session.id)
+        if (lap && lap.timeMs !== null) params.set("lap", lap.id)
+        navigate(`/telemetry?${params.toString()}`)
+    }
+    const toggleLive = () => {
+        const session = targetSession()
+        if (session) props.onShowLive(session)
+    }
 
     return (
-        <section class="flex min-h-0 flex-1 flex-col px-6 pt-6 pb-6">
+        <section class="flex min-h-0 flex-1 flex-col">
             <header class="flex shrink-0 flex-wrap items-center justify-between gap-4">
                 <Show when={selected()}>
                     {start => (
@@ -310,55 +328,68 @@ function PastSheet(props: {
                         onChange={setSessionListSort}
                     />
                     <SessionTypeFilter value={filter()} onChange={setFilter} />
+                    <ColumnsMenu label={columnLabel} />
                 </div>
             </header>
             <Show when={sessions().length > 0}>
-                <div class="mt-6 min-h-0 flex-1 overflow-y-auto overscroll-contain rounded border border-line bg-surface [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
-                    <table class="w-full border-collapse text-left">
-                        <thead class="sticky top-0 z-10 border-b border-line bg-surface">
-                            <tr class="font-mono text-[10px] font-medium tracking-wide text-secondary uppercase">
-                                <th class="px-4 py-2.5 font-medium">
-                                    {t("app.colTime")}
-                                </th>
-                                <th class="px-4 py-2.5 font-medium">
-                                    {t("app.colTrack")}
-                                </th>
-                                <th class="px-4 py-2.5 font-medium">
-                                    {t("app.colType")}
-                                </th>
-                                <th class="px-4 py-2.5 font-medium">
-                                    {t("app.colDriver")}
-                                </th>
-                                <th class="px-4 py-2.5 font-medium">
-                                    {t("app.colCar")}
-                                </th>
-                                <th class="px-4 py-2.5 font-medium">
-                                    {t("app.bestLap")}
-                                </th>
-                                <th class="px-4 py-2.5 font-medium">
-                                    <span class="sr-only">
-                                        {t("app.compare")}
-                                    </span>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <For each={sessions()}>
-                                {session => (
-                                    <ClosedRow
-                                        session={session}
-                                        bestLap={bestLap(session.id)}
-                                        opened={props.openedId === session.id}
-                                        onShow={() => props.onShowLive(session)}
-                                    />
-                                )}
-                            </For>
-                        </tbody>
-                    </table>
-                </div>
+                <SessionContextMenu
+                    class="mt-6 flex min-h-0 flex-1 flex-col"
+                    opened={
+                        target() !== undefined && props.openedId === target()
+                    }
+                    onTarget={setTarget}
+                    onCompare={compare}
+                    onToggleLive={toggleLive}
+                >
+                    <div class="min-h-0 flex-1 overflow-auto overscroll-contain rounded border border-line bg-surface [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
+                        <table class="w-full border-collapse text-left">
+                            <thead class="sticky top-0 z-10 border-b border-line bg-surface">
+                                <tr class="font-mono text-[10px] font-medium tracking-wide text-secondary uppercase">
+                                    <For each={sessionColumns()}>
+                                        {column => (
+                                            <th class="px-4 py-2.5 font-medium whitespace-nowrap">
+                                                {columnLabel(column)}
+                                            </th>
+                                        )}
+                                    </For>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <For each={sessions()}>
+                                    {session => (
+                                        <ClosedRow
+                                            session={session}
+                                            bestLap={bestLap(session.id)}
+                                            opened={
+                                                props.openedId === session.id
+                                            }
+                                        />
+                                    )}
+                                </For>
+                            </tbody>
+                        </table>
+                    </div>
+                </SessionContextMenu>
             </Show>
         </section>
     )
+}
+
+function columnLabel(column: SessionColumn): string {
+    switch (column) {
+        case "time":
+            return t("app.colTime")
+        case "track":
+            return t("app.colTrack")
+        case "type":
+            return t("app.colType")
+        case "driver":
+            return t("app.colDriver")
+        case "car":
+            return t("app.colCar")
+        case "best":
+            return t("app.bestLap")
+    }
 }
 
 function SessionSortFilter(props: {
@@ -415,99 +446,84 @@ function ClosedRow(props: {
     session: Session
     bestLap: Lap | undefined
     opened: boolean
-    onShow: () => void
 }) {
-    const navigate = useNavigate()
-    const compare = () => {
-        const params = new URLSearchParams({
-            session: props.session.id,
-            track: props.session.track,
-        })
-        const lap = props.bestLap
-        if (lap && lap.timeMs !== null) params.set("lap", lap.id)
-        navigate(`/telemetry?${params.toString()}`)
-    }
     const lap = () => countableLap(props.bestLap)
 
     return (
         <tr
+            data-session-id={props.session.id}
             class={cn(
-                "group border-b border-line last:border-b-0 hover:bg-inset",
+                "border-b border-line last:border-b-0 hover:bg-inset",
                 props.opened && "bg-inset"
             )}
         >
-            <td class="px-4 py-2.5 whitespace-nowrap">
-                <time
-                    class="font-mono text-sm font-medium text-ink"
-                    datetime={new Date(props.session.startedAt).toISOString()}
-                >
-                    {fmt.clock(props.session.startedAt)}
-                </time>
-            </td>
-            <td class="max-w-40 truncate px-4 py-2.5 font-mono text-[13px] text-ink select-text">
-                {trackName(props.session.track)}
-            </td>
-            <td class="px-4 py-2.5 font-mono text-[13px] whitespace-nowrap text-ink">
-                {props.session.online ? t("app.online") : t("app.solo")}
-                <span class="text-muted" aria-hidden="true">
-                    {" · "}
-                </span>
-                {sessionTypeLabel(props.session.type)}
-            </td>
-            <td class="max-w-36 truncate px-4 py-2.5 font-mono text-[13px] text-secondary select-text">
-                {props.session.driver || t("app.empty")}
-            </td>
-            <td class="max-w-44 truncate px-4 py-2.5 font-mono text-[13px] text-secondary select-text">
-                {carName(props.session.car)}
-            </td>
-            <td class="px-4 py-2.5 font-mono text-[13px] font-semibold whitespace-nowrap text-ink">
-                {bestLapText(lap())}
-            </td>
-            <td class="px-4 py-2.5">
-                <div class="flex shrink-0 items-center justify-end gap-2 whitespace-nowrap">
-                    <Button variant="secondary" size="sm" onClick={compare}>
-                        {t("app.compare")}
-                    </Button>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        class={cn(
-                            "group-hover:bg-inset",
-                            props.opened && "border-accent bg-inset text-accent"
-                        )}
-                        aria-pressed={props.opened}
-                        aria-label={
-                            props.opened
-                                ? t("app.showTracks")
-                                : t("app.showLiveCard")
-                        }
-                        onClick={() => props.onShow()}
-                    >
-                        <span class="grid">
-                            <span
-                                class={cn(
-                                    "col-start-1 row-start-1 whitespace-nowrap",
-                                    props.opened && "invisible"
-                                )}
-                                aria-hidden="true"
-                            >
-                                {t("app.showLiveCard")}
-                            </span>
-                            <span
-                                class={cn(
-                                    "col-start-1 row-start-1 whitespace-nowrap",
-                                    !props.opened && "invisible"
-                                )}
-                                aria-hidden="true"
-                            >
-                                {t("app.showTracks")}
-                            </span>
-                        </span>
-                    </Button>
-                </div>
-            </td>
+            <For each={sessionColumns()}>
+                {column => (
+                    <ClosedCell
+                        column={column}
+                        session={props.session}
+                        lap={lap()}
+                    />
+                )}
+            </For>
         </tr>
     )
+}
+
+function ClosedCell(props: {
+    column: SessionColumn
+    session: Session
+    lap: (Lap & { timeMs: number }) | undefined
+}) {
+    switch (props.column) {
+        case "time":
+            return (
+                <td class="px-4 py-2.5 whitespace-nowrap">
+                    <time
+                        class="font-mono text-sm font-medium text-ink"
+                        datetime={new Date(
+                            props.session.startedAt
+                        ).toISOString()}
+                    >
+                        {fmt.clock(props.session.startedAt)}
+                    </time>
+                </td>
+            )
+        case "track":
+            return (
+                <td class="max-w-40 truncate px-4 py-2.5 font-mono text-[13px] text-ink select-text">
+                    {trackName(props.session.track)}
+                </td>
+            )
+        case "type":
+            return (
+                <td class="px-4 py-2.5 font-mono text-[13px] whitespace-nowrap text-ink">
+                    {props.session.online ? t("app.online") : t("app.solo")}
+                    <span class="text-muted" aria-hidden="true">
+                        {" · "}
+                    </span>
+                    {sessionTypeLabel(props.session.type)}
+                </td>
+            )
+        case "driver":
+            return (
+                <td class="max-w-36 truncate px-4 py-2.5 font-mono text-[13px] text-secondary select-text">
+                    {props.session.driver || t("app.empty")}
+                </td>
+            )
+        case "car":
+            return (
+                <td class="max-w-44 truncate px-4 py-2.5 font-mono text-[13px] text-secondary select-text">
+                    {carName(props.session.car)}
+                </td>
+            )
+        case "best":
+            return (
+                <td class="px-4 py-2.5 font-mono text-[13px] font-semibold whitespace-nowrap text-ink">
+                    {bestLapText(props.lap)}
+                </td>
+            )
+    }
 }
 
 function SheetMessage(props: { text: string }) {
