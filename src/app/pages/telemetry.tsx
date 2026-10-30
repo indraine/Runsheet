@@ -43,10 +43,7 @@ import {
     type ChannelKind,
     type ChannelTrace,
 } from "~/app/telemetry/channel-view"
-import {
-    driversOnTrack,
-    filterChoices,
-} from "~/app/telemetry/compare-filters"
+import { driversOnTrack, filterChoices } from "~/app/telemetry/compare-filters"
 import {
     clearStoredComparison,
     MAX_COMPARE_LAPS,
@@ -585,12 +582,7 @@ const DivergenceMenu = (props: {
         const count = props.zones.length
         if (count === 0) return
         const current = selected()
-        const next =
-            current < 0
-                ? delta > 0
-                    ? 0
-                    : -1
-                : current + delta
+        const next = current < 0 ? (delta > 0 ? 0 : -1) : current + delta
         if (next < 0 || next >= count) return
         const zone = props.zones[next]
         if (zone) props.onOpen(zone)
@@ -632,78 +624,86 @@ const DivergenceMenu = (props: {
                     </span>
                     <ChevronDown class="size-4 shrink-0" strokeWidth={2} />
                 </Popover.Trigger>
-            <Portal>
-                <Popover.Positioner class={screenPopupClass}>
-                    <Popover.Content class="flex max-h-(--available-height) w-64 flex-col overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
-                        <div class="shrink-0 border-b border-line px-3 py-2">
-                            <Popover.Title class="text-sm font-semibold tracking-wide text-secondary uppercase">
-                                {t("app.telemetryDivergence")}
-                            </Popover.Title>
-                        </div>
-                        <ul class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain p-1.5 [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
-                            <For each={props.zones}>
-                                {(zone, index) => {
-                                    const active = () => selected() === index()
-                                    return (
-                                        <li>
-                                            <button
-                                                type="button"
-                                                class={cn(
-                                                    "flex w-full cursor-pointer items-baseline justify-between gap-3 rounded px-2.5 py-2 text-left outline-none transition-colors",
-                                                    active()
-                                                        ? "bg-loss/15 text-loss"
-                                                        : "text-ink hover:bg-inset"
-                                                )}
-                                                aria-current={
-                                                    active()
-                                                        ? "true"
-                                                        : undefined
-                                                }
-                                                onClick={() => {
-                                                    if (active())
-                                                        props.onClose()
-                                                    else props.onOpen(zone)
-                                                    setOpen(false)
-                                                }}
-                                            >
-                                                <span class="text-sm font-semibold">
-                                                    {t("app.telemetryTurn", {
-                                                        n: index() + 1,
-                                                    })}
-                                                </span>
-                                                <span
-                                                    class={cn(
-                                                        "text-xs",
-                                                        active()
-                                                            ? undefined
-                                                            : "text-secondary"
-                                                    )}
-                                                >
-                                                    {t(CAUSE_LABEL[zone.cause])}
-                                                </span>
-                                            </button>
-                                        </li>
-                                    )
-                                }}
-                            </For>
-                        </ul>
-                        <Show when={props.focus}>
-                            <div class="shrink-0 border-t border-line p-1.5">
-                                <button
-                                    type="button"
-                                    class="flex w-full cursor-pointer rounded px-2.5 py-2 text-left text-sm text-secondary outline-none hover:bg-inset hover:text-ink"
-                                    onClick={() => {
-                                        props.onClose()
-                                        setOpen(false)
-                                    }}
-                                >
-                                    {t("app.telemetryFullLap")}
-                                </button>
+                <Portal>
+                    <Popover.Positioner class={screenPopupClass}>
+                        <Popover.Content class="flex max-h-(--available-height) w-64 flex-col overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
+                            <div class="shrink-0 border-b border-line px-3 py-2">
+                                <Popover.Title class="text-sm font-semibold tracking-wide text-secondary uppercase">
+                                    {t("app.telemetryDivergence")}
+                                </Popover.Title>
                             </div>
-                        </Show>
-                    </Popover.Content>
-                </Popover.Positioner>
-            </Portal>
+                            <ul class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain p-1.5 [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
+                                <For each={props.zones}>
+                                    {(zone, index) => {
+                                        const active = () =>
+                                            selected() === index()
+                                        return (
+                                            <li>
+                                                <button
+                                                    type="button"
+                                                    class={cn(
+                                                        "flex w-full cursor-pointer items-baseline justify-between gap-3 rounded px-2.5 py-2 text-left outline-none transition-colors",
+                                                        active()
+                                                            ? "bg-loss/15 text-loss"
+                                                            : "text-ink hover:bg-inset"
+                                                    )}
+                                                    aria-current={
+                                                        active()
+                                                            ? "true"
+                                                            : undefined
+                                                    }
+                                                    onClick={() => {
+                                                        if (active())
+                                                            props.onClose()
+                                                        else props.onOpen(zone)
+                                                        setOpen(false)
+                                                    }}
+                                                >
+                                                    <span class="text-sm font-semibold">
+                                                        {t(
+                                                            "app.telemetryTurn",
+                                                            {
+                                                                n: index() + 1,
+                                                            }
+                                                        )}
+                                                    </span>
+                                                    <span
+                                                        class={cn(
+                                                            "text-xs",
+                                                            active()
+                                                                ? undefined
+                                                                : "text-secondary"
+                                                        )}
+                                                    >
+                                                        {t(
+                                                            CAUSE_LABEL[
+                                                                zone.cause
+                                                            ]
+                                                        )}
+                                                    </span>
+                                                </button>
+                                            </li>
+                                        )
+                                    }}
+                                </For>
+                            </ul>
+                            <Show when={props.focus}>
+                                <div class="shrink-0 border-t border-line p-1.5">
+                                    <button
+                                        type="button"
+                                        class="flex w-full cursor-pointer rounded px-2.5 py-2 text-left text-sm text-secondary outline-none hover:bg-inset hover:text-ink"
+                                        onClick={() => {
+                                            props.onClose()
+                                            setOpen(false)
+                                        }}
+                                    >
+                                        {t("app.telemetryFullLap")}
+                                    </button>
+                                </div>
+                            </Show>
+                        </Popover.Content>
+                    </Popover.Positioner>
+                </Portal>
             </Popover.Root>
             <IconButton
                 class="size-9"
