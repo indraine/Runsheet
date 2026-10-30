@@ -1500,7 +1500,7 @@ const LapPicker = (props: {
             <Select.Control class="min-w-0 flex-1">
                 <Select.Trigger
                     class={cn(
-                        "inline-flex h-12 w-full min-w-0 max-w-full cursor-pointer items-center gap-2.5 rounded border border-line bg-inset px-3 text-left outline-none transition-colors hover:border-secondary focus-visible:border-ink",
+                        "inline-flex h-14 w-full min-w-0 max-w-full cursor-pointer items-center gap-2.5 rounded border border-line bg-inset px-3 text-left outline-none transition-colors hover:border-secondary focus-visible:border-ink",
                         "disabled:cursor-not-allowed disabled:hover:border-line",
                         tone().text
                     )}
