@@ -245,8 +245,7 @@ const ru: typeof en = {
     emptyPastBody:
         "Запустите игру и начните заезд — Runsheet запишет его автоматически.",
     awaitingFirstTitle: "Заезд идёт",
-    awaitingFirstBody:
-        "Первая запись появится после завершения сессии.",
+    awaitingFirstBody: "Первая запись появится после завершения сессии.",
     previousDay: "Предыдущий день",
     nextDay: "Следующий день",
     openCalendar: "Выбрать день",

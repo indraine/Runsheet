@@ -4,10 +4,7 @@ import { ensurePlotSize, followPlotBox, plotResolution } from "~/app/plot-frame"
 import { uiScale } from "~/app/scale"
 import { cssColor } from "~/app/telemetry/css-color"
 import { deltaAreas } from "~/app/telemetry/delta-fill"
-import {
-    lapColorFallback,
-    lapColorVar,
-} from "~/app/telemetry/lap-colors"
+import { lapColorFallback, lapColorVar } from "~/app/telemetry/lap-colors"
 import {
     guardPointerCapture,
     popupBlocksCanvas,
@@ -29,13 +26,7 @@ const FALLBACK_INK = 0x0f172a
 const FALLBACK_LINE = 0xe2e8f0
 
 export type ChannelKind =
-    | "throttle"
-    | "brake"
-    | "steer"
-    | "speed"
-    | "gear"
-    | "rpm"
-    | "delta"
+    "throttle" | "brake" | "steer" | "speed" | "gear" | "rpm" | "delta"
 
 export type ChannelTrace = {
     trace: Trace
@@ -104,7 +95,10 @@ export const ChannelView = (props: {
         const ink = cssColor("--ink", FALLBACK_INK)
         const line = cssColor("--line", FALLBACK_LINE)
         const palette = series().map(item =>
-            cssColor(lapColorVar(item.colorIndex), lapColorFallback(item.colorIndex))
+            cssColor(
+                lapColorVar(item.colorIndex),
+                lapColorFallback(item.colorIndex)
+            )
         )
 
         drawZoneBands(
@@ -343,7 +337,14 @@ const drawChannel = (
                 ? (deltaSeries.get(index) ?? [])
                 : kind === "gear"
                   ? stepPoints(item.trace, range, yRange, innerW, innerH)
-                  : seriesPoints(item.trace, kind, range, yRange, innerW, innerH)
+                  : seriesPoints(
+                        item.trace,
+                        kind,
+                        range,
+                        yRange,
+                        innerW,
+                        innerH
+                    )
         strokeSeries(
             graphics,
             points,
