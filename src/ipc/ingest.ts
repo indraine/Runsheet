@@ -1,5 +1,5 @@
 import type { SessionRepository } from "~/db"
-import { withRealTimes, type Session } from "~/domain"
+import { isMeaningfulLap, withRealTimes, type Session } from "~/domain"
 import { decodeLapPacket, type DecodedLap } from "~/ipc/packet"
 import type { AccStatus, AccStatusEvent } from "~/ipc/status"
 
@@ -39,6 +39,14 @@ export const createAccIngest = (): AccIngest => {
     ): Promise<void> => {
         for (const event of status.events) {
             await applyClose(repo, event)
+        }
+
+        if (status.link === "lost" && remembered?.status === "live") {
+            const endedAt = Date.now()
+            closedAt.set(remembered.id, endedAt)
+            await seal(repo, remembered, endedAt)
+            remembered = undefined
+            return
         }
 
         const next = liveSession(status)
@@ -144,7 +152,15 @@ export const createAccIngest = (): AccIngest => {
         const unfinished =
             stored.status === "closed" && decoded.lap.timeMs === null
         if (unfinished && !hasSamples(decoded)) return
-        const raw = unfinished ? { ...decoded.lap, valid: false } : decoded.lap
+
+        const isArtifact =
+            decoded.lap.number === 1 &&
+            decoded.lap.timeMs !== null &&
+            !isMeaningfulLap(decoded.lap)
+        const raw =
+            unfinished || isArtifact
+                ? { ...decoded.lap, valid: false }
+                : decoded.lap
         const lap = withRealTimes(raw)
 
         await repo.upsert({
