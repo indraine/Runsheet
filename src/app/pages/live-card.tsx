@@ -62,7 +62,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
     })
 
     return (
-        <section class="flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-line bg-surface">
+        <section class="@container flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-line bg-surface">
             <header class="flex shrink-0 flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b border-line px-4 py-3">
                 <div class="flex min-w-0 items-baseline gap-3">
                     <div class="relative min-w-0">
@@ -153,7 +153,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                 </p>
             </header>
 
-            <div class="grid shrink-0 border-b border-line sm:grid-cols-3 sm:divide-x sm:divide-line">
+            <div class="grid shrink-0 border-b border-line @md:grid-cols-3 @md:divide-x @md:divide-line">
                 <Summary
                     label={t("app.liveBest")}
                     value={bestTime(card().bestLap?.timeMs)}
@@ -172,13 +172,13 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                 />
             </div>
 
-            <div class="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:grid-rows-[minmax(0,1fr)]">
+            <div class="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] @5xl:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] @5xl:grid-rows-[minmax(0,1fr)]">
                 <LapTable
                     rows={card().rows}
                     best={card().bestLap}
                     clock={clockFor()}
                 />
-                <div class="relative min-h-0 overflow-hidden border-t border-line lg:border-t-0 lg:border-l">
+                <div class="relative min-h-0 overflow-hidden border-t border-line @5xl:border-t-0 @5xl:border-l">
                     <Show
                         when={
                             (ownTrack() && (card().road || card().car)) ||
@@ -230,7 +230,7 @@ const Summary = (props: {
         <p class="font-mono text-[10px] font-semibold tracking-wide text-secondary uppercase">
             {props.label}
         </p>
-        <p class="mt-1 font-mono text-[28px] leading-8 font-semibold tracking-tight text-ink">
+        <p class="mt-1 font-mono text-[22px] leading-8 font-semibold tracking-tight text-ink @xl:text-[28px]">
             {props.value}
         </p>
         <p
@@ -262,7 +262,7 @@ const LapTable = (props: {
         class="h-full min-h-0 min-w-0 overflow-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]"
         style={{ "max-height": lapTableMaxHeight() }}
     >
-        <table class="w-full min-w-[40rem] border-collapse text-left">
+        <table class="w-full min-w-[30rem] border-collapse text-left">
             <caption class="sr-only">{t("app.lapTable")}</caption>
             <thead class="sticky top-0 z-10 bg-surface">
                 <tr class="border-b border-line font-mono text-[10px] font-semibold tracking-wide text-secondary uppercase">
