@@ -1,10 +1,11 @@
 import { createEffect, createSignal } from "solid-js"
 import { Minus, Plus, RotateCcw } from "lucide-solid"
 import {
-    DEFAULT_SCALE,
     SCALE_MAX,
     SCALE_MIN,
     clampScale,
+    isAutoScale,
+    resetUiScale,
     setUiScale,
     uiScale,
     zoomBy,
@@ -96,8 +97,8 @@ export const ScaleControl = () => {
                 type="button"
                 class={scaleButtonClass}
                 aria-label={t("app.scaleReset")}
-                disabled={uiScale() === DEFAULT_SCALE}
-                onClick={() => setUiScale(DEFAULT_SCALE)}
+                disabled={isAutoScale()}
+                onClick={resetUiScale}
             >
                 <RotateCcw class="size-3" strokeWidth={1.75} />
             </button>
