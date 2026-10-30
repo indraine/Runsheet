@@ -15,6 +15,7 @@ import {
     screenPopupClass,
     screenPositioning,
 } from "~/app/screen-position"
+import { PaneToggle } from "~/app/pages/home-split"
 import { liveClock } from "~/app/status"
 import { hasAsphalt } from "~/app/track-catalog"
 import { TrackView } from "~/app/track-view"
@@ -137,20 +138,23 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                     </Show>
                     {carName(card().session.car)}
                 </p>
-                <p class="font-mono text-[11px] text-secondary">
-                    <span class="tracking-wide uppercase">
-                        {t("app.liveAir")}
-                    </span>{" "}
-                    {formatCelsius(card().session.airTemp)}
-                    <span class="text-muted" aria-hidden="true">
-                        {" "}
-                        ·{" "}
-                    </span>
-                    <span class="tracking-wide uppercase">
-                        {t("app.liveRoad")}
-                    </span>{" "}
-                    {formatCelsius(card().session.roadTemp)}
-                </p>
+                <div class="flex items-center gap-3">
+                    <p class="font-mono text-[11px] text-secondary">
+                        <span class="tracking-wide uppercase">
+                            {t("app.liveAir")}
+                        </span>{" "}
+                        {formatCelsius(card().session.airTemp)}
+                        <span class="text-muted" aria-hidden="true">
+                            {" "}
+                            ·{" "}
+                        </span>
+                        <span class="tracking-wide uppercase">
+                            {t("app.liveRoad")}
+                        </span>{" "}
+                        {formatCelsius(card().session.roadTemp)}
+                    </p>
+                    <PaneToggle pane="right" />
+                </div>
             </header>
 
             <div class="grid shrink-0 border-b border-line @md:grid-cols-3 @md:divide-x @md:divide-line">

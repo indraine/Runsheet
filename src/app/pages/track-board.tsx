@@ -3,15 +3,16 @@ import { setTrackBoardSort, trackBoardSort } from "~/app/track-board-sort"
 import { fitFrame } from "~/app/fit-ground"
 import { boundariesFor } from "~/app/track-catalog"
 import {
-    isTrackSort,
     sortTracks,
     TRACK_SORTS,
     type TrackRecord,
     type TrackSort,
 } from "~/domain"
 import { fmt, t, trackCodes, trackName } from "~/i18n"
+import { PaneToggle } from "~/app/pages/home-split"
+import { AdaptiveTabs } from "~/app/adaptive-tabs"
 import { locale } from "~/i18n/locale"
-import { cn, Tabs } from "~/ui"
+import { cn } from "~/ui"
 
 const OUTLINE_BOX = 100
 
@@ -29,31 +30,31 @@ export const TrackBoard = (props: {
         trackCodes.filter(track => props.records.has(track)).length
 
     return (
-        <section class="flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-line bg-surface">
-            <header class="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-line px-4 py-3">
-                <div class="min-w-0">
-                    <h2 class="font-mono text-lg font-semibold tracking-tight text-ink uppercase">
-                        {t("app.trackBoard")}
-                    </h2>
-                    <p class="mt-0.5 font-mono text-[11px] text-secondary">
-                        {t("app.trackBoardHint")}
-                    </p>
-                </div>
-                <div class="flex flex-wrap items-center gap-4">
-                    <p class="font-mono text-[11px] text-secondary">
-                        <span class="text-[13px] text-ink">{driven()}</span> /{" "}
-                        {trackCodes.length}{" "}
-                        <span class="tracking-wide uppercase">
-                            {t("app.trackBoardDriven")}
-                        </span>
-                    </p>
-                    <TrackSortFilter
+        <section class="@container flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-line bg-surface">
+            <header class="flex shrink-0 items-center gap-x-3 border-b border-line px-4 py-3">
+                <h2 class="min-w-0 truncate font-mono text-lg font-semibold tracking-tight text-ink uppercase">
+                    {t("app.trackBoard")}
+                </h2>
+                <p class="hidden shrink-0 font-mono text-[11px] text-secondary @md:block">
+                    <span class="text-[13px] text-ink">{driven()}</span> /{" "}
+                    {trackCodes.length}{" "}
+                    <span class="tracking-wide uppercase">
+                        {t("app.trackBoardDriven")}
+                    </span>
+                </p>
+                <div class="ml-auto flex shrink-0 items-center gap-2">
+                    <AdaptiveTabs
+                        from="lg"
+                        items={TRACK_SORTS}
                         value={trackBoardSort()}
                         onChange={setTrackBoardSort}
+                        label={sortLabel}
+                        ariaLabel={t("app.trackBoardSort")}
                     />
+                    <PaneToggle pane="right" />
                 </div>
             </header>
-            <ul class="grid min-h-0 flex-1 grid-cols-2 content-start overflow-y-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
+            <ul class="grid min-h-0 flex-1 grid-cols-2 content-start @3xl:grid-cols-3 @5xl:grid-cols-4 overflow-y-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
                 <For each={ordered()}>
                     {track => (
                         <TrackTile
@@ -67,26 +68,6 @@ export const TrackBoard = (props: {
     )
 }
 
-const TrackSortFilter = (props: {
-    value: TrackSort
-    onChange: (value: TrackSort) => void
-}) => (
-    <Tabs.Root
-        value={props.value}
-        onValueChange={details => {
-            if (isTrackSort(details.value)) props.onChange(details.value)
-        }}
-    >
-        <Tabs.List aria-label={t("app.trackBoardSort")}>
-            <For each={TRACK_SORTS}>
-                {sort => (
-                    <Tabs.Trigger value={sort}>{sortLabel(sort)}</Tabs.Trigger>
-                )}
-            </For>
-        </Tabs.List>
-    </Tabs.Root>
-)
-
 const TrackTile = (props: {
     track: string
     record: TrackRecord | undefined
@@ -96,7 +77,7 @@ const TrackTile = (props: {
     const driven = () => props.record !== undefined
 
     return (
-        <li class="flex aspect-[4/3] min-w-0 flex-col gap-1 border-r border-b border-line px-4 pt-3 pb-4 nth-[2n]:border-r-0">
+        <li class="flex aspect-[4/3] min-w-0 flex-col gap-1 border-r border-b border-line px-4 pt-3 pb-4 nth-[2n]:border-r-0 @3xl:nth-[2n]:border-r @3xl:nth-[3n]:border-r-0 @5xl:nth-[3n]:border-r @5xl:nth-[4n]:border-r-0">
             <div class="flex items-start justify-between gap-3 font-mono">
                 <p class="min-w-0 truncate text-[22px] leading-none font-semibold tracking-tight text-ink uppercase select-text">
                     {trackName(props.track)}

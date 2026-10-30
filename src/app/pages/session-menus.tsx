@@ -17,7 +17,7 @@ import {
     type SessionColumn,
 } from "~/app/session-columns"
 import { t } from "~/i18n"
-import { buttonVariants } from "~/ui"
+import { buttonVariants, cn } from "~/ui"
 
 /** Attribute a table row carries so the context menu can find its session. */
 const SESSION_ROW_ATTR = "data-session-id"
@@ -46,7 +46,10 @@ export function ColumnsMenu(props: {
             }}
         >
             <Menu.Trigger
-                class={buttonVariants({ variant: "secondary", size: "sm" })}
+                class={cn(
+                    buttonVariants({ variant: "secondary", size: "sm" }),
+                    "h-[34px]"
+                )}
             >
                 <Columns3 {...iconProps} />
                 {t("app.sessionColumns")}

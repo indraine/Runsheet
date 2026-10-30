@@ -10,9 +10,10 @@ import {
     onCleanup,
     untrack,
 } from "solid-js"
+import { AdaptiveTabs } from "~/app/adaptive-tabs"
+import { homeLayout } from "~/app/home-layout"
 import { isGameOff, LaunchAccButton } from "~/app/launch-acc"
 import {
-    isSessionListSort,
     SESSION_LIST_SORTS,
     sessionListSort,
     setSessionListSort,
@@ -28,7 +29,6 @@ import {
     SESSION_FILTERS,
     closedSheet,
     groupByDay,
-    isSessionFilter,
     liveCard,
     trackRecords,
     type Lap,
@@ -38,7 +38,7 @@ import {
     type SessionType,
 } from "~/domain"
 import { carName, fmt, t, trackName } from "~/i18n"
-import { Tabs, cn } from "~/ui"
+import { cn } from "~/ui"
 import { DayNav, activeDayStart } from "~/app/pages/day-nav"
 import {
     applyDayWrite,
@@ -48,6 +48,7 @@ import {
     type DaySession,
 } from "~/app/pages/day-memory"
 import { LiveCard } from "~/app/pages/live-card"
+import { HomeSplit, PaneToggle } from "~/app/pages/home-split"
 import { ColumnsMenu, SessionContextMenu } from "~/app/pages/session-menus"
 import { TrackBoard } from "~/app/pages/track-board"
 
@@ -187,37 +188,47 @@ export function TimelinePage() {
                         }
                         const shown = () => review() ?? live()
                         const hasPast = () => sheet().past.length > 0
+                        // Without a table there is no button to restore it.
+                        const expanded = () => {
+                            const mode = homeLayout().expanded
+                            return mode === "left" && !hasPast() ? "none" : mode
+                        }
                         return (
-                            <div class="flex min-h-0 flex-1 gap-6 px-6 py-6">
-                                <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-                                    <Show
-                                        when={hasPast()}
-                                        fallback={
-                                            <Show
-                                                when={shown()}
-                                                fallback={<EmptyPast />}
-                                            >
-                                                <AwaitingFirstRecord />
-                                            </Show>
-                                        }
-                                    >
-                                        <PastSheet
-                                            sessions={sheet().past}
-                                            openedId={review()?.session.id}
-                                            onShowLive={showSession}
-                                        />
-                                    </Show>
-                                </div>
-                                <div class="flex min-h-0 w-1/2 max-w-3xl min-w-[26rem] shrink-0 flex-col">
-                                    <Show
-                                        when={shown()}
-                                        fallback={
-                                            <TrackBoard records={records()} />
-                                        }
-                                    >
-                                        <LiveCard card={shown()!} />
-                                    </Show>
-                                </div>
+                            <div class="flex min-h-0 flex-1 px-6 py-6">
+                                <HomeSplit
+                                    expanded={expanded()}
+                                    left={
+                                        <Show
+                                            when={hasPast()}
+                                            fallback={
+                                                <Show
+                                                    when={shown()}
+                                                    fallback={<EmptyPast />}
+                                                >
+                                                    <AwaitingFirstRecord />
+                                                </Show>
+                                            }
+                                        >
+                                            <PastSheet
+                                                sessions={sheet().past}
+                                                openedId={review()?.session.id}
+                                                onShowLive={showSession}
+                                            />
+                                        </Show>
+                                    }
+                                    right={
+                                        <Show
+                                            when={shown()}
+                                            fallback={
+                                                <TrackBoard
+                                                    records={records()}
+                                                />
+                                            }
+                                        >
+                                            <LiveCard card={shown()!} />
+                                        </Show>
+                                    }
+                                />
                             </div>
                         )
                     }}
@@ -314,28 +325,43 @@ function PastSheet(props: {
 
     return (
         <section class="flex min-h-0 flex-1 flex-col">
-            <header class="flex shrink-0 flex-wrap items-center justify-between gap-4">
-                <Show when={selected()}>
-                    {start => (
-                        <DayNav
-                            days={days()}
-                            value={start()}
-                            onChange={setChosen}
+            <header class="@container shrink-0">
+                <div class="flex items-center gap-2">
+                    <Show when={selected()}>
+                        {start => (
+                            <DayNav
+                                bar
+                                days={days()}
+                                value={start()}
+                                onChange={setChosen}
+                            />
+                        )}
+                    </Show>
+                    <div class="ml-auto flex min-w-0 items-center gap-2">
+                        <AdaptiveTabs
+                            from="2xl"
+                            items={SESSION_LIST_SORTS}
+                            value={sessionListSort()}
+                            onChange={setSessionListSort}
+                            label={sessionSortLabel}
+                            ariaLabel={t("app.sessionSort")}
                         />
-                    )}
-                </Show>
-                <div class="ml-auto flex flex-wrap items-center gap-3">
-                    <SessionSortFilter
-                        value={sessionListSort()}
-                        onChange={setSessionListSort}
-                    />
-                    <SessionTypeFilter value={filter()} onChange={setFilter} />
-                    <ColumnsMenu label={columnLabel} />
+                        <AdaptiveTabs
+                            from="3xl"
+                            items={SESSION_FILTERS}
+                            value={filter()}
+                            onChange={setFilter}
+                            label={filterLabel}
+                            ariaLabel={t("app.sessionFilter")}
+                        />
+                        <ColumnsMenu label={columnLabel} />
+                        <PaneToggle pane="left" />
+                    </div>
                 </div>
             </header>
             <Show when={sessions().length > 0}>
                 <SessionContextMenu
-                    class="mt-6 flex min-h-0 flex-1 flex-col"
+                    class="mt-4 flex min-h-0 flex-1 flex-col"
                     opened={
                         target() !== undefined && props.openedId === target()
                     }
@@ -392,56 +418,6 @@ function columnLabel(column: SessionColumn): string {
         case "best":
             return t("app.bestLap")
     }
-}
-
-function SessionSortFilter(props: {
-    value: SessionListSort
-    onChange: (value: SessionListSort) => void
-}) {
-    return (
-        <Tabs.Root
-            value={props.value}
-            onValueChange={details => {
-                if (isSessionListSort(details.value))
-                    props.onChange(details.value)
-            }}
-        >
-            <Tabs.List aria-label={t("app.sessionSort")}>
-                <For each={SESSION_LIST_SORTS}>
-                    {sort => (
-                        <Tabs.Trigger value={sort}>
-                            {sessionSortLabel(sort)}
-                        </Tabs.Trigger>
-                    )}
-                </For>
-            </Tabs.List>
-        </Tabs.Root>
-    )
-}
-
-function SessionTypeFilter(props: {
-    value: SessionFilter
-    onChange: (value: SessionFilter) => void
-}) {
-    return (
-        <Tabs.Root
-            value={props.value}
-            onValueChange={details => {
-                if (isSessionFilter(details.value))
-                    props.onChange(details.value)
-            }}
-        >
-            <Tabs.List aria-label={t("app.sessionFilter")}>
-                <For each={SESSION_FILTERS}>
-                    {filter => (
-                        <Tabs.Trigger value={filter}>
-                            {filterLabel(filter)}
-                        </Tabs.Trigger>
-                    )}
-                </For>
-            </Tabs.List>
-        </Tabs.Root>
-    )
 }
 
 function ClosedRow(props: {

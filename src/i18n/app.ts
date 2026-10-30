@@ -16,8 +16,6 @@ const en = {
     hz: "Hz",
     empty: "—",
     trackBoard: "Assetto Corsa Competizione tracks",
-    trackBoardHint:
-        "Choose a session from history or start a stint to open the live card.",
     trackBoardDriven: "tracks",
     trackBoardSort: "Track order",
     trackBoardSortRecent: "Recent",
@@ -232,8 +230,6 @@ const ru: typeof en = {
     hz: "Гц",
     empty: "—",
     trackBoard: "Трассы Assetto Corsa Competizione",
-    trackBoardHint:
-        "Выбери сессию из истории или начни заезд чтобы открыть Live-карточку",
     trackBoardDriven: "трасс",
     trackBoardSort: "Порядок трасс",
     trackBoardSortRecent: "Недавние",
