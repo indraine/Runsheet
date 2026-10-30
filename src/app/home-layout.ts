@@ -104,3 +104,10 @@ export const toggleHomePane = (pane: HomePane): void => {
     const layout = homeLayout()
     storeLayout({ ...layout, expanded: toggleExpanded(layout.expanded, pane) })
 }
+
+/** Back to the split view when the table fills the page and hides the live card. */
+export const showRightPane = (): void => {
+    const layout = homeLayout()
+    if (layout.expanded !== "left") return
+    storeLayout({ ...layout, expanded: "none", split: DEFAULT_SPLIT })
+}

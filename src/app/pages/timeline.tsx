@@ -7,11 +7,12 @@ import {
     createEffect,
     createMemo,
     createSignal,
+    on,
     onCleanup,
     untrack,
 } from "solid-js"
 import { AdaptiveTabs } from "~/app/adaptive-tabs"
-import { homeLayout } from "~/app/home-layout"
+import { homeLayout, showRightPane } from "~/app/home-layout"
 import { isGameOff, LaunchAccButton } from "~/app/launch-acc"
 import {
     SESSION_LIST_SORTS,
@@ -184,6 +185,17 @@ export function TimelinePage() {
                             return undefined
                         }
                         const shown = () => review() ?? live()
+                        // A session starting while the table fills the page:
+                        // back to 50/50 so the live card shows on the right.
+                        createEffect(
+                            on(
+                                () => live()?.session.id,
+                                id => {
+                                    if (id !== undefined) showRightPane()
+                                },
+                                { defer: true }
+                            )
+                        )
                         const hasPast = () => sheet().past.length > 0
                         // Without a table there is no button to restore it.
                         const expanded = () => {

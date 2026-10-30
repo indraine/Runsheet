@@ -4,6 +4,10 @@ import {
     MAX_SPLIT,
     MIN_SPLIT,
     clampSplit,
+    homeLayout,
+    setHomeSplit,
+    showRightPane,
+    toggleHomePane,
     parseHomeLayout,
     toggleExpanded,
 } from "~/app/home-layout"
@@ -63,5 +67,25 @@ describe("toggleExpanded", () => {
 
     it("moves the expansion to the other pane", () => {
         expect(toggleExpanded("left", "right")).toBe("right")
+    })
+})
+
+describe("showRightPane", () => {
+    it("returns the expanded table to an even split", () => {
+        setHomeSplit(0.4)
+        toggleHomePane("left")
+        expect(homeLayout().expanded).toBe("left")
+        showRightPane()
+        expect(homeLayout()).toEqual({ split: 0.5, expanded: "none" })
+    })
+
+    it("leaves the other layouts alone", () => {
+        setHomeSplit(0.4)
+        showRightPane()
+        expect(homeLayout()).toEqual({ split: 0.4, expanded: "none" })
+        toggleHomePane("right")
+        showRightPane()
+        expect(homeLayout().expanded).toBe("right")
+        toggleHomePane("right")
     })
 })
