@@ -428,7 +428,7 @@ function ClosedRow(props: {
         <tr
             data-session-id={props.session.id}
             class={cn(
-                "border-b border-line last:border-b-0 hover:bg-inset",
+                "cursor-context-menu border-b border-line last:border-b-0 hover:bg-inset",
                 props.opened && "bg-inset"
             )}
         >
