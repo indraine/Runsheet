@@ -214,9 +214,19 @@ impl Sequencer {
     }
 
     /// ESC pause keeps `CarState::OnTrack` — still "on track", not the game menu.
-    fn place(&self, status: GameStatus) -> SessionPlace {
-        if status == GameStatus::Pause {
+    fn place(&self, tick: Option<&CleanTick>) -> SessionPlace {
+        let Some(tick) = tick else {
+            return SessionPlace::Menu;
+        };
+        if tick.graphic.status == GameStatus::Pause {
             return SessionPlace::Pause;
+        }
+        if tick.graphic.status == GameStatus::Live
+            && tick.graphic.kind == SessionKind::Race
+            && !tick.graphic.green
+            && self.car == CarState::OnTrack
+        {
+            return SessionPlace::OnGrid;
         }
         match self.car {
             CarState::InPitLane => SessionPlace::InPits,
@@ -226,12 +236,14 @@ impl Sequencer {
     }
 
     fn snap(&self, tick: Option<&CleanTick>) -> Snap {
-        let status = tick.map(|tick| tick.graphic.status).unwrap_or(GameStatus::Off);
         let split = self.laps.open_split();
-        let place = self.place(status);
+        let place = self.place(tick);
         // On track (and pause/menu) the graphics clock may keep advancing; only
         // the pits should drop the running lap/sector paint.
-        let running = split.is_some() && place != SessionPlace::InPits && place != SessionPlace::Pause;
+        let running = split.is_some()
+            && place != SessionPlace::InPits
+            && place != SessionPlace::Pause
+            && place != SessionPlace::OnGrid;
         let lap_ms = if running {
             tick.and_then(|tick| tick.graphic.current_lap_time.map(LapTime::ms))
         } else {

@@ -8,6 +8,7 @@ pub(crate) enum SessionPlace {
     InPits,
     OnTrack,
     Pause,
+    OnGrid,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

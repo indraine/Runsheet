@@ -173,7 +173,8 @@ export function TimelinePage() {
                             if (
                                 presence === "onTrack" ||
                                 presence === "inPits" ||
-                                presence === "pause"
+                                presence === "pause" ||
+                                presence === "onGrid"
                             ) {
                                 return sheet().live
                             }

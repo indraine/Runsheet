@@ -18,7 +18,13 @@ export type AccStatusEvent =
           endedAt: number
       }
 
-export type AccPresence = "off" | "menu" | "inPits" | "onTrack"
+export type AccPresence =
+    | "off"
+    | "menu"
+    | "inPits"
+    | "onTrack"
+    | "pause"
+    | "onGrid"
 
 export type AccStatus = {
     link: AccLinkState
@@ -282,7 +288,14 @@ const unwrapEnvelope = (value: unknown): unknown => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null
 
-const PRESENCE = new Set<AccPresence>(["off", "menu", "inPits", "onTrack", "pause"])
+const PRESENCE = new Set<AccPresence>([
+    "off",
+    "menu",
+    "inPits",
+    "onTrack",
+    "pause",
+    "onGrid",
+])
 
 const parsePresence = (value: unknown, link: AccLinkState): AccPresence => {
     if (typeof value === "string" && PRESENCE.has(value as AccPresence)) {

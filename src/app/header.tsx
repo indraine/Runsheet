@@ -108,6 +108,7 @@ const presenceTone = (value: AccPresence): string => {
     if (value === "inPits") return "bg-accent/15 text-accent"
     if (value === "menu") return "bg-caution/15 text-caution"
     if (value === "pause") return "bg-caution/15 text-caution"
+    if (value === "onGrid") return "bg-accent/15 text-accent"
     return "bg-inset text-secondary"
 }
 
@@ -116,5 +117,6 @@ const presenceName = (value: AccPresence): string => {
     if (value === "inPits") return t("app.accInPits")
     if (value === "menu") return t("app.accMenu")
     if (value === "pause") return t("app.accPause")
+    if (value === "onGrid") return t("app.accOnGrid")
     return ""
 }

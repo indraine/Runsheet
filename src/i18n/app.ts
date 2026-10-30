@@ -6,6 +6,7 @@ const en = {
     accInPits: "In pits",
     accOnTrack: "On track",
     accPause: "Pause",
+    accOnGrid: "On grid",
     welcomeSlogan: "Drove! Recorded! Reviewed!",
     welcomeBody:
         "Automatic session recording for the\nAssetto Corsa Competizione simulator.",
@@ -218,6 +219,7 @@ const ru: typeof en = {
     accInPits: "В боксах",
     accOnTrack: "На трассе",
     accPause: "Пауза",
+    accOnGrid: "В стартовой решётке",
     welcomeSlogan: "Проехал! Записал! Изучил!",
     welcomeBody:
         "Программа автоматической записи сессий заездов в\nсимуляторе Assetto Corsa Competizione.",
