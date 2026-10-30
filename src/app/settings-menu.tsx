@@ -9,10 +9,10 @@ import { t } from "~/i18n"
 import { Button, buttonVariants } from "~/ui"
 
 const itemClass =
-    "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[12px] text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink"
+    "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[12px] text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink"
 
 const dangerItemClass =
-    "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-[12px] text-loss outline-none data-highlighted:bg-loss/10 data-highlighted:text-loss"
+    "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[12px] text-loss outline-none data-highlighted:bg-loss/10 data-highlighted:text-loss"
 
 export function SettingsMenu() {
     const repository = useSessionRepository()
@@ -172,13 +172,13 @@ function ClearDataDialog(props: {
             >
                 <h2
                     id="clear-data-title"
-                    class="font-mono text-sm font-medium tracking-wide text-ink uppercase"
+                    class="text-sm font-medium tracking-wide text-ink uppercase"
                 >
                     {t("app.clearDataTitle")}
                 </h2>
                 <p
                     id="clear-data-body"
-                    class="mt-3 font-mono text-sm leading-5 text-secondary"
+                    class="mt-3 text-sm leading-5 text-secondary"
                 >
                     {t("app.clearDataBody")}
                 </p>

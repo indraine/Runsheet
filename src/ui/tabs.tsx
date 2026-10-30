@@ -20,7 +20,7 @@ const listVariants = cva(
 )
 const triggerVariants = cva([
     "inline-flex h-7 cursor-pointer items-center justify-center rounded border border-transparent px-2",
-    "font-mono text-[12px] font-medium tracking-wide text-secondary uppercase",
+    "text-[12px] font-medium tracking-wide text-secondary uppercase",
     "transition-colors",
     "outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20",
     "disabled:pointer-events-none disabled:opacity-40",

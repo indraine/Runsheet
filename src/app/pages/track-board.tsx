@@ -29,7 +29,7 @@ export const TrackBoard = (props: {
     return (
         <section class="@container flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-line bg-surface">
             <header class="flex shrink-0 items-center gap-x-3 border-b border-line px-4 py-3">
-                <h2 class="min-w-0 truncate font-mono text-lg font-semibold tracking-tight text-ink uppercase">
+                <h2 class="min-w-0 truncate text-lg font-semibold tracking-tight text-ink uppercase">
                     {t("app.trackBoard")}
                 </h2>
                 <div class="ml-auto flex shrink-0 items-center gap-2">
@@ -68,14 +68,14 @@ const TrackTile = (props: {
 
     return (
         <li class="flex aspect-[4/3] min-w-0 flex-col gap-1 border-r border-b border-line px-4 pt-3 pb-4 nth-[2n]:border-r-0 @3xl:nth-[2n]:border-r @3xl:nth-[3n]:border-r-0 @5xl:nth-[3n]:border-r @5xl:nth-[4n]:border-r-0">
-            <div class="flex items-start justify-between gap-3 font-mono">
+            <div class="flex items-start justify-between gap-3">
                 <p class="min-w-0 truncate text-[22px] leading-none font-semibold tracking-tight text-ink uppercase select-text">
                     {trackName(props.track)}
                 </p>
                 <Show when={props.record}>
                     {record => (
-                        <p class="shrink-0 text-right font-mono leading-none">
-                            <span class="block text-[15px] leading-none font-semibold tracking-tight text-ink">
+                        <p class="shrink-0 text-right leading-none">
+                            <span class="block font-mono text-[15px] leading-none font-semibold tracking-tight text-ink">
                                 {record().sessions}
                             </span>
                             <span class="mt-0.5 block text-[12px] leading-none font-medium tracking-wide text-secondary uppercase">

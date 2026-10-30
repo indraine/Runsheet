@@ -71,14 +71,14 @@ export const LaunchAcc = () => {
                 >
                     <h2
                         id="launch-acc-title"
-                        class="font-mono text-sm font-medium tracking-wide text-ink uppercase"
+                        class="text-sm font-medium tracking-wide text-ink uppercase"
                     >
                         {t("app.launchTitle")}
                     </h2>
-                    <p class="mt-3 font-mono text-sm leading-5 text-secondary">
+                    <p class="mt-3 text-sm leading-5 text-secondary">
                         {t("app.launchBody")}
                     </p>
-                    <label class="mt-4 flex items-center gap-2 font-mono text-xs text-secondary">
+                    <label class="mt-4 flex items-center gap-2 text-xs text-secondary">
                         <input
                             type="checkbox"
                             class="size-3.5 accent-accent"

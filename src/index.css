@@ -2,7 +2,7 @@
 @import "@fontsource/jetbrains-mono/500.css";
 @import "@fontsource/jetbrains-mono/600.css";
 @import "@fontsource/jetbrains-mono/700.css";
-@import "@fontsource/hanken-grotesk/400.css";
+@import "@fontsource-variable/inter/index.css";
 @import "tailwindcss";
 
 :root {
@@ -357,8 +357,12 @@ html[data-theme="solarized-light"] {
 }
 
 @theme {
-    --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
-    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+    --font-sans:
+        "Inter Variable", system-ui, "Segoe UI", Roboto, "Helvetica Neue",
+        Arial, sans-serif;
+    --font-mono:
+        "JetBrains Mono", ui-monospace, "Cascadia Mono", "SF Mono", Consolas,
+        monospace;
 }
 
 @layer base {
@@ -367,10 +371,14 @@ html[data-theme="solarized-light"] {
         height: 100%;
         background-color: var(--canvas);
         color: var(--ink);
-        font-family: var(--font-mono);
+        font-family: var(--font-sans);
+        font-size: 14px;
+        line-height: 1.5;
         font-feature-settings:
             "tnum" 1,
-            "zero" 1;
+            "cv11" 1;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
         user-select: none;
     }
 
@@ -383,6 +391,13 @@ html[data-theme="solarized-light"] {
     textarea,
     [contenteditable="true"] {
         user-select: text;
+    }
+
+    /* Numbers that people compare by eye: times, deltas, fuel, pressures. */
+    .font-mono {
+        font-feature-settings:
+            "tnum" 1,
+            "zero" 1;
     }
 }
 

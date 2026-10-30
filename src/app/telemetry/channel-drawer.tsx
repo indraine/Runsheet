@@ -29,7 +29,7 @@ export const ChannelDrawer = (props: {
     <Popover.Root positioning={screenPositioning({ placement: "bottom-end" })}>
         <Popover.Trigger
             class={cn(
-                "inline-flex h-9 cursor-pointer items-center gap-2 rounded border border-line bg-inset px-3 font-mono text-base text-secondary outline-none hover:border-secondary hover:text-ink",
+                "inline-flex h-9 cursor-pointer items-center gap-2 rounded border border-line bg-inset px-3 text-base text-secondary outline-none hover:border-secondary hover:text-ink",
                 "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20"
             )}
             aria-label={t("app.telemetryChannels")}
@@ -41,7 +41,7 @@ export const ChannelDrawer = (props: {
             <Popover.Positioner class={screenPopupClass}>
                 <Popover.Content class="flex max-h-(--available-height) w-56 flex-col overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
                     <div class="shrink-0 border-b border-line px-3 py-2">
-                        <Popover.Title class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
+                        <Popover.Title class="text-sm font-semibold tracking-wide text-secondary uppercase">
                             {t("app.telemetryChannels")}
                         </Popover.Title>
                     </div>
@@ -56,7 +56,7 @@ export const ChannelDrawer = (props: {
                                             type="button"
                                             role="checkbox"
                                             aria-checked={shown()}
-                                            class="flex w-full cursor-pointer items-center gap-2.5 rounded px-2.5 py-2 text-left font-mono text-base text-ink outline-none hover:bg-inset"
+                                            class="flex w-full cursor-pointer items-center gap-2.5 rounded px-2.5 py-2 text-left text-base text-ink outline-none hover:bg-inset"
                                             onClick={() =>
                                                 props.onToggle(channel)
                                             }

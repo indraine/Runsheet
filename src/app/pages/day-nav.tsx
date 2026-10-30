@@ -17,7 +17,7 @@ const iconProps = { class: "size-4", strokeWidth: 1.75 }
 
 const dayCellClass = [
     "flex size-9 cursor-pointer items-center justify-center rounded",
-    "font-mono text-sm text-ink outline-none",
+    "text-sm text-ink outline-none",
     "hover:bg-inset",
     "data-today:font-semibold",
     "data-selected:bg-accent data-selected:text-on-accent data-selected:hover:bg-accent",
@@ -109,7 +109,7 @@ export const DayNav = (props: {
                 <DatePicker.Control>
                     <DatePicker.Trigger
                         class={cn(
-                            "cursor-pointer rounded font-mono text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20",
+                            "cursor-pointer rounded text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20",
                             props.bar
                                 ? "h-7 border border-transparent px-2 text-[12px] font-medium tracking-wide uppercase hover:bg-surface hover:text-accent"
                                 : cn(
@@ -145,7 +145,7 @@ export const DayNav = (props: {
                                                         {...iconProps}
                                                     />
                                                 </DatePicker.PrevTrigger>
-                                                <DatePicker.RangeText class="font-mono text-base font-medium text-ink" />
+                                                <DatePicker.RangeText class="text-base font-medium text-ink" />
                                                 <DatePicker.NextTrigger
                                                     class={buttonVariants({
                                                         variant: "ghost",
@@ -166,7 +166,7 @@ export const DayNav = (props: {
                                                             }
                                                         >
                                                             {weekDay => (
-                                                                <DatePicker.TableHeader class="size-9 text-center font-mono text-xs font-medium text-muted">
+                                                                <DatePicker.TableHeader class="size-9 text-center text-xs font-medium text-muted">
                                                                     {
                                                                         weekDay.narrow
                                                                     }

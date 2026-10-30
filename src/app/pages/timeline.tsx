@@ -239,10 +239,10 @@ function EmptyPast() {
     return (
         <section class="flex min-h-0 flex-1 flex-col">
             <div class="flex min-h-0 flex-1 flex-col items-center justify-center rounded border border-line bg-surface px-6 py-12 text-center">
-                <h2 class="font-mono text-sm font-medium tracking-wide text-ink uppercase">
+                <h2 class="text-sm font-medium tracking-wide text-ink uppercase">
                     {t("app.emptyPastTitle")}
                 </h2>
-                <p class="mt-3 max-w-md font-mono text-sm leading-5 text-secondary">
+                <p class="mt-3 max-w-md text-sm leading-5 text-secondary">
                     {t("app.emptyPastBody")}
                 </p>
                 <Show when={isGameOff()}>
@@ -259,10 +259,10 @@ function AwaitingFirstRecord() {
     return (
         <section class="flex min-h-0 flex-1 flex-col">
             <div class="flex min-h-0 flex-1 flex-col items-center justify-center rounded border border-line bg-surface px-6 py-12 text-center">
-                <h2 class="font-mono text-sm font-medium tracking-wide text-ink uppercase">
+                <h2 class="text-sm font-medium tracking-wide text-ink uppercase">
                     {t("app.awaitingFirstTitle")}
                 </h2>
-                <p class="mt-3 max-w-md font-mono text-sm leading-5 text-secondary">
+                <p class="mt-3 max-w-md text-sm leading-5 text-secondary">
                     {t("app.awaitingFirstBody")}
                 </p>
             </div>
@@ -369,7 +369,7 @@ function PastSheet(props: {
                     <div class="min-h-0 flex-1 overflow-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
                         <table class="w-full border-collapse text-left">
                             <thead class="sticky top-0 z-10 border-b border-line bg-surface">
-                                <tr class="font-mono text-[12px] font-medium tracking-wide text-secondary uppercase">
+                                <tr class="text-[12px] font-medium tracking-wide text-secondary uppercase">
                                     <For each={sessionColumns()}>
                                         {column => (
                                             <th class="px-4 py-2.5 font-medium whitespace-nowrap">
@@ -466,13 +466,13 @@ function ClosedCell(props: {
             )
         case "track":
             return (
-                <td class="max-w-40 truncate px-4 py-2.5 font-mono text-[13px] text-ink select-text">
+                <td class="max-w-40 truncate px-4 py-2.5 text-sm text-ink select-text">
                     {trackName(props.session.track)}
                 </td>
             )
         case "type":
             return (
-                <td class="px-4 py-2.5 font-mono text-[13px] whitespace-nowrap text-ink">
+                <td class="px-4 py-2.5 text-sm whitespace-nowrap text-ink">
                     {props.session.online ? t("app.online") : t("app.solo")}
                     <span class="text-muted" aria-hidden="true">
                         {" · "}
@@ -482,19 +482,19 @@ function ClosedCell(props: {
             )
         case "driver":
             return (
-                <td class="max-w-36 truncate px-4 py-2.5 font-mono text-[13px] text-secondary select-text">
+                <td class="max-w-36 truncate px-4 py-2.5 text-sm text-secondary select-text">
                     {props.session.driver || t("app.empty")}
                 </td>
             )
         case "car":
             return (
-                <td class="max-w-44 truncate px-4 py-2.5 font-mono text-[13px] text-secondary select-text">
+                <td class="max-w-44 truncate px-4 py-2.5 text-sm text-secondary select-text">
                     {carName(props.session.car)}
                 </td>
             )
         case "best":
             return (
-                <td class="px-4 py-2.5 font-mono text-[13px] font-semibold whitespace-nowrap text-ink">
+                <td class="px-4 py-2.5 font-mono text-sm font-semibold whitespace-nowrap text-ink">
                     {bestLapText(props.lap)}
                 </td>
             )

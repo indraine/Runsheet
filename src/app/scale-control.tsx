@@ -39,7 +39,7 @@ export const ScaleControl = () => {
 
     return (
         <div class="flex items-center gap-1">
-            <span class="mr-1 font-mono text-[12px] text-secondary">
+            <span class="mr-1 text-[12px] text-secondary">
                 {t("app.scale")}
             </span>
             <button
@@ -81,7 +81,7 @@ export const ScaleControl = () => {
                         }
                     }}
                 />
-                <span class="font-mono text-[12px] text-secondary">%</span>
+                <span class="text-[12px] text-secondary">%</span>
             </label>
             <button
                 type="button"

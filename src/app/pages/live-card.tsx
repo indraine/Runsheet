@@ -75,7 +75,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                 <div class="flex min-w-0 items-baseline gap-3">
                     <div class="relative min-w-0">
                         <h2
-                            class="truncate font-mono text-lg font-semibold tracking-tight text-ink uppercase select-text"
+                            class="truncate text-lg font-semibold tracking-tight text-ink uppercase select-text"
                             aria-hidden={seedDev()}
                         >
                             {trackName(shownTrack())}
@@ -113,7 +113,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                                                 {code => (
                                                     <Select.Item
                                                         item={code}
-                                                        class="flex cursor-pointer rounded px-2 py-1.5 text-left font-mono text-[13px] text-ink outline-none data-highlighted:bg-inset"
+                                                        class="flex cursor-pointer rounded px-2 py-1.5 text-left text-sm text-ink outline-none data-highlighted:bg-inset"
                                                     >
                                                         <Select.ItemText class="select-text">
                                                             {trackName(code)}
@@ -129,13 +129,13 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                     </div>
                     <Show when={ownTrack() && card().trackLengthM}>
                         {length => (
-                            <span class="shrink-0 font-mono text-[12px] text-secondary">
+                            <span class="shrink-0 text-[12px] text-secondary">
                                 {formatMetres(length())}
                             </span>
                         )}
                     </Show>
                 </div>
-                <p class="font-mono text-[13px] text-ink">
+                <p class="text-sm text-ink">
                     <Show when={card().session.driver}>
                         {card().session.driver}
                         <span class="text-muted" aria-hidden="true">
@@ -146,7 +146,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                     {carName(card().session.car)}
                 </p>
                 <div class="flex items-center gap-3">
-                    <p class="font-mono text-[12px] text-secondary">
+                    <p class="text-[12px] text-secondary">
                         <span class="tracking-wide uppercase">
                             {t("app.liveAir")}
                         </span>{" "}
@@ -197,7 +197,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                             hasAsphalt(shownTrack())
                         }
                         fallback={
-                            <p class="flex h-full items-center justify-center font-mono text-[12px] text-muted">
+                            <p class="flex h-full items-center justify-center text-[12px] text-muted">
                                 {t("app.empty")}
                             </p>
                         }
@@ -248,18 +248,13 @@ const Summary = (props: {
     class?: string
 }) => (
     <div class={cn("px-4 py-3", props.class)}>
-        <p class="font-mono text-[12px] font-semibold tracking-wide text-secondary uppercase">
+        <p class="text-[12px] font-semibold tracking-wide text-secondary uppercase">
             {props.label}
         </p>
         <p class="mt-1 font-mono text-[22px] leading-8 font-semibold tracking-tight text-ink @xl:text-[28px]">
             {props.value}
         </p>
-        <p
-            class={cn(
-                "mt-1 font-mono text-[12px] text-secondary",
-                props.hintClass
-            )}
-        >
+        <p class={cn("mt-1 text-[12px] text-secondary", props.hintClass)}>
             {props.hint}
         </p>
     </div>
@@ -286,7 +281,7 @@ const LapTable = (props: {
         <table class="w-full min-w-[30rem] border-collapse text-left">
             <caption class="sr-only">{t("app.lapTable")}</caption>
             <thead class="sticky top-0 z-10 bg-surface">
-                <tr class="border-b border-line font-mono text-[12px] font-semibold tracking-wide text-secondary uppercase">
+                <tr class="border-b border-line text-[12px] font-semibold tracking-wide text-secondary uppercase">
                     <th class="h-8 px-3 font-semibold">{t("app.colLap")}</th>
                     <th class="h-8 px-3 font-semibold">{t("app.colTime")}</th>
                     <th class="h-8 px-3 font-semibold">{t("app.colDelta")}</th>
@@ -339,7 +334,7 @@ const LapRow = (props: {
                 muted() ? "text-muted" : "text-ink"
             )}
         >
-            <th scope="row" class="px-3 font-mono text-[13px] font-medium">
+            <th scope="row" class="px-3 font-mono text-sm font-medium">
                 <span class="inline-flex items-center gap-1.5">
                     L{props.row.lap.number}
                     <Show when={props.row.lap.timeMs === null}>
@@ -355,13 +350,13 @@ const LapRow = (props: {
             </th>
             <td
                 class={cn(
-                    "px-3 font-mono text-[13px]",
+                    "px-3 font-mono text-sm",
                     running() ? "text-ink" : timeClass(props.row)
                 )}
             >
                 {timeLabel()}
             </td>
-            <td class={cn("px-3 font-mono text-[13px]", deltaClass(props.row))}>
+            <td class={cn("px-3 font-mono text-sm", deltaClass(props.row))}>
                 {deltaText(props.row)}
             </td>
             <SectorCell
@@ -385,7 +380,7 @@ const LapRow = (props: {
                 bestMilliseconds={props.best?.s3Ms ?? null}
                 clock={props.clock}
             />
-            <td class="px-3 font-mono text-[13px]">
+            <td class="px-3 font-mono text-sm">
                 {props.row.lap.fuel.toFixed(1)} {t("app.litre")}
             </td>
             <td class="px-3">
@@ -416,7 +411,7 @@ const SectorCell = (props: {
     return (
         <td
             class={cn(
-                "px-3 font-mono text-[13px]",
+                "px-3 font-mono text-sm",
                 read()?.settled
                     ? sectorClass(
                           props.row,
@@ -437,10 +432,7 @@ const ValidMark = (props: { valid: boolean }) => (
     <Show
         when={props.valid}
         fallback={
-            <span
-                class="font-mono text-[13px] text-muted"
-                aria-label={t("app.doesNotCount")}
-            >
+            <span class="text-sm text-muted" aria-label={t("app.doesNotCount")}>
                 {t("app.empty")}
             </span>
         }
@@ -461,7 +453,7 @@ const currentRow = (card: LiveCardModel): LiveLapRow | undefined => {
 
 const OutlapRow = () => (
     <tr class="h-9 text-muted">
-        <th scope="row" class="px-3 font-mono text-[13px] font-medium">
+        <th scope="row" class="px-3 font-mono text-sm font-medium">
             <span class="inline-flex items-center gap-1.5">
                 {t("app.outlap")}
                 <span
@@ -470,12 +462,12 @@ const OutlapRow = () => (
                 />
             </span>
         </th>
-        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
         <td class="px-3">
             <ValidMark valid={false} />
         </td>
