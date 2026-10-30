@@ -89,6 +89,7 @@ import { SessionRepository, useSessionRepository } from "~/db"
 import {
     groupByDay,
     hasTrajectory,
+    isReference,
     localDayStart,
     type Lap,
     type Session,
@@ -1333,8 +1334,11 @@ const SelectedLaps = (props: {
                                     lapTone(index()).text
                                 )}
                             >
-                                {driverLabel(choice.session.driver)} · L
-                                {choice.lap.number} ·{" "}
+                                {driverLabel(
+                                    choice.session.driver,
+                                    choice.session
+                                )}{" "}
+                                · L{choice.lap.number} ·{" "}
                                 {formatLapTime(choice.lap.timeMs)}
                             </span>
                             <span class="block truncate text-xs text-muted">
@@ -1531,9 +1535,15 @@ const LapPicker = (props: {
                                             ? "text-muted"
                                             : "text-ink"
                                     )}
-                                    title={driverLabel(driver() ?? "")}
+                                    title={driverLabel(
+                                        driver() ?? "",
+                                        chosen()?.session
+                                    )}
                                 >
-                                    {driverLabel(driver() ?? "")}
+                                    {driverLabel(
+                                        driver() ?? "",
+                                        chosen()?.session
+                                    )}
                                 </span>
                                 <span class="flex items-baseline gap-2 leading-5 whitespace-nowrap">
                                     <span class="text-sm font-semibold">
@@ -1632,11 +1642,16 @@ const groupChoices = (
     return order.map(id => map.get(id)!)
 }
 
-const driverLabel = (driver: string): string =>
-    driver.trim() === "" ? t("app.telemetryPickDriverUnknown") : driver
+const driverLabel = (driver: string, session?: Session): string => {
+    if (driver.trim() !== "") return driver
+    if (session && isReference(session)) {
+        return `${t("app.telemetryReference")} · ${carName(session.car)}`
+    }
+    return t("app.telemetryPickDriverUnknown")
+}
 
 const groupLabel = (session: Session): string =>
-    `${driverLabel(session.driver)} · ${fmt.clock(session.startedAt)} · ${sessionTypeLabel(session.type)} · ${carName(session.car)}`
+    `${driverLabel(session.driver, session)} · ${fmt.clock(session.startedAt)} · ${sessionTypeLabel(session.type)} · ${carName(session.car)}`
 
 const choiceLabel = (
     lap: Lap,
@@ -1684,7 +1699,7 @@ const formatLapTime = (ms: number | null | undefined): string =>
 const loadCatalog = async (
     repo: SessionRepository
 ): Promise<Catalog | undefined> => {
-    const sessions = await repo.readSessions()
+    const sessions = await repo.readSessions({ withReference: true })
     if (sessions.length === 0) return undefined
 
     const ordered = [...sessions].sort(
