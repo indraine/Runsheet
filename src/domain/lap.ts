@@ -63,10 +63,16 @@ export const withRealTimes = (lap: Lap): Lap => {
     return { ...lap, timeMs, s1Ms, s2Ms, s3Ms: repaired }
 }
 
+/** A lap must have actually moved to count as a benchmark. */
+const MIN_LAP_SPEED_KMH = 20
+
 export function fastestValidLap(laps: readonly Lap[]): Lap | undefined {
     let best: Lap | undefined
     for (const lap of laps) {
         if (!lap.valid || lap.timeMs === null) continue
+        if (!Number.isFinite(lap.maxSpeed) || lap.maxSpeed < MIN_LAP_SPEED_KMH) {
+            continue
+        }
         if (!best || best.timeMs === null || lap.timeMs < best.timeMs) {
             best = lap
         }
