@@ -14,9 +14,7 @@ export const InstantHud = (props: {
         <Show
             when={props.primary}
             fallback={
-                <p class="font-mono text-sm text-muted">
-                    {t("app.telemetryNoTrace")}
-                </p>
+                <p class="text-sm text-muted">{t("app.telemetryNoTrace")}</p>
             }
         >
             {point => (
@@ -67,7 +65,7 @@ const PedalStack = (props: {
             props.side === "right" ? "items-end" : "items-start"
         )}
     >
-        <p class="font-mono text-sm tracking-wide text-secondary uppercase">
+        <p class="text-sm tracking-wide text-secondary uppercase">
             {props.label}
         </p>
         <div
@@ -103,7 +101,7 @@ const VerticalBar = (props: {
                 style={{ height: `${clamp01(props.value) * 100}%` }}
             />
         </div>
-        <span class="font-mono text-xs text-muted">{props.caption}</span>
+        <span class="text-xs text-muted">{props.caption}</span>
     </div>
 )
 

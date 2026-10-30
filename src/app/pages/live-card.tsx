@@ -1,5 +1,5 @@
 import { Select, createListCollection } from "@ark-ui/solid/select"
-import { Check } from "lucide-solid"
+import { Check, X } from "lucide-solid"
 import {
     createEffect,
     createMemo,
@@ -15,6 +15,7 @@ import {
     screenPopupClass,
     screenPositioning,
 } from "~/app/screen-position"
+import { PaneToggle } from "~/app/pages/home-split"
 import { liveClock } from "~/app/status"
 import { hasAsphalt } from "~/app/track-catalog"
 import { TrackView } from "~/app/track-view"
@@ -53,6 +54,13 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
         if (tick.sessionId !== current.session.id) return undefined
         return tick
     }
+    const lapCounts = () => {
+        const done = card().rows.filter(row => row.lap.timeMs !== null)
+        return {
+            done: done.length,
+            valid: done.filter(row => row.lap.valid).length,
+        }
+    }
     const seedDev = () =>
         import.meta.env.DEV && card().session.id.startsWith("seed-")
 
@@ -62,12 +70,12 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
     })
 
     return (
-        <section class="flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-line bg-surface">
+        <section class="@container flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-line bg-surface">
             <header class="flex shrink-0 flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b border-line px-4 py-3">
                 <div class="flex min-w-0 items-baseline gap-3">
                     <div class="relative min-w-0">
                         <h2
-                            class="truncate font-mono text-lg font-semibold tracking-tight text-ink uppercase select-text"
+                            class="truncate text-lg font-semibold tracking-tight text-ink uppercase select-text"
                             aria-hidden={seedDev()}
                         >
                             {trackName(shownTrack())}
@@ -105,7 +113,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                                                 {code => (
                                                     <Select.Item
                                                         item={code}
-                                                        class="flex cursor-pointer rounded px-2 py-1.5 text-left font-mono text-[13px] text-ink outline-none data-highlighted:bg-inset"
+                                                        class="flex cursor-pointer rounded px-2 py-1.5 text-left text-sm text-ink outline-none data-highlighted:bg-inset"
                                                     >
                                                         <Select.ItemText class="select-text">
                                                             {trackName(code)}
@@ -121,13 +129,13 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                     </div>
                     <Show when={ownTrack() && card().trackLengthM}>
                         {length => (
-                            <span class="shrink-0 font-mono text-[11px] text-secondary">
+                            <span class="shrink-0 text-[12px] text-secondary">
                                 {formatMetres(length())}
                             </span>
                         )}
                     </Show>
                 </div>
-                <p class="font-mono text-[13px] text-ink">
+                <p class="text-sm text-ink">
                     <Show when={card().session.driver}>
                         {card().session.driver}
                         <span class="text-muted" aria-hidden="true">
@@ -137,55 +145,59 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                     </Show>
                     {carName(card().session.car)}
                 </p>
-                <p class="font-mono text-[11px] text-secondary">
-                    <span class="tracking-wide uppercase">
-                        {t("app.liveAir")}
-                    </span>{" "}
-                    {formatCelsius(card().session.airTemp)}
-                    <span class="text-muted" aria-hidden="true">
-                        {" "}
-                        ·{" "}
-                    </span>
-                    <span class="tracking-wide uppercase">
-                        {t("app.liveRoad")}
-                    </span>{" "}
-                    {formatCelsius(card().session.roadTemp)}
-                </p>
+                <div class="flex items-center gap-3">
+                    <p class="text-[12px] text-secondary">
+                        <span class="tracking-wide uppercase">
+                            {t("app.liveAir")}
+                        </span>{" "}
+                        {formatCelsius(card().session.airTemp)}
+                        <span class="text-muted" aria-hidden="true">
+                            {" "}
+                            ·{" "}
+                        </span>
+                        <span class="tracking-wide uppercase">
+                            {t("app.liveRoad")}
+                        </span>{" "}
+                        {formatCelsius(card().session.roadTemp)}
+                    </p>
+                    <PaneToggle pane="right" />
+                </div>
             </header>
 
-            <div class="grid shrink-0 border-b border-line sm:grid-cols-3 sm:divide-x sm:divide-line">
+            <div class="grid shrink-0 grid-cols-3 border-b border-line @md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(11rem,16rem)] @md:grid-rows-2">
                 <Summary
                     label={t("app.liveBest")}
                     value={bestTime(card().bestLap?.timeMs)}
                     hint={lapLabel(card().bestLap)}
+                    class="border-r border-line @md:border-b"
                 />
                 <Summary
                     label={t("app.liveCurrent")}
                     value={currentValue(card(), clockFor())}
                     hint={currentHint(card(), clockFor())}
                     hintClass={deltaClass(currentRow(card()))}
+                    class="border-r border-line @md:border-r-0 @md:border-b"
                 />
                 <Summary
                     label={t("app.livePressure")}
                     value={pressureText(card().pressurePsi)}
                     hint={t("app.psi")}
+                    class="@md:border-r @md:border-line"
                 />
-            </div>
-
-            <div class="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:grid-rows-[minmax(0,1fr)]">
-                <LapTable
-                    rows={card().rows}
-                    best={card().bestLap}
-                    clock={clockFor()}
+                <Summary
+                    label={t("app.liveLaps")}
+                    value={String(lapCounts().done)}
+                    hint={`${lapCounts().valid} ${t("app.liveLapsValid")}`}
+                    class="hidden @md:block"
                 />
-                <div class="relative min-h-0 overflow-hidden border-t border-line lg:border-t-0 lg:border-l">
+                <div class="relative hidden border-l border-line @md:col-start-3 @md:row-span-2 @md:row-start-1 @md:block">
                     <Show
                         when={
                             (ownTrack() && (card().road || card().car)) ||
                             hasAsphalt(shownTrack())
                         }
                         fallback={
-                            <p class="flex h-full items-center justify-center font-mono text-[11px] text-muted">
+                            <p class="flex h-full items-center justify-center text-[12px] text-muted">
                                 {t("app.empty")}
                             </p>
                         }
@@ -216,6 +228,14 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                     </Show>
                 </div>
             </div>
+
+            <div class="flex min-h-0 flex-1 flex-col">
+                <LapTable
+                    rows={card().rows}
+                    best={card().bestLap}
+                    clock={clockFor()}
+                />
+            </div>
         </section>
     )
 }
@@ -225,20 +245,16 @@ const Summary = (props: {
     value: string
     hint: string
     hintClass?: string
+    class?: string
 }) => (
-    <div class="px-4 py-3">
-        <p class="font-mono text-[10px] font-semibold tracking-wide text-secondary uppercase">
+    <div class={cn("px-4 py-3", props.class)}>
+        <p class="text-[12px] font-semibold tracking-wide text-secondary uppercase">
             {props.label}
         </p>
-        <p class="mt-1 font-mono text-[28px] leading-8 font-semibold tracking-tight text-ink">
+        <p class="mt-1 font-mono text-[22px] leading-8 font-semibold tracking-tight text-ink @xl:text-[28px]">
             {props.value}
         </p>
-        <p
-            class={cn(
-                "mt-1 font-mono text-[11px] text-secondary",
-                props.hintClass
-            )}
-        >
+        <p class={cn("mt-1 text-[12px] text-secondary", props.hintClass)}>
             {props.hint}
         </p>
     </div>
@@ -262,10 +278,10 @@ const LapTable = (props: {
         class="h-full min-h-0 min-w-0 overflow-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]"
         style={{ "max-height": lapTableMaxHeight() }}
     >
-        <table class="w-full min-w-[40rem] border-collapse text-left">
+        <table class="w-full min-w-[30rem] border-collapse text-left">
             <caption class="sr-only">{t("app.lapTable")}</caption>
             <thead class="sticky top-0 z-10 bg-surface">
-                <tr class="border-b border-line font-mono text-[10px] font-semibold tracking-wide text-secondary uppercase">
+                <tr class="border-b border-line text-[12px] font-semibold tracking-wide text-secondary uppercase">
                     <th class="h-8 px-3 font-semibold">{t("app.colLap")}</th>
                     <th class="h-8 px-3 font-semibold">{t("app.colTime")}</th>
                     <th class="h-8 px-3 font-semibold">{t("app.colDelta")}</th>
@@ -318,7 +334,7 @@ const LapRow = (props: {
                 muted() ? "text-muted" : "text-ink"
             )}
         >
-            <th scope="row" class="px-3 font-mono text-[13px] font-medium">
+            <th scope="row" class="px-3 font-mono text-sm font-medium">
                 <span class="inline-flex items-center gap-1.5">
                     L{props.row.lap.number}
                     <Show when={props.row.lap.timeMs === null}>
@@ -334,13 +350,13 @@ const LapRow = (props: {
             </th>
             <td
                 class={cn(
-                    "px-3 font-mono text-[13px]",
+                    "px-3 font-mono text-sm",
                     running() ? "text-ink" : timeClass(props.row)
                 )}
             >
                 {timeLabel()}
             </td>
-            <td class={cn("px-3 font-mono text-[13px]", deltaClass(props.row))}>
+            <td class={cn("px-3 font-mono text-sm", deltaClass(props.row))}>
                 {deltaText(props.row)}
             </td>
             <SectorCell
@@ -364,7 +380,7 @@ const LapRow = (props: {
                 bestMilliseconds={props.best?.s3Ms ?? null}
                 clock={props.clock}
             />
-            <td class="px-3 font-mono text-[13px]">
+            <td class="px-3 font-mono text-sm">
                 {props.row.lap.fuel.toFixed(1)} {t("app.litre")}
             </td>
             <td class="px-3">
@@ -395,7 +411,7 @@ const SectorCell = (props: {
     return (
         <td
             class={cn(
-                "px-3 font-mono text-[13px]",
+                "px-3 font-mono text-sm",
                 read()?.settled
                     ? sectorClass(
                           props.row,
@@ -416,12 +432,11 @@ const ValidMark = (props: { valid: boolean }) => (
     <Show
         when={props.valid}
         fallback={
-            <span
-                class="font-mono text-[13px] text-muted"
+            <X
+                class="size-3.5 text-loss"
+                strokeWidth={2}
                 aria-label={t("app.doesNotCount")}
-            >
-                {t("app.empty")}
-            </span>
+            />
         }
     >
         <Check
@@ -440,7 +455,7 @@ const currentRow = (card: LiveCardModel): LiveLapRow | undefined => {
 
 const OutlapRow = () => (
     <tr class="h-9 text-muted">
-        <th scope="row" class="px-3 font-mono text-[13px] font-medium">
+        <th scope="row" class="px-3 font-mono text-sm font-medium">
             <span class="inline-flex items-center gap-1.5">
                 {t("app.outlap")}
                 <span
@@ -449,15 +464,13 @@ const OutlapRow = () => (
                 />
             </span>
         </th>
-        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-[13px]">{t("app.empty")}</td>
-        <td class="px-3">
-            <ValidMark valid={false} />
-        </td>
+        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
+        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
     </tr>
 )
 

@@ -48,11 +48,25 @@
                 document.documentElement.dataset.theme = resolved
                 document.documentElement.style.colorScheme = scheme
                 var scale = 100
+                var manual = false
                 try {
-                    var raw = Number(localStorage.getItem("runsheet.scale"))
-                    if (raw >= 80 && raw <= 150 && Math.round(raw) === raw)
+                    var stored = localStorage.getItem("runsheet.scale")
+                    var raw = Number(stored)
+                    if (
+                        stored !== null &&
+                        raw >= 80 &&
+                        raw <= 200 &&
+                        Math.round(raw) === raw
+                    ) {
                         scale = raw
+                        manual = true
+                    }
                 } catch (e) {}
+                if (!manual && window.innerWidth > 1920) {
+                    var auto =
+                        Math.round(((window.innerWidth / 1920) * 100) / 10) * 10
+                    scale = Math.min(200, Math.max(100, auto))
+                }
                 if (scale !== 100) {
                     var zoom = scale / 100
                     var root = document.documentElement

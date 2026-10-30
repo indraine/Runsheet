@@ -22,19 +22,10 @@ export type SetupRow = {
     fuelPerLap: number | undefined
 }
 
-const CELL = "px-1.5 py-1 text-right tabular-nums"
+const CELL = "px-1.5 py-1 text-right font-mono tabular-nums"
 const HEAD = "px-1.5 py-1 text-right font-semibold text-muted"
 
-type ColKey =
-    | "tc"
-    | "abs"
-    | "map"
-    | "bb"
-    | "fl"
-    | "fr"
-    | "rl"
-    | "rr"
-    | "fuel"
+type ColKey = "tc" | "abs" | "map" | "bb" | "fl" | "fr" | "rl" | "rr" | "fuel"
 
 const COL = {
     tc: {
@@ -117,9 +108,7 @@ const WikiTip = (props: {
         <Portal>
             <Tooltip.Positioner class={screenPopupClass}>
                 <Tooltip.Content class="z-50 max-w-sm rounded border border-line bg-surface px-4 py-3 shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
-                    <p class="font-mono text-sm font-semibold text-ink">
-                        {props.title}
-                    </p>
+                    <p class="text-sm font-semibold text-ink">{props.title}</p>
                     <p class="mt-2 font-sans text-sm leading-relaxed text-secondary">
                         {props.wiki}
                     </p>
@@ -136,11 +125,11 @@ export const SetupCard = (props: {
 }) => (
     <section class="shrink-0 rounded border border-line bg-surface p-3">
         <div class="mb-2 flex items-baseline justify-between gap-3">
-            <p class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
+            <p class="text-sm font-semibold tracking-wide text-secondary uppercase">
                 {t("app.telemetrySetup")}
             </p>
             <Show when={props.stintLapsLeft !== undefined}>
-                <p class="font-mono text-xs text-secondary">
+                <p class="text-xs text-secondary">
                     {t("app.telemetryStintLeft", {
                         n: props.stintLapsLeft ?? 0,
                     })}
@@ -148,7 +137,7 @@ export const SetupCard = (props: {
             </Show>
         </div>
         <div class="overflow-x-auto">
-            <table class="w-full font-mono text-xs">
+            <table class="w-full text-xs">
                 <thead>
                     <tr>
                         <th class="px-1.5 py-1 text-left" />

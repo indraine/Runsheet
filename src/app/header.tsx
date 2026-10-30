@@ -30,10 +30,10 @@ export function Header() {
                 </A>
                 <span class="h-6 w-px shrink-0 bg-line" aria-hidden="true" />
                 <Show when={analysis()}>
-                    <span class="min-w-0 truncate font-mono text-lg font-medium tracking-wide text-ink uppercase select-text">
+                    <span class="min-w-0 truncate text-lg font-medium tracking-wide text-ink uppercase select-text">
                         {analysisHeading().track ?? t("app.empty")}
                     </span>
-                    <span class="min-w-0 truncate font-mono text-lg text-secondary">
+                    <span class="min-w-0 truncate text-lg text-secondary">
                         {analysisHeading().car ?? t("app.empty")}
                     </span>
                 </Show>
@@ -101,12 +101,14 @@ function AccStatus() {
 }
 
 const presenceBubble =
-    "inline-flex h-6 shrink-0 items-center self-center rounded-full border border-current/30 px-2.5 font-mono text-[11px] leading-none font-semibold tracking-wide whitespace-nowrap uppercase"
+    "inline-flex h-6 shrink-0 items-center self-center rounded-full border border-current/30 px-2.5 text-[12px] leading-none font-semibold tracking-wide whitespace-nowrap uppercase"
 
 const presenceTone = (value: AccPresence): string => {
     if (value === "onTrack") return "bg-gain/15 text-gain"
     if (value === "inPits") return "bg-accent/15 text-accent"
     if (value === "menu") return "bg-caution/15 text-caution"
+    if (value === "pause") return "bg-caution/15 text-caution"
+    if (value === "onGrid") return "bg-accent/15 text-accent"
     return "bg-inset text-secondary"
 }
 
@@ -114,5 +116,7 @@ const presenceName = (value: AccPresence): string => {
     if (value === "onTrack") return t("app.accOnTrack")
     if (value === "inPits") return t("app.accInPits")
     if (value === "menu") return t("app.accMenu")
+    if (value === "pause") return t("app.accPause")
+    if (value === "onGrid") return t("app.accOnGrid")
     return ""
 }

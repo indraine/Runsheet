@@ -1,120 +1,57 @@
-import { ChevronLeft, ChevronRight } from "lucide-solid"
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js"
+import { createMemo, For, Show } from "solid-js"
 import { setTrackBoardSort, trackBoardSort } from "~/app/track-board-sort"
 import { fitFrame } from "~/app/fit-ground"
 import { boundariesFor } from "~/app/track-catalog"
 import {
-    isTrackSort,
     sortTracks,
     TRACK_SORTS,
     type TrackRecord,
     type TrackSort,
 } from "~/domain"
 import { fmt, t, trackCodes, trackName } from "~/i18n"
+import { PaneToggle } from "~/app/pages/home-split"
+import { AdaptiveTabs } from "~/app/adaptive-tabs"
 import { locale } from "~/i18n/locale"
-import { buttonVariants, cn, Tabs } from "~/ui"
+import { cn } from "~/ui"
 
-
-const PAGE_SIZE = 4
 const OUTLINE_BOX = 100
 
 const OUTLINE_PADDING = 4
 
 const OUTLINE_POINTS = 360
 
-const iconProps = {
-    class: "size-4",
-    strokeWidth: 1.75,
-} as const
-
-
 export const TrackBoard = (props: {
     records: ReadonlyMap<string, TrackRecord>
 }) => {
-    const [page, setPage] = createSignal(0)
     const ordered = createMemo(() =>
-        sortTracks(trackCodes, props.records, trackBoardSort())
+        sortTracks(
+            trackCodes,
+            props.records,
+            trackBoardSort(),
+            trackName,
+            locale()
+        )
     )
-    const pageCount = createMemo(() =>
-        Math.max(1, Math.ceil(ordered().length / PAGE_SIZE))
-    )
-    const driven = () =>
-        trackCodes.filter(track => props.records.has(track)).length
-    const pageTracks = createMemo(() => {
-        const start = page() * PAGE_SIZE
-        return ordered().slice(start, start + PAGE_SIZE)
-    })
-
-    createEffect(() => {
-        trackBoardSort()
-        setPage(0)
-    })
-
-    createEffect(() => {
-        const last = pageCount() - 1
-        if (page() > last) setPage(last)
-    })
-
     return (
-        <section class="flex min-h-0 flex-col overflow-y-auto rounded border border-line bg-surface">
-            <header class="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-line px-4 py-3">
-                <div class="min-w-0">
-                    <h2 class="font-mono text-lg font-semibold tracking-tight text-ink uppercase">
-                        {t("app.trackBoard")}
-                    </h2>
-                    <p class="mt-0.5 font-mono text-[11px] text-secondary">
-                        {t("app.trackBoardHint")}
-                    </p>
-                </div>
-                <div class="flex flex-wrap items-center gap-4">
-                    <p class="font-mono text-[11px] text-secondary">
-                        <span class="text-[13px] text-ink">{driven()}</span> /{" "}
-                        {trackCodes.length}{" "}
-                        <span class="tracking-wide uppercase">
-                            {t("app.trackBoardDriven")}
-                        </span>
-                    </p>
-                    <TrackSortFilter
+        <section class="@container flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-line bg-surface">
+            <header class="flex shrink-0 items-center gap-x-3 border-b border-line px-4 py-3">
+                <h2 class="min-w-0 truncate text-lg font-semibold tracking-tight text-ink uppercase">
+                    {t("app.trackBoard")}
+                </h2>
+                <div class="ml-auto flex shrink-0 items-center gap-2">
+                    <AdaptiveTabs
+                        from="lg"
+                        items={TRACK_SORTS}
                         value={trackBoardSort()}
                         onChange={setTrackBoardSort}
+                        label={sortLabel}
+                        ariaLabel={t("app.trackBoardSort")}
                     />
-                    <nav
-                        class="flex items-center gap-1"
-                        aria-label={t("app.trackBoardPages")}
-                    >
-                        <button
-                            type="button"
-                            class={buttonVariants({
-                                variant: "ghost",
-                                size: "icon",
-                            })}
-                            aria-label={t("app.trackBoardPrev")}
-                            disabled={page() <= 0}
-                            onClick={() => setPage(current => current - 1)}
-                        >
-                            <ChevronLeft {...iconProps} />
-                        </button>
-                        <p class="min-w-10 text-center font-mono text-[11px] text-secondary">
-                            <span class="text-ink">{page() + 1}</span> /{" "}
-                            {pageCount()}
-                        </p>
-                        <button
-                            type="button"
-                            class={buttonVariants({
-                                variant: "ghost",
-                                size: "icon",
-                            })}
-                            aria-label={t("app.trackBoardNext")}
-                            disabled={page() >= pageCount() - 1}
-                            onClick={() => setPage(current => current + 1)}
-                        >
-                            <ChevronRight {...iconProps} />
-                        </button>
-                    </nav>
+                    <PaneToggle pane="right" />
                 </div>
             </header>
-            <ul class="grid shrink-0 grid-cols-4 divide-x divide-line">
-                <For each={pageTracks()}>
+            <ul class="grid min-h-0 flex-1 grid-cols-2 content-start @3xl:grid-cols-3 @5xl:grid-cols-4 overflow-y-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
+                <For each={ordered()}>
                     {track => (
                         <TrackTile
                             track={track}
@@ -127,26 +64,6 @@ export const TrackBoard = (props: {
     )
 }
 
-const TrackSortFilter = (props: {
-    value: TrackSort
-    onChange: (value: TrackSort) => void
-}) => (
-    <Tabs.Root
-        value={props.value}
-        onValueChange={details => {
-            if (isTrackSort(details.value)) props.onChange(details.value)
-        }}
-    >
-        <Tabs.List aria-label={t("app.trackBoardSort")}>
-            <For each={TRACK_SORTS}>
-                {sort => (
-                    <Tabs.Trigger value={sort}>{sortLabel(sort)}</Tabs.Trigger>
-                )}
-            </For>
-        </Tabs.List>
-    </Tabs.Root>
-)
-
 const TrackTile = (props: {
     track: string
     record: TrackRecord | undefined
@@ -156,18 +73,18 @@ const TrackTile = (props: {
     const driven = () => props.record !== undefined
 
     return (
-        <li class="flex aspect-[4/3] min-w-0 flex-col gap-1 px-4 pt-3 pb-4">
-            <div class="flex items-start justify-between gap-3 font-mono">
-                <p class="min-w-0 truncate text-[22px] leading-none font-semibold tracking-tight text-ink uppercase select-text">
+        <li class="flex aspect-[4/3] min-w-0 flex-col gap-1 border-r border-b border-line px-4 pt-3 pb-4 nth-[2n]:border-r-0 @3xl:nth-[2n]:border-r @3xl:nth-[3n]:border-r-0 @5xl:nth-[3n]:border-r @5xl:nth-[4n]:border-r-0">
+            <div class="flex items-start justify-between gap-3">
+                <p class="min-w-0 truncate text-lg leading-none font-semibold tracking-tight text-ink uppercase italic select-text">
                     {trackName(props.track)}
                 </p>
                 <Show when={props.record}>
                     {record => (
-                        <p class="shrink-0 text-right font-mono leading-none">
-                            <span class="block text-[15px] leading-none font-semibold tracking-tight text-ink">
+                        <p class="shrink-0 text-right leading-none">
+                            <span class="block font-mono text-[15px] leading-none font-semibold tracking-tight text-ink">
                                 {record().sessions}
                             </span>
-                            <span class="mt-0.5 block text-[10px] leading-none font-medium tracking-wide text-secondary uppercase">
+                            <span class="mt-0.5 block text-[12px] leading-none font-medium tracking-wide text-secondary uppercase">
                                 {attemptWord(record().sessions)}
                             </span>
                         </p>

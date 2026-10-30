@@ -21,6 +21,8 @@ pub(crate) enum Presence {
     Menu,
     InPits,
     OnTrack,
+    Pause,
+    OnGrid,
 }
 
 #[cfg_attr(not(windows), allow(dead_code))]
@@ -32,6 +34,8 @@ pub(crate) fn presence(running: bool, place: crate::domain::SessionPlace) -> Pre
         crate::domain::SessionPlace::Menu => Presence::Menu,
         crate::domain::SessionPlace::InPits => Presence::InPits,
         crate::domain::SessionPlace::OnTrack => Presence::OnTrack,
+        crate::domain::SessionPlace::Pause => Presence::Pause,
+        crate::domain::SessionPlace::OnGrid => Presence::OnGrid,
     }
 }
 

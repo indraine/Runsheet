@@ -17,7 +17,7 @@ const iconProps = { class: "size-4", strokeWidth: 1.75 }
 
 const dayCellClass = [
     "flex size-9 cursor-pointer items-center justify-center rounded",
-    "font-mono text-sm text-ink outline-none",
+    "text-sm text-ink outline-none",
     "hover:bg-inset",
     "data-today:font-semibold",
     "data-selected:bg-accent data-selected:text-on-accent data-selected:hover:bg-accent",
@@ -30,6 +30,8 @@ export const DayNav = (props: {
     value: number
     onChange: (start: number) => void
     compact?: boolean
+    /** Same look as a tab list, for a toolbar row with tabs. */
+    bar?: boolean
 }) => {
     const available = createMemo(
         () => new Set(props.days.map(day => dayKey(day.start)))
@@ -41,16 +43,29 @@ export const DayNav = (props: {
         setFocused(dateValue(props.value))
     })
 
+    const arrowClass = () =>
+        buttonVariants({
+            variant: "ghost",
+            size: props.bar ? "iconSm" : "icon",
+        })
+
     const step = (offset: number) => {
         const next = props.days[index() + offset]
         if (next) props.onChange(next.start)
     }
 
     return (
-        <div class="flex items-center gap-1">
+        <div
+            class={cn(
+                "flex items-center",
+                props.bar
+                    ? "gap-0.5 rounded border border-line bg-inset p-0.5"
+                    : "gap-1"
+            )}
+        >
             <button
                 type="button"
-                class={cn(buttonVariants({ variant: "ghost", size: "icon" }))}
+                class={arrowClass()}
                 aria-label={t("app.previousDay")}
                 disabled={index() <= 0}
                 onClick={() => step(-1)}
@@ -94,8 +109,13 @@ export const DayNav = (props: {
                 <DatePicker.Control>
                     <DatePicker.Trigger
                         class={cn(
-                            "cursor-pointer rounded px-1 font-mono font-semibold tracking-tight text-ink outline-none hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20",
-                            props.compact ? "text-base" : "text-lg"
+                            "cursor-pointer rounded text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20",
+                            props.bar
+                                ? "h-7 border border-transparent px-2 text-[12px] font-medium tracking-wide uppercase hover:bg-surface hover:text-accent"
+                                : cn(
+                                      "px-1 font-semibold tracking-tight hover:text-accent",
+                                      props.compact ? "text-base" : "text-lg"
+                                  )
                         )}
                         aria-label={t("app.openCalendar")}
                     >
@@ -125,7 +145,7 @@ export const DayNav = (props: {
                                                         {...iconProps}
                                                     />
                                                 </DatePicker.PrevTrigger>
-                                                <DatePicker.RangeText class="font-mono text-base font-medium text-ink" />
+                                                <DatePicker.RangeText class="text-base font-medium text-ink" />
                                                 <DatePicker.NextTrigger
                                                     class={buttonVariants({
                                                         variant: "ghost",
@@ -146,7 +166,7 @@ export const DayNav = (props: {
                                                             }
                                                         >
                                                             {weekDay => (
-                                                                <DatePicker.TableHeader class="size-9 text-center font-mono text-xs font-medium text-muted">
+                                                                <DatePicker.TableHeader class="size-9 text-center text-xs font-medium text-muted">
                                                                     {
                                                                         weekDay.narrow
                                                                     }
@@ -195,7 +215,7 @@ export const DayNav = (props: {
             </DatePicker.Root>
             <button
                 type="button"
-                class={cn(buttonVariants({ variant: "ghost", size: "icon" }))}
+                class={arrowClass()}
                 aria-label={t("app.nextDay")}
                 disabled={index() < 0 || index() >= props.days.length - 1}
                 onClick={() => step(1)}

@@ -18,6 +18,7 @@ export {
 export {
     completeLap,
     fastestValidLap,
+    isMeaningfulLap,
     realTimeMs,
     withRealTimes,
     type Lap,

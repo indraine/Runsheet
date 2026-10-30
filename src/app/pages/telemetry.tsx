@@ -453,7 +453,7 @@ export const TelemetryPage = () => {
                 when={baselineChoice()}
                 fallback={
                     <Show when={!pickerOpen() && !catalog.loading}>
-                        <p class="font-mono text-base text-secondary">
+                        <p class="text-base text-secondary">
                             {t("app.telemetryMissing")}
                         </p>
                     </Show>
@@ -488,7 +488,7 @@ export const TelemetryPage = () => {
                                 <Show
                                     when={!traces.loading && !baselineTrace()}
                                 >
-                                    <p class="font-mono text-sm text-muted">
+                                    <p class="text-sm text-muted">
                                         {t("app.telemetryNoTrace")}
                                     </p>
                                 </Show>
@@ -613,7 +613,7 @@ const DivergenceMenu = (props: {
             >
                 <Popover.Trigger
                     class={cn(
-                        "inline-flex h-9 cursor-pointer items-center gap-2 rounded border px-3 font-mono text-base outline-none",
+                        "inline-flex h-9 cursor-pointer items-center gap-2 rounded border px-3 text-base outline-none",
                         "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20",
                         selected() >= 0
                             ? "border-loss bg-loss/15 text-loss"
@@ -636,7 +636,7 @@ const DivergenceMenu = (props: {
                 <Popover.Positioner class={screenPopupClass}>
                     <Popover.Content class="flex max-h-(--available-height) w-64 flex-col overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
                         <div class="shrink-0 border-b border-line px-3 py-2">
-                            <Popover.Title class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
+                            <Popover.Title class="text-sm font-semibold tracking-wide text-secondary uppercase">
                                 {t("app.telemetryDivergence")}
                             </Popover.Title>
                         </div>
@@ -649,7 +649,7 @@ const DivergenceMenu = (props: {
                                             <button
                                                 type="button"
                                                 class={cn(
-                                                    "flex w-full cursor-pointer items-baseline justify-between gap-3 rounded px-2.5 py-2 text-left font-mono outline-none transition-colors",
+                                                    "flex w-full cursor-pointer items-baseline justify-between gap-3 rounded px-2.5 py-2 text-left outline-none transition-colors",
                                                     active()
                                                         ? "bg-loss/15 text-loss"
                                                         : "text-ink hover:bg-inset"
@@ -691,7 +691,7 @@ const DivergenceMenu = (props: {
                             <div class="shrink-0 border-t border-line p-1.5">
                                 <button
                                     type="button"
-                                    class="flex w-full cursor-pointer rounded px-2.5 py-2 text-left font-mono text-sm text-secondary outline-none hover:bg-inset hover:text-ink"
+                                    class="flex w-full cursor-pointer rounded px-2.5 py-2 text-left text-sm text-secondary outline-none hover:bg-inset hover:text-ink"
                                     onClick={() => {
                                         props.onClose()
                                         setOpen(false)
@@ -730,7 +730,7 @@ const ChartStrip = (props: {
     onZoom?: (factor: number) => void
 }) => (
     <div class="flex min-h-0 flex-1 flex-col gap-1">
-        <p class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
+        <p class="text-sm font-semibold tracking-wide text-secondary uppercase">
             {props.label}
         </p>
         <div class="min-h-0 flex-1 overflow-hidden rounded border border-line bg-inset">
@@ -786,7 +786,7 @@ const TrackMenu = (props: {
                 <Select.Trigger
                     ref={trigger}
                     class={cn(
-                        "inline-flex h-11 w-full cursor-pointer items-center justify-between gap-2 rounded border border-line bg-inset px-3 text-left font-mono text-base outline-none",
+                        "inline-flex h-11 w-full cursor-pointer items-center justify-between gap-2 rounded border border-line bg-inset px-3 text-left text-base outline-none",
                         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20",
                         props.value ? "text-ink" : "text-muted"
                     )}
@@ -810,7 +810,7 @@ const TrackMenu = (props: {
                             {code => (
                                 <Select.Item
                                     item={code}
-                                    class="flex cursor-pointer rounded px-2.5 py-2 text-left font-mono text-base text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-[state=checked]:text-ink"
+                                    class="flex cursor-pointer rounded px-2.5 py-2 text-left text-base text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-[state=checked]:text-ink"
                                 >
                                     <Select.ItemText class="select-text">
                                         {trackName(code)}
@@ -888,7 +888,7 @@ const DriverMenu = (props: {
             <Select.Control>
                 <Select.Trigger
                     class={cn(
-                        "inline-flex h-11 w-full cursor-pointer items-center justify-between gap-2 rounded border border-line bg-inset px-3 text-left font-mono text-base outline-none",
+                        "inline-flex h-11 w-full cursor-pointer items-center justify-between gap-2 rounded border border-line bg-inset px-3 text-left text-base outline-none",
                         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent/20",
                         "text-ink"
                     )}
@@ -909,7 +909,7 @@ const DriverMenu = (props: {
                                 type="search"
                                 value={filter()}
                                 placeholder={t("app.telemetryPickSearch")}
-                                class="h-9 w-full rounded border border-line bg-inset px-2.5 font-mono text-sm text-ink outline-none placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20"
+                                class="h-9 w-full rounded border border-line bg-inset px-2.5 text-sm text-ink outline-none placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-solid focus-visible:outline-accent/20"
                                 onInput={event =>
                                     setFilter(event.currentTarget.value)
                                 }
@@ -926,7 +926,7 @@ const DriverMenu = (props: {
                                 {item => (
                                     <Select.Item
                                         item={item}
-                                        class="flex cursor-pointer rounded px-2.5 py-2 text-left font-mono text-base text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-[state=checked]:text-ink"
+                                        class="flex cursor-pointer rounded px-2.5 py-2 text-left text-base text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-[state=checked]:text-ink"
                                     >
                                         <Select.ItemText class="select-text">
                                             {item.label}
@@ -1093,13 +1093,13 @@ const ComparePickerModal = (props: {
                 >
                     <h2
                         id="telemetry-pick-title"
-                        class="shrink-0 font-mono text-lg font-medium tracking-wide uppercase"
+                        class="shrink-0 text-lg font-medium tracking-wide uppercase"
                     >
                         {t("app.telemetryPickTitle")}
                     </h2>
                     <div class="mt-4 grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2">
                         <label class="flex min-w-0 flex-col gap-1.5">
-                            <span class="font-mono text-sm font-semibold tracking-wide text-muted uppercase">
+                            <span class="text-sm font-semibold tracking-wide text-muted uppercase">
                                 {t("app.telemetryPickTrack")}
                             </span>
                             <TrackMenu
@@ -1110,7 +1110,7 @@ const ComparePickerModal = (props: {
                         </label>
                         <Show when={track()}>
                             <label class="flex min-w-0 flex-col gap-1.5">
-                                <span class="font-mono text-sm font-semibold tracking-wide text-muted uppercase">
+                                <span class="text-sm font-semibold tracking-wide text-muted uppercase">
                                     {t("app.telemetryPickDriver")}
                                 </span>
                                 <DriverMenu
@@ -1124,7 +1124,7 @@ const ComparePickerModal = (props: {
                     <Show
                         when={track()}
                         fallback={
-                            <p class="mt-4 flex min-h-0 flex-1 items-center justify-center rounded border border-dashed border-line bg-inset px-4 text-center font-mono text-base text-secondary">
+                            <p class="mt-4 flex min-h-0 flex-1 items-center justify-center rounded border border-dashed border-line bg-inset px-4 text-center text-base text-secondary">
                                 {t("app.telemetryPickTrackPlaceholder")}
                             </p>
                         }
@@ -1154,7 +1154,7 @@ const ComparePickerModal = (props: {
                         </div>
                     </Show>
                     <div class="mt-4 flex shrink-0 flex-nowrap items-center gap-3 border-t border-line pt-4">
-                        <p class="min-w-0 flex-1 truncate font-mono text-sm text-muted">
+                        <p class="min-w-0 flex-1 truncate text-sm text-muted">
                             <Show when={track()}>
                                 {t("app.telemetryPickLapsHint", {
                                     max: MAX_COMPARE_LAPS,
@@ -1211,7 +1211,7 @@ const LapChecklist = (props: {
             <For each={props.groups}>
                 {group => (
                     <li class="mb-1 last:mb-0">
-                        <p class="px-2 pt-2 pb-1 font-mono text-sm tracking-wide text-muted">
+                        <p class="px-2 pt-2 pb-1 text-sm tracking-wide text-muted">
                             {groupLabel(group.session)}
                         </p>
                         <ul class="flex flex-col gap-0.5">
@@ -1232,7 +1232,7 @@ const LapChecklist = (props: {
                                                 aria-checked={active()}
                                                 disabled={full()}
                                                 class={cn(
-                                                    "flex w-full cursor-pointer items-center gap-3 rounded px-2 py-2 text-left font-mono text-base outline-none transition-colors",
+                                                    "flex w-full cursor-pointer items-center gap-3 rounded px-2 py-2 text-left text-base outline-none transition-colors",
                                                     active()
                                                         ? cn(
                                                               lapTone(slot())
@@ -1276,7 +1276,7 @@ const LapChecklist = (props: {
                                                 >
                                                     L{lap.number}
                                                 </span>
-                                                <span class="ml-auto tabular-nums text-secondary">
+                                                <span class="ml-auto font-mono tabular-nums text-secondary">
                                                     {formatLapTime(lap.timeMs)}
                                                 </span>
                                             </button>
@@ -1299,7 +1299,7 @@ const SelectedLaps = (props: {
 }) => (
     <section class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded border border-line bg-surface">
         <header class="border-b border-line bg-inset/60 px-3 py-2">
-            <h3 class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
+            <h3 class="text-sm font-semibold tracking-wide text-secondary uppercase">
                 {t("app.telemetrySelectedLaps", {
                     n: props.choices.length,
                     max: MAX_COMPARE_LAPS,
@@ -1309,7 +1309,7 @@ const SelectedLaps = (props: {
         <ul class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5">
             <For each={props.choices}>
                 {(choice, index) => (
-                    <li class="flex items-center gap-2 rounded px-2 py-2 font-mono text-sm">
+                    <li class="flex items-center gap-2 rounded px-2 py-2 text-sm">
                         <span
                             class={cn(
                                 "size-2.5 shrink-0 rounded-full",
@@ -1412,7 +1412,7 @@ const CompareBanner = (props: {
                     />
                 </Show>
             </div>
-            <div class="flex w-full min-w-0 flex-wrap items-center justify-center gap-2 font-mono text-base">
+            <div class="flex w-full min-w-0 flex-wrap items-center justify-center gap-2 text-base">
                 <For each={props.selected}>
                     {(choice, index) => (
                         <div class="w-48 min-w-0">
@@ -1530,7 +1530,7 @@ const LapPicker = (props: {
                 <Select.Positioner class={screenPopupClass}>
                     <Select.Content class="flex max-h-(--available-height) w-[min(22rem,calc(100vw/var(--ui-zoom)-2rem))] flex-col overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
                         <div class="shrink-0 border-b border-line px-3 py-2">
-                            <Select.Label class="font-mono text-sm font-semibold tracking-wide text-secondary uppercase">
+                            <Select.Label class="text-sm font-semibold tracking-wide text-secondary uppercase">
                                 {props.label}
                             </Select.Label>
                         </div>
@@ -1538,7 +1538,7 @@ const LapPicker = (props: {
                             <For each={groups()}>
                                 {group => (
                                     <Select.ItemGroup class="mb-1.5 last:mb-0">
-                                        <Select.ItemGroupLabel class="px-2 py-1.5 font-mono text-sm tracking-wide text-muted uppercase">
+                                        <Select.ItemGroupLabel class="px-2 py-1.5 text-sm tracking-wide text-muted uppercase">
                                             {groupLabel(group.session)}
                                         </Select.ItemGroupLabel>
                                         <For each={group.choices}>
@@ -1546,14 +1546,14 @@ const LapPicker = (props: {
                                                 <Select.Item
                                                     item={choice}
                                                     class={cn(
-                                                        "group flex cursor-pointer items-center justify-between gap-3 rounded px-2.5 py-2 text-left font-mono text-base text-ink outline-none data-highlighted:bg-inset",
+                                                        "group flex cursor-pointer items-center justify-between gap-3 rounded px-2.5 py-2 text-left text-base text-ink outline-none data-highlighted:bg-inset",
                                                         tone().checked
                                                     )}
                                                 >
                                                     <span class="font-semibold">
                                                         L{choice.lap.number}
                                                     </span>
-                                                    <span class="tabular-nums text-secondary group-data-[state=checked]:text-inherit">
+                                                    <span class="font-mono tabular-nums text-secondary group-data-[state=checked]:text-inherit">
                                                         {formatLapTime(
                                                             choice.lap.timeMs
                                                         )}

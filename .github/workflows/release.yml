@@ -46,16 +46,21 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'Runsheet v__VERSION__'
           releaseBody: |
-            ## Runsheet v1.3.0 — Live session lifecycle & telemetry comparison fix 🏁
+            ## Runsheet v1.3.1 — Home layout, fonts & live card polish 🏁
 
             Desktop session sheet for **Assetto Corsa Competizione**.
             Open the app, drive — sessions, laps, sectors, fuel, and validity are captured automatically.
 
-            ### What's new in 1.3.0
-            - **Live delta updates at clock rate** — the current-lap delta in the live card now refreshes as often as the running clock
-            - **Robust session lifecycle** — closing the game or losing the ACC link now closes the live session and invalidates the open lap
-            - **Stationary lap filtering** — menu/pit artifacts with no speed or fuel no longer appear as best laps
-            - **Fixed telemetry comparison squash** — negative distance samples no longer stretch the chart domain when comparing laps
+            ### What's new in 1.3.1
+            - **Resizable home layout** — the session table on the left, tracks and the live card on the right, with a drag handle and a button to expand either pane; a new session restores the 50/50 split and shows the live card
+            - **Click a row to open its live card** — a second click closes it and returns the track list
+            - **Live card redesign** — track map beside the stat tiles, a laps tile, red cross for laps that do not count, sized by its container
+            - **Inter for the interface** — mono font only for numbers; proper Cyrillic everywhere
+            - **Auto scale** — the interface follows the window width, up to 200%
+            - **Language switch on the welcome page**
+            - **Track sorting by the shown name** in the alphabet of the interface language
+            - **Race grid and ESC pause statuses**, off-by-one lap time fix, car state reset on game exit
+            - **Selectable session table columns**, adaptive tabs and a one-row toolbar
 
             ### Also included
             - Two-lap telemetry comparison with divergence detection

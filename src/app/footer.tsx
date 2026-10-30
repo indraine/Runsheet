@@ -10,11 +10,11 @@ export function Footer() {
     const hasPacket = () => packetId() != null
 
     return (
-        <footer class="sticky bottom-0 z-20 flex h-9 shrink-0 items-center gap-3 border-t border-line bg-surface px-6 font-mono text-[11px] text-muted select-none">
+        <footer class="sticky bottom-0 z-20 flex h-9 shrink-0 items-center gap-3 border-t border-line bg-surface px-6 text-[12px] text-muted select-none">
             <Show when={hasHz()}>
                 <span>
                     {t("app.frequency")}{" "}
-                    <span class="text-secondary">
+                    <span class="font-mono text-secondary">
                         {hz()} {t("app.hz")}
                     </span>
                 </span>
@@ -25,7 +25,7 @@ export function Footer() {
             <Show when={hasPacket()}>
                 <span>
                     {t("app.packet")}{" "}
-                    <span class="text-secondary">#{packetId()}</span>
+                    <span class="font-mono text-secondary">#{packetId()}</span>
                 </span>
             </Show>
             <div class="ml-auto">

@@ -1,10 +1,11 @@
 import { createEffect, createSignal } from "solid-js"
 import { Minus, Plus, RotateCcw } from "lucide-solid"
 import {
-    DEFAULT_SCALE,
     SCALE_MAX,
     SCALE_MIN,
     clampScale,
+    isAutoScale,
+    resetUiScale,
     setUiScale,
     uiScale,
     zoomBy,
@@ -38,7 +39,7 @@ export const ScaleControl = () => {
 
     return (
         <div class="flex items-center gap-1">
-            <span class="mr-1 font-mono text-[11px] text-secondary">
+            <span class="mr-1 text-[12px] text-secondary">
                 {t("app.scale")}
             </span>
             <button
@@ -56,7 +57,7 @@ export const ScaleControl = () => {
                     type="text"
                     inputMode="numeric"
                     aria-label={t("app.scale")}
-                    class="w-8 bg-transparent text-center font-mono text-[11px] text-ink outline-none"
+                    class="w-8 bg-transparent text-center font-mono text-[12px] text-ink outline-none"
                     value={text()}
                     onFocus={event => event.currentTarget.select()}
                     onInput={event => setText(event.currentTarget.value)}
@@ -80,7 +81,7 @@ export const ScaleControl = () => {
                         }
                     }}
                 />
-                <span class="font-mono text-[10px] text-secondary">%</span>
+                <span class="text-[12px] text-secondary">%</span>
             </label>
             <button
                 type="button"
@@ -96,8 +97,8 @@ export const ScaleControl = () => {
                 type="button"
                 class={scaleButtonClass}
                 aria-label={t("app.scaleReset")}
-                disabled={uiScale() === DEFAULT_SCALE}
-                onClick={() => setUiScale(DEFAULT_SCALE)}
+                disabled={isAutoScale()}
+                onClick={resetUiScale}
             >
                 <RotateCcw class="size-3" strokeWidth={1.75} />
             </button>
