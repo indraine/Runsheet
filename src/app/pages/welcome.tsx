@@ -25,12 +25,12 @@ export function WelcomePage() {
                 <p class="mt-2 text-sm leading-5 whitespace-pre-line text-secondary">
                     {t("app.welcomeBody")}
                 </p>
-                <Button class="mt-8 h-9 px-4" onClick={start}>
-                    {t("app.start")}
-                </Button>
-                <div class="mt-6">
+                <div class="mt-8">
                     <LocaleSwitch />
                 </div>
+                <Button class="mt-4 h-9 px-4" onClick={start}>
+                    {t("app.start")}
+                </Button>
             </div>
         </div>
     )
