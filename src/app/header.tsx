@@ -107,6 +107,7 @@ const presenceTone = (value: AccPresence): string => {
     if (value === "onTrack") return "bg-gain/15 text-gain"
     if (value === "inPits") return "bg-accent/15 text-accent"
     if (value === "menu") return "bg-caution/15 text-caution"
+    if (value === "pause") return "bg-caution/15 text-caution"
     return "bg-inset text-secondary"
 }
 
@@ -114,5 +115,6 @@ const presenceName = (value: AccPresence): string => {
     if (value === "onTrack") return t("app.accOnTrack")
     if (value === "inPits") return t("app.accInPits")
     if (value === "menu") return t("app.accMenu")
+    if (value === "pause") return t("app.accPause")
     return ""
 }

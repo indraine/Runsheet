@@ -172,7 +172,8 @@ export function TimelinePage() {
                             const presence = accPresence()
                             if (
                                 presence === "onTrack" ||
-                                presence === "inPits"
+                                presence === "inPits" ||
+                                presence === "pause"
                             ) {
                                 return sheet().live
                             }

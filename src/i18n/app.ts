@@ -5,6 +5,7 @@ const en = {
     accMenu: "In menu",
     accInPits: "In pits",
     accOnTrack: "On track",
+    accPause: "Pause",
     welcomeSlogan: "Drove! Recorded! Reviewed!",
     welcomeBody:
         "Automatic session recording for the\nAssetto Corsa Competizione simulator.",
@@ -216,6 +217,7 @@ const ru: typeof en = {
     accMenu: "В меню",
     accInPits: "В боксах",
     accOnTrack: "На трассе",
+    accPause: "Пауза",
     welcomeSlogan: "Проехал! Записал! Изучил!",
     welcomeBody:
         "Программа автоматической записи сессий заездов в\nсимуляторе Assetto Corsa Competizione.",

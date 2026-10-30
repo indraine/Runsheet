@@ -7,6 +7,7 @@ pub(crate) enum SessionPlace {
     Menu,
     InPits,
     OnTrack,
+    Pause,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -70,7 +71,8 @@ const fn resolve(place: CarPlace) -> Option<CarState> {
     match place.status {
         GameStatus::Replay => None,
         GameStatus::Off => Some(CarState::InGarage),
-        GameStatus::Live | GameStatus::Pause => {
+        GameStatus::Pause => Some(CarState::InGarage),
+        GameStatus::Live => {
             if place.setup_menu {
                 return Some(CarState::InGarage);
             }
