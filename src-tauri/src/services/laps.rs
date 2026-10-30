@@ -249,8 +249,13 @@ impl OpenLap {
     }
 
     fn finish(self, boundary: &Sample) -> Finished {
-        let time_ms =
-            real_ms(boundary.last_time_ms).or_else(|| self.last_lap_time_ms.and_then(real_ms));
+        let time_ms = if boundary.completed_lap > self.completed_at_open {
+            real_ms(boundary.last_time_ms).or_else(|| self.last_lap_time_ms.and_then(real_ms))
+        } else {
+            self.last_lap_time_ms
+                .and_then(real_ms)
+                .or_else(|| real_ms(boundary.last_time_ms))
+        };
         let s3_ms = match (time_ms, self.s1_ms, self.s2_ms) {
             (Some(total), Some(s1), Some(s2)) => {
                 real_ms(total.saturating_sub(s1.saturating_add(s2)))
@@ -630,4 +635,82 @@ fn write_u32(out: &mut Vec<u8>, value: u32) {
 
 fn write_f32(out: &mut Vec<u8>, value: f32) {
     out.extend_from_slice(&value.to_le_bytes());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dummy_sample(completed_lap: i32, lap_time_ms: i32, last_time_ms: i32) -> Sample {
+        Sample {
+            mono_ms: 1000,
+            session_id: SessionId::from_bytes([1; 16]),
+            completed_lap,
+            last_time_ms,
+            last_sector_time_ms: -1,
+            sector_index: 0,
+            valid: true,
+            distance_m: 100.0,
+            fuel: 10.0,
+            throttle: 1.0,
+            brake: 0.0,
+            steer: 0.0,
+            gear: 3,
+            rpm: 6000,
+            heading: 0.0,
+            speed: 150.0,
+            lap_time_ms,
+            progress: 0.05,
+            g_long: 0.0,
+            g_lat: 0.0,
+            x: 0.0,
+            z: 0.0,
+            pressure_fl: 27.5,
+            pressure_fr: 27.5,
+            pressure_rl: 27.5,
+            pressure_rr: 27.5,
+            brake_temp_fl: 400.0,
+            brake_temp_fr: 400.0,
+            tc: 0,
+            abs: 0,
+            engine_map: 1,
+            brake_bias: 0.6,
+            race: false,
+            green: true,
+        }
+    }
+
+    #[test]
+    fn finish_prefers_last_lap_time_when_completed_lap_not_incremented() {
+        let start_sample = dummy_sample(1, 0, 115_330);
+        let mut open = OpenLap::begin(&start_sample, 1);
+        open.last_lap_time_ms = Some(112_235);
+        open.s1_ms = Some(35_830);
+        open.s2_ms = Some(39_392);
+
+        // Boundary triggered by line_crossed before completed_lap increments:
+        // boundary.last_time_ms is still stale (115_330 from lap 1)
+        let boundary = dummy_sample(1, 10, 115_330);
+        let finished = open.finish(&boundary);
+
+        assert_eq!(finished.time_ms, Some(112_235));
+        assert_eq!(finished.s3_ms, Some(112_235 - 35_830 - 39_392));
+    }
+
+    #[test]
+    fn finish_uses_boundary_last_time_when_completed_lap_incremented() {
+        let start_sample = dummy_sample(1, 0, 115_330);
+        let mut open = OpenLap::begin(&start_sample, 1);
+        open.last_lap_time_ms = Some(112_230);
+        open.s1_ms = Some(35_830);
+        open.s2_ms = Some(39_392);
+
+        // Boundary triggered after completed_lap increments:
+        // boundary.last_time_ms is now officially updated to 112_235
+        let boundary = dummy_sample(2, 10, 112_235);
+        let finished = open.finish(&boundary);
+
+        assert_eq!(finished.time_ms, Some(112_235));
+        assert_eq!(finished.s3_ms, Some(112_235 - 35_830 - 39_392));
+    }
 }
