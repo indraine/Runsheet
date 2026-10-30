@@ -358,7 +358,7 @@ function PastSheet(props: {
             </header>
             <Show when={sessions().length > 0}>
                 <SessionContextMenu
-                    class="mt-4 flex min-h-0 flex-1 flex-col"
+                    class="flex min-h-0 flex-1 flex-col"
                     opened={
                         target() !== undefined && props.openedId === target()
                     }
@@ -366,7 +366,7 @@ function PastSheet(props: {
                     onCompare={compare}
                     onToggleLive={toggleLive}
                 >
-                    <div class="min-h-0 flex-1 overflow-auto overscroll-contain rounded border border-line bg-surface [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
+                    <div class="min-h-0 flex-1 overflow-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
                         <table class="w-full border-collapse text-left">
                             <thead class="sticky top-0 z-10 border-b border-line bg-surface">
                                 <tr class="font-mono text-[10px] font-medium tracking-wide text-secondary uppercase">
