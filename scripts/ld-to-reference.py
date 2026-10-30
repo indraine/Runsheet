@@ -7,7 +7,7 @@ Each file is one lap. Output is a compact JSON per track and car: channels on a
 MoTeC logs of ACC have no positions or lap distance, so the distance is the
 integral of speed scaled to the centre line length of the track.
 """
-import glob, json, math, os, sys
+import glob, json, math, os, re, sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 from ldparser import ldData
@@ -18,6 +18,11 @@ STEER_RAD_PER_DEG = -0.0049  # calibrated on Monza: user laps give ~0.12 rad per
 
 TRACKS = {  # venue in the .ld -> (Runsheet track code, centre line file)
     "brands_hatch": ("brands_hatch", "BrandsHatch"),
+    "cota": ("cota", "Austin"),
+    "donington": ("donington", "Donington"),
+    "hungaroring": ("hungaroring", "Budapest"),
+    "suzuka": ("suzuka", "Suzuka"),
+    "zolder": ("zolder", "Zolder"),
     "imola": ("imola", "Imola"),
     "kyalami": ("kyalami", "Kyalami"),
     "laguna_seca": ("laguna_seca", "LagunaSeca"),
@@ -34,6 +39,7 @@ TRACKS = {  # venue in the .ld -> (Runsheet track code, centre line file)
 CARS = {
     "296 GT3": "ferrari_296_gt3",
     "M4 GT3": "bmw_m4_gt3",
+    "Mustang GT3": "ford_mustang_gt3",
     "McLaren 720S GT3 Evo": "mclaren_720s_gt3_evo",
 }
 
@@ -62,9 +68,25 @@ def resample(values, src_hz, dist, grid):
     return out
 
 
+def best_lap_window(path):
+    """Seconds (start, end) of the fastest lap between beacons of a multi-lap session, else None."""
+    ldx = os.path.splitext(path)[0] + ".ldx"
+    if not os.path.exists(ldx):
+        return None
+    times = sorted(float(t) / 1e6 for t in re.findall(r'ClassName="BCN"[^>]*Time="([^"]+)"', open(ldx).read()))
+    if len(times) < 2:
+        return None
+    laps = [(times[i + 1] - times[i], times[i], times[i + 1]) for i in range(len(times) - 1)]
+    _, a, b = min(laps)
+    return a, b
+
 def convert(path):
     global SPEED_HZ
     data = ldData.fromfile(path)
+    window = best_lap_window(path)
+    if window:
+        for c in data.channs:
+            c._data = c.data[int(window[0] * c.freq):int(window[1] * c.freq)]
     venue = (data.head.venue or "").lower()
     if venue not in TRACKS:
         return None
