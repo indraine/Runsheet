@@ -52,10 +52,7 @@ export type LapPoint = {
  * point?.gear // current gear at sample 0
  * ```
  */
-export function lapPointAt(
-    trace: Trace,
-    index: number
-): LapPoint | undefined {
+export function lapPointAt(trace: Trace, index: number): LapPoint | undefined {
     if (index < 0 || index >= trace.distance.length) return undefined
     return {
         distance: trace.distance[index] ?? 0,
@@ -68,4 +65,37 @@ export function lapPointAt(
         steer: trace.steer[index] ?? 0,
         timestamp: trace.time[index] ?? 0,
     }
+}
+
+/** A lap whose ground track spans less than this has no usable trajectory. */
+const MIN_TRAJECTORY_SPAN_M = 20
+
+/**
+ * Whether the lap carries a real ground track. Missing channels are stored
+ * as zeros (imports without positions, old dumps), so a constant `x`/`z`
+ * counts as no trajectory.
+ *
+ * @example
+ * ```ts
+ * hasTrajectory(trace) // false for a lap imported without positions
+ * ```
+ */
+export function hasTrajectory(trace: Trace): boolean {
+    const count = Math.min(trace.x.length, trace.z.length)
+    if (count < 2) return false
+    let minX = Infinity
+    let maxX = -Infinity
+    let minZ = Infinity
+    let maxZ = -Infinity
+    for (let index = 0; index < count; index += 1) {
+        const x = trace.x[index]
+        const z = trace.z[index]
+        if (!Number.isFinite(x) || !Number.isFinite(z)) continue
+        if (x < minX) minX = x
+        if (x > maxX) maxX = x
+        if (z < minZ) minZ = z
+        if (z > maxZ) maxZ = z
+    }
+    if (!Number.isFinite(minX) || !Number.isFinite(minZ)) return false
+    return Math.hypot(maxX - minX, maxZ - minZ) >= MIN_TRAJECTORY_SPAN_M
 }

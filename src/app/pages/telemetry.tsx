@@ -43,10 +43,7 @@ import {
     type ChannelKind,
     type ChannelTrace,
 } from "~/app/telemetry/channel-view"
-import {
-    driversOnTrack,
-    filterChoices,
-} from "~/app/telemetry/compare-filters"
+import { driversOnTrack, filterChoices } from "~/app/telemetry/compare-filters"
 import {
     clearStoredComparison,
     MAX_COMPARE_LAPS,
@@ -91,6 +88,8 @@ import {
 import { SessionRepository, useSessionRepository } from "~/db"
 import {
     groupByDay,
+    hasTrajectory,
+    isReference,
     localDayStart,
     type Lap,
     type Session,
@@ -247,7 +246,8 @@ export const TelemetryPage = () => {
         const selected = selectedChoices()
         return selected.flatMap((choice, colorIndex) => {
             const trace = traceOf(choice)
-            if (!trace) return []
+            // Laps without positions (e.g. imported from MoTeC) stay out of the map.
+            if (!trace || !hasTrajectory(trace)) return []
             return [
                 {
                     id: choice.lap.id,
@@ -495,17 +495,19 @@ export const TelemetryPage = () => {
                             </section>
 
                             <div class="flex min-h-0 flex-col gap-4 overflow-y-auto lg:col-span-5">
-                                <div class="relative min-h-40 flex-1 overflow-hidden rounded border border-line bg-inset">
-                                    <TrajectoryView
-                                        class="absolute inset-0"
-                                        track={baseline().session.track}
-                                        lines={chartLines()}
-                                        zones={zones()}
-                                        cursorM={cursorM()}
-                                        onCursor={setCursorM}
-                                        registerZoom={registerMapZoom}
-                                    />
-                                </div>
+                                <Show when={chartLines().length > 0}>
+                                    <div class="relative min-h-40 flex-1 overflow-hidden rounded border border-line bg-inset">
+                                        <TrajectoryView
+                                            class="absolute inset-0"
+                                            track={baseline().session.track}
+                                            lines={chartLines()}
+                                            zones={zones()}
+                                            cursorM={cursorM()}
+                                            onCursor={setCursorM}
+                                            registerZoom={registerMapZoom}
+                                        />
+                                    </div>
+                                </Show>
 
                                 <SetupCard
                                     rows={setupRows()}
@@ -585,12 +587,7 @@ const DivergenceMenu = (props: {
         const count = props.zones.length
         if (count === 0) return
         const current = selected()
-        const next =
-            current < 0
-                ? delta > 0
-                    ? 0
-                    : -1
-                : current + delta
+        const next = current < 0 ? (delta > 0 ? 0 : -1) : current + delta
         if (next < 0 || next >= count) return
         const zone = props.zones[next]
         if (zone) props.onOpen(zone)
@@ -632,78 +629,86 @@ const DivergenceMenu = (props: {
                     </span>
                     <ChevronDown class="size-4 shrink-0" strokeWidth={2} />
                 </Popover.Trigger>
-            <Portal>
-                <Popover.Positioner class={screenPopupClass}>
-                    <Popover.Content class="flex max-h-(--available-height) w-64 flex-col overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
-                        <div class="shrink-0 border-b border-line px-3 py-2">
-                            <Popover.Title class="text-sm font-semibold tracking-wide text-secondary uppercase">
-                                {t("app.telemetryDivergence")}
-                            </Popover.Title>
-                        </div>
-                        <ul class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain p-1.5 [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
-                            <For each={props.zones}>
-                                {(zone, index) => {
-                                    const active = () => selected() === index()
-                                    return (
-                                        <li>
-                                            <button
-                                                type="button"
-                                                class={cn(
-                                                    "flex w-full cursor-pointer items-baseline justify-between gap-3 rounded px-2.5 py-2 text-left outline-none transition-colors",
-                                                    active()
-                                                        ? "bg-loss/15 text-loss"
-                                                        : "text-ink hover:bg-inset"
-                                                )}
-                                                aria-current={
-                                                    active()
-                                                        ? "true"
-                                                        : undefined
-                                                }
-                                                onClick={() => {
-                                                    if (active())
-                                                        props.onClose()
-                                                    else props.onOpen(zone)
-                                                    setOpen(false)
-                                                }}
-                                            >
-                                                <span class="text-sm font-semibold">
-                                                    {t("app.telemetryTurn", {
-                                                        n: index() + 1,
-                                                    })}
-                                                </span>
-                                                <span
-                                                    class={cn(
-                                                        "text-xs",
-                                                        active()
-                                                            ? undefined
-                                                            : "text-secondary"
-                                                    )}
-                                                >
-                                                    {t(CAUSE_LABEL[zone.cause])}
-                                                </span>
-                                            </button>
-                                        </li>
-                                    )
-                                }}
-                            </For>
-                        </ul>
-                        <Show when={props.focus}>
-                            <div class="shrink-0 border-t border-line p-1.5">
-                                <button
-                                    type="button"
-                                    class="flex w-full cursor-pointer rounded px-2.5 py-2 text-left text-sm text-secondary outline-none hover:bg-inset hover:text-ink"
-                                    onClick={() => {
-                                        props.onClose()
-                                        setOpen(false)
-                                    }}
-                                >
-                                    {t("app.telemetryFullLap")}
-                                </button>
+                <Portal>
+                    <Popover.Positioner class={screenPopupClass}>
+                        <Popover.Content class="flex max-h-(--available-height) w-64 flex-col overflow-hidden rounded border border-line bg-surface shadow-[0_8px_28px_-8px_rgba(15,23,42,0.28),0_2px_8px_-2px_rgba(15,23,42,0.12)] outline-none">
+                            <div class="shrink-0 border-b border-line px-3 py-2">
+                                <Popover.Title class="text-sm font-semibold tracking-wide text-secondary uppercase">
+                                    {t("app.telemetryDivergence")}
+                                </Popover.Title>
                             </div>
-                        </Show>
-                    </Popover.Content>
-                </Popover.Positioner>
-            </Portal>
+                            <ul class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain p-1.5 [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
+                                <For each={props.zones}>
+                                    {(zone, index) => {
+                                        const active = () =>
+                                            selected() === index()
+                                        return (
+                                            <li>
+                                                <button
+                                                    type="button"
+                                                    class={cn(
+                                                        "flex w-full cursor-pointer items-baseline justify-between gap-3 rounded px-2.5 py-2 text-left outline-none transition-colors",
+                                                        active()
+                                                            ? "bg-loss/15 text-loss"
+                                                            : "text-ink hover:bg-inset"
+                                                    )}
+                                                    aria-current={
+                                                        active()
+                                                            ? "true"
+                                                            : undefined
+                                                    }
+                                                    onClick={() => {
+                                                        if (active())
+                                                            props.onClose()
+                                                        else props.onOpen(zone)
+                                                        setOpen(false)
+                                                    }}
+                                                >
+                                                    <span class="text-sm font-semibold">
+                                                        {t(
+                                                            "app.telemetryTurn",
+                                                            {
+                                                                n: index() + 1,
+                                                            }
+                                                        )}
+                                                    </span>
+                                                    <span
+                                                        class={cn(
+                                                            "text-xs",
+                                                            active()
+                                                                ? undefined
+                                                                : "text-secondary"
+                                                        )}
+                                                    >
+                                                        {t(
+                                                            CAUSE_LABEL[
+                                                                zone.cause
+                                                            ]
+                                                        )}
+                                                    </span>
+                                                </button>
+                                            </li>
+                                        )
+                                    }}
+                                </For>
+                            </ul>
+                            <Show when={props.focus}>
+                                <div class="shrink-0 border-t border-line p-1.5">
+                                    <button
+                                        type="button"
+                                        class="flex w-full cursor-pointer rounded px-2.5 py-2 text-left text-sm text-secondary outline-none hover:bg-inset hover:text-ink"
+                                        onClick={() => {
+                                            props.onClose()
+                                            setOpen(false)
+                                        }}
+                                    >
+                                        {t("app.telemetryFullLap")}
+                                    </button>
+                                </div>
+                            </Show>
+                        </Popover.Content>
+                    </Popover.Positioner>
+                </Portal>
             </Popover.Root>
             <IconButton
                 class="size-9"
@@ -730,8 +735,13 @@ const ChartStrip = (props: {
     onZoom?: (factor: number) => void
 }) => (
     <div class="flex min-h-0 flex-1 flex-col gap-1">
-        <p class="text-sm font-semibold tracking-wide text-secondary uppercase">
+        <p class="flex items-baseline gap-2 text-sm font-semibold tracking-wide text-secondary uppercase">
             {props.label}
+            <Show when={props.kind === "delta"}>
+                <span class="min-w-0 truncate text-xs font-normal tracking-normal text-muted normal-case">
+                    {t("app.telemetryDeltaHint")}
+                </span>
+            </Show>
         </p>
         <div class="min-h-0 flex-1 overflow-hidden rounded border border-line bg-inset">
             <ChannelView
@@ -1324,8 +1334,11 @@ const SelectedLaps = (props: {
                                     lapTone(index()).text
                                 )}
                             >
-                                {driverLabel(choice.session.driver)} · L
-                                {choice.lap.number} ·{" "}
+                                {driverLabel(
+                                    choice.session.driver,
+                                    choice.session
+                                )}{" "}
+                                · L{choice.lap.number} ·{" "}
                                 {formatLapTime(choice.lap.timeMs)}
                             </span>
                             <span class="block truncate text-xs text-muted">
@@ -1415,7 +1428,7 @@ const CompareBanner = (props: {
             <div class="flex w-full min-w-0 flex-wrap items-center justify-center gap-2 text-base">
                 <For each={props.selected}>
                     {(choice, index) => (
-                        <div class="w-48 min-w-0">
+                        <div class="max-w-64 min-w-44 flex-1 basis-52">
                             <LapPicker
                                 label={
                                     index() === 0
@@ -1467,9 +1480,11 @@ const LapPicker = (props: {
     onChange: (lapId: string) => void
 }) => {
     const groups = createMemo(() => groupLapChoices(props.choices))
-    const selected = createMemo(
-        () => props.choices.find(item => item.lap.id === props.value)?.lap
+    const chosen = createMemo(() =>
+        props.choices.find(item => item.lap.id === props.value)
     )
+    const selected = () => chosen()?.lap
+    const driver = () => chosen()?.session.driver
     const collection = createMemo(() =>
         createListCollection({
             items: [...props.choices],
@@ -1493,7 +1508,7 @@ const LapPicker = (props: {
             <Select.Control class="min-w-0 flex-1">
                 <Select.Trigger
                     class={cn(
-                        "inline-flex h-9 w-full min-w-0 max-w-full cursor-pointer items-center gap-2 rounded border border-line bg-inset px-3 text-left outline-none transition-colors hover:border-secondary focus-visible:border-ink",
+                        "inline-flex h-14 w-full min-w-0 max-w-full cursor-pointer items-center gap-2.5 rounded border border-line bg-inset px-3 text-left outline-none transition-colors hover:border-secondary focus-visible:border-ink",
                         "disabled:cursor-not-allowed disabled:hover:border-line",
                         tone().text
                     )}
@@ -1503,23 +1518,44 @@ const LapPicker = (props: {
                         class={cn("size-2.5 shrink-0 rounded-full", tone().dot)}
                         aria-hidden="true"
                     />
-                    <span class="min-w-0 truncate text-base font-semibold">
-                        <Show
-                            when={selected()}
-                            fallback={
-                                <span class="text-muted">
-                                    {props.placeholder ?? t("app.pickLap")}
+                    <Show
+                        when={selected()}
+                        fallback={
+                            <span class="min-w-0 truncate text-base font-semibold text-muted">
+                                {props.placeholder ?? t("app.pickLap")}
+                            </span>
+                        }
+                    >
+                        {lap => (
+                            <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                                <span
+                                    class={cn(
+                                        "truncate text-sm leading-4 font-semibold",
+                                        driver()?.trim() === ""
+                                            ? "text-muted"
+                                            : "text-ink"
+                                    )}
+                                    title={driverLabel(
+                                        driver() ?? "",
+                                        chosen()?.session
+                                    )}
+                                >
+                                    {driverLabel(
+                                        driver() ?? "",
+                                        chosen()?.session
+                                    )}
                                 </span>
-                            }
-                        >
-                            {lap => (
-                                <>
-                                    L{lap().number} ·{" "}
-                                    {formatLapTime(lap().timeMs)}
-                                </>
-                            )}
-                        </Show>
-                    </span>
+                                <span class="flex items-baseline gap-2 leading-5 whitespace-nowrap">
+                                    <span class="text-sm font-semibold">
+                                        L{lap().number}
+                                    </span>
+                                    <span class="font-mono text-base font-semibold tabular-nums">
+                                        {formatLapTime(lap().timeMs)}
+                                    </span>
+                                </span>
+                            </span>
+                        )}
+                    </Show>
                     <ChevronDown
                         class="ml-auto size-4 shrink-0 text-muted"
                         strokeWidth={2}
@@ -1606,11 +1642,16 @@ const groupChoices = (
     return order.map(id => map.get(id)!)
 }
 
-const driverLabel = (driver: string): string =>
-    driver.trim() === "" ? t("app.telemetryPickDriverUnknown") : driver
+const driverLabel = (driver: string, session?: Session): string => {
+    if (driver.trim() !== "") return driver
+    if (session && isReference(session)) {
+        return `${t("app.telemetryReference")} · ${carName(session.car)}`
+    }
+    return t("app.telemetryPickDriverUnknown")
+}
 
 const groupLabel = (session: Session): string =>
-    `${driverLabel(session.driver)} · ${fmt.clock(session.startedAt)} · ${sessionTypeLabel(session.type)} · ${carName(session.car)}`
+    `${driverLabel(session.driver, session)} · ${fmt.clock(session.startedAt)} · ${sessionTypeLabel(session.type)} · ${carName(session.car)}`
 
 const choiceLabel = (
     lap: Lap,
@@ -1658,7 +1699,7 @@ const formatLapTime = (ms: number | null | undefined): string =>
 const loadCatalog = async (
     repo: SessionRepository
 ): Promise<Catalog | undefined> => {
-    const sessions = await repo.readSessions()
+    const sessions = await repo.readSessions({ withReference: true })
     if (sessions.length === 0) return undefined
 
     const ordered = [...sessions].sort(

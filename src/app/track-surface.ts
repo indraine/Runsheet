@@ -132,6 +132,30 @@ export const applySimilarity = (
     }
 }
 
+/** Mean distance (m) from the placed points to the centre line. */
+export const fitError = (
+    center: readonly PlanarPoint[],
+    driven: readonly PlanarPoint[],
+    fit: Similarity,
+    limit = 160
+): number => {
+    if (center.length < 2 || driven.length === 0) return Infinity
+    const step = Math.max(1, Math.ceil(driven.length / limit))
+    let sum = 0
+    let count = 0
+    for (let index = 0; index < driven.length; index += step) {
+        const placed = applySimilarity(driven[index], fit)
+        let best = Infinity
+        for (const point of center) {
+            const gap = (point.x - placed.x) ** 2 + (point.y - placed.y) ** 2
+            if (gap < best) best = gap
+        }
+        sum += Math.sqrt(best)
+        count += 1
+    }
+    return sum / count
+}
+
 export const matchTrace = (
     center: readonly PlanarPoint[],
     driven: readonly PlanarPoint[]

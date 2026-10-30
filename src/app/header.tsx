@@ -29,6 +29,7 @@ export function Header() {
                     <Wordmark class="h-10" />
                 </A>
                 <span class="h-6 w-px shrink-0 bg-line" aria-hidden="true" />
+                <AccStatus launch={!analysis()} />
                 <Show when={analysis()}>
                     <span class="min-w-0 truncate text-lg font-medium tracking-wide text-ink uppercase select-text">
                         {analysisHeading().track ?? t("app.empty")}
@@ -37,14 +38,8 @@ export function Header() {
                         {analysisHeading().car ?? t("app.empty")}
                     </span>
                 </Show>
-                <Show when={!analysis()}>
-                    <AccStatus />
-                </Show>
             </div>
             <div class="flex shrink-0 items-center gap-3">
-                <Show when={analysis()}>
-                    <AccStatus />
-                </Show>
                 <Show when={!analysis()}>
                     <A
                         href="/telemetry"
@@ -65,32 +60,38 @@ export function Header() {
     )
 }
 
-function AccStatus() {
+function AccStatus(props: { launch: boolean }) {
     let row: HTMLParagraphElement | undefined
     let label: HTMLSpanElement | undefined
     let launch: HTMLSpanElement | undefined
 
-    const paint = (value: AccPresence) => {
+    const paint = (value: AccPresence, withLaunch = props.launch) => {
         const name = presenceName(value)
         if (label) label.textContent = name
         if (row) {
             row.hidden = name === ""
             row.className = cn(presenceBubble, presenceTone(value))
         }
-        if (launch) launch.hidden = value !== "off"
+        if (launch) launch.hidden = value !== "off" || !withLaunch
     }
 
     onMount(() => {
         onCleanup(paintAccPresence(paint))
         createEffect(() => {
             locale()
-            untrack(() => paint(accPresence()))
+            const value = accPresence()
+            const withLaunch = props.launch
+            untrack(() => paint(value, withLaunch))
         })
     })
 
     return (
         <>
-            <span ref={launch} hidden>
+            <span
+                ref={launch}
+                hidden
+                class="inline-flex items-center self-center"
+            >
                 <LaunchAccButton />
             </span>
             <p ref={row} hidden class={presenceBubble}>
