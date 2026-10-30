@@ -1,5 +1,5 @@
 import { Select, createListCollection } from "@ark-ui/solid/select"
-import { Check } from "lucide-solid"
+import { Check, X } from "lucide-solid"
 import {
     createEffect,
     createMemo,
@@ -432,9 +432,11 @@ const ValidMark = (props: { valid: boolean }) => (
     <Show
         when={props.valid}
         fallback={
-            <span class="text-sm text-muted" aria-label={t("app.doesNotCount")}>
-                {t("app.empty")}
-            </span>
+            <X
+                class="size-3.5 text-loss"
+                strokeWidth={2}
+                aria-label={t("app.doesNotCount")}
+            />
         }
     >
         <Check
@@ -468,9 +470,7 @@ const OutlapRow = () => (
         <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
         <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
         <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
-        <td class="px-3">
-            <ValidMark valid={false} />
-        </td>
+        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
     </tr>
 )
 
