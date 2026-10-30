@@ -3,6 +3,7 @@ import { createEffect, onCleanup, onMount } from "solid-js"
 import { ensurePlotSize, followPlotBox, plotResolution } from "~/app/plot-frame"
 import { uiScale } from "~/app/scale"
 import { cssColor } from "~/app/telemetry/css-color"
+import { deltaAreas } from "~/app/telemetry/delta-fill"
 import {
     lapColorFallback,
     lapColorVar,
@@ -292,13 +293,54 @@ const drawChannel = (
     }
 
     const baseline = traces[0]?.trace
+    const deltaSeries = new Map<number, { x: number; y: number }[]>()
+    if (kind === "delta") {
+        const ySpan = yRange.max - yRange.min
+        const zeroY = PAD.top + innerH * (1 - (0 - yRange.min) / ySpan)
+        // Fill between each curve and the zero line, then the zero line itself
+        // in the baseline color: the baseline is the reference at zero.
+        for (let index = traces.length - 1; index >= 1; index -= 1) {
+            const item = traces[index]
+            if (!item) continue
+            const points = deltaPoints(
+                item.trace,
+                baseline,
+                range,
+                yRange,
+                innerW,
+                innerH
+            )
+            deltaSeries.set(index, points)
+            const color = palette[index] ?? lapColorFallback(item.colorIndex)
+            for (const area of deltaAreas(points, zeroY)) {
+                graphics.poly(area.polygon)
+                graphics.fill({
+                    color,
+                    alpha: traces.length > 2 ? 0.14 : 0.22,
+                })
+            }
+        }
+        const baselineItem = traces[0]
+        graphics.moveTo(PAD.left, zeroY)
+        graphics.lineTo(PAD.left + innerW, zeroY)
+        graphics.stroke({
+            width: 2,
+            color:
+                palette[0] ??
+                (baselineItem
+                    ? lapColorFallback(baselineItem.colorIndex)
+                    : grid),
+            alpha: 1,
+        })
+    }
     // Draw overlays first so the baseline stays on top.
     for (let index = traces.length - 1; index >= 0; index -= 1) {
         const item = traces[index]
         if (!item) continue
+        if (kind === "delta" && index === 0) continue
         const points =
             kind === "delta"
-                ? deltaPoints(item.trace, baseline, range, yRange, innerW, innerH)
+                ? (deltaSeries.get(index) ?? [])
                 : kind === "gear"
                   ? stepPoints(item.trace, range, yRange, innerW, innerH)
                   : seriesPoints(item.trace, kind, range, yRange, innerW, innerH)

@@ -730,8 +730,13 @@ const ChartStrip = (props: {
     onZoom?: (factor: number) => void
 }) => (
     <div class="flex min-h-0 flex-1 flex-col gap-1">
-        <p class="text-sm font-semibold tracking-wide text-secondary uppercase">
+        <p class="flex items-baseline gap-2 text-sm font-semibold tracking-wide text-secondary uppercase">
             {props.label}
+            <Show when={props.kind === "delta"}>
+                <span class="min-w-0 truncate text-xs font-normal tracking-normal text-muted normal-case">
+                    {t("app.telemetryDeltaHint")}
+                </span>
+            </Show>
         </p>
         <div class="min-h-0 flex-1 overflow-hidden rounded border border-line bg-inset">
             <ChannelView
