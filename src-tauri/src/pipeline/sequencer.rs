@@ -103,6 +103,8 @@ impl Sequencer {
 
     pub(crate) fn on_absent(&mut self, moment: Moment) -> Outcome {
         self.kill_clock();
+        self.car = CarState::InGarage;
+        self.had_motion = false;
         let outing_events = self.machine.step(&Tick {
             mono_ms: moment.mono_ms,
             wall_ms: moment.wall_ms,
@@ -138,6 +140,13 @@ impl Sequencer {
         {
             self.had_motion = false;
             self.kill_clock();
+        }
+        // When the game is off we do not trust the car position from the
+        // graphics page; the sequencer should report "menu" until a fresh
+        // live frame arrives.
+        if graphic.status == GameStatus::Off {
+            self.car = CarState::InGarage;
+            return;
         }
         self.car = next;
     }
@@ -205,7 +214,10 @@ impl Sequencer {
     }
 
     /// ESC pause keeps `CarState::OnTrack` — still "on track", not the game menu.
-    fn place(&self) -> SessionPlace {
+    fn place(&self, status: GameStatus) -> SessionPlace {
+        if status == GameStatus::Pause {
+            return SessionPlace::Pause;
+        }
         match self.car {
             CarState::InPitLane => SessionPlace::InPits,
             CarState::OnTrack => SessionPlace::OnTrack,
@@ -214,10 +226,12 @@ impl Sequencer {
     }
 
     fn snap(&self, tick: Option<&CleanTick>) -> Snap {
+        let status = tick.map(|tick| tick.graphic.status).unwrap_or(GameStatus::Off);
         let split = self.laps.open_split();
+        let place = self.place(status);
         // On track (and pause/menu) the graphics clock may keep advancing; only
         // the pits should drop the running lap/sector paint.
-        let running = split.is_some() && self.place() != SessionPlace::InPits;
+        let running = split.is_some() && place != SessionPlace::InPits && place != SessionPlace::Pause;
         let lap_ms = if running {
             tick.and_then(|tick| tick.graphic.current_lap_time.map(LapTime::ms))
         } else {
@@ -248,7 +262,7 @@ impl Sequencer {
             s2_ms: split.as_ref().and_then(|split| split.s2_ms),
             outlap,
             speed: tick.map(|tick| tick.physics.speed.kmh()),
-            place: self.place(),
+            place,
             air_c: tick.map(|tick| tick.graphic.air.celsius()),
             road_c: tick.map(|tick| tick.graphic.road.celsius()),
         }
