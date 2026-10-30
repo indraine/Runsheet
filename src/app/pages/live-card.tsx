@@ -54,6 +54,13 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
         if (tick.sessionId !== current.session.id) return undefined
         return tick
     }
+    const lapCounts = () => {
+        const done = card().rows.filter(row => row.lap.timeMs !== null)
+        return {
+            done: done.length,
+            valid: done.filter(row => row.lap.valid).length,
+        }
+    }
     const seedDev = () =>
         import.meta.env.DEV && card().session.id.startsWith("seed-")
 
@@ -157,27 +164,33 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                 </div>
             </header>
 
-            <div class="grid shrink-0 border-b border-line @md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(11rem,16rem)] @md:grid-rows-2">
+            <div class="grid shrink-0 grid-cols-3 border-b border-line @md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(11rem,16rem)] @md:grid-rows-2">
                 <Summary
                     label={t("app.liveBest")}
                     value={bestTime(card().bestLap?.timeMs)}
                     hint={lapLabel(card().bestLap)}
-                    class="@md:border-r @md:border-line"
+                    class="border-r border-line @md:border-b"
                 />
                 <Summary
                     label={t("app.liveCurrent")}
                     value={currentValue(card(), clockFor())}
                     hint={currentHint(card(), clockFor())}
                     hintClass={deltaClass(currentRow(card()))}
-                    class="border-t border-line @md:border-t-0 @md:border-r"
+                    class="border-r border-line @md:border-r-0 @md:border-b"
                 />
                 <Summary
                     label={t("app.livePressure")}
                     value={pressureText(card().pressurePsi)}
                     hint={t("app.psi")}
-                    class="border-t border-line @md:col-span-2 @md:border-r"
+                    class="@md:border-r @md:border-line"
                 />
-                <div class="relative h-40 border-t border-line @md:col-start-3 @md:row-span-2 @md:row-start-1 @md:h-auto @md:border-t-0">
+                <Summary
+                    label={t("app.liveLaps")}
+                    value={String(lapCounts().done)}
+                    hint={`${lapCounts().valid} ${t("app.liveLapsValid")}`}
+                    class="hidden @md:block"
+                />
+                <div class="relative hidden border-l border-line @md:col-start-3 @md:row-span-2 @md:row-start-1 @md:block">
                     <Show
                         when={
                             (ownTrack() && (card().road || card().car)) ||
