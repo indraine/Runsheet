@@ -54,19 +54,19 @@
 
 ### Track catalog
 
-![Track catalog](docs/screenshots/schemes-60deg.png)
+![Track catalog](docs/screenshots/schemes-60deg.webp)
 
 ### Live card
 
 Spa · lap table with S1/S2/S3, fuel, delta, and mini-map.
 
-![Live card](docs/screenshots/live-card-60deg.png)
+![Live card](docs/screenshots/live-card-60deg.webp)
 
 ### Telemetry comparison
 
 Monza · BMW M4 · two-lap overlay — throttle, brake, steer, speed, racing line, and divergence zones.
 
-![Telemetry](docs/screenshots/telemetry-60deg.png)
+![Telemetry](docs/screenshots/telemetry-60deg.webp)
 
 ---
 
