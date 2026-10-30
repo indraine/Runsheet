@@ -16,10 +16,7 @@ export function WelcomePage() {
     }
 
     return (
-        <div class="relative flex min-h-full items-center justify-center bg-canvas px-6 text-ink">
-            <div class="absolute top-4 right-6">
-                <LocaleSwitch />
-            </div>
+        <div class="flex min-h-full items-center justify-center bg-canvas px-6 text-ink">
             <div class="flex w-full max-w-xl flex-col items-center text-center">
                 <Wordmark class="h-32 max-w-full" />
                 <p class="mt-10 text-xl leading-7 text-ink">
@@ -31,6 +28,9 @@ export function WelcomePage() {
                 <Button class="mt-8 h-9 px-4" onClick={start}>
                     {t("app.start")}
                 </Button>
+                <div class="mt-6">
+                    <LocaleSwitch />
+                </div>
             </div>
         </div>
     )
