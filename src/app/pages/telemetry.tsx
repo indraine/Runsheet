@@ -88,6 +88,7 @@ import {
 import { SessionRepository, useSessionRepository } from "~/db"
 import {
     groupByDay,
+    hasTrajectory,
     localDayStart,
     type Lap,
     type Session,
@@ -244,7 +245,8 @@ export const TelemetryPage = () => {
         const selected = selectedChoices()
         return selected.flatMap((choice, colorIndex) => {
             const trace = traceOf(choice)
-            if (!trace) return []
+            // Laps without positions (e.g. imported from MoTeC) stay out of the map.
+            if (!trace || !hasTrajectory(trace)) return []
             return [
                 {
                     id: choice.lap.id,
@@ -492,17 +494,19 @@ export const TelemetryPage = () => {
                             </section>
 
                             <div class="flex min-h-0 flex-col gap-4 overflow-y-auto lg:col-span-5">
-                                <div class="relative min-h-40 flex-1 overflow-hidden rounded border border-line bg-inset">
-                                    <TrajectoryView
-                                        class="absolute inset-0"
-                                        track={baseline().session.track}
-                                        lines={chartLines()}
-                                        zones={zones()}
-                                        cursorM={cursorM()}
-                                        onCursor={setCursorM}
-                                        registerZoom={registerMapZoom}
-                                    />
-                                </div>
+                                <Show when={chartLines().length > 0}>
+                                    <div class="relative min-h-40 flex-1 overflow-hidden rounded border border-line bg-inset">
+                                        <TrajectoryView
+                                            class="absolute inset-0"
+                                            track={baseline().session.track}
+                                            lines={chartLines()}
+                                            zones={zones()}
+                                            cursorM={cursorM()}
+                                            onCursor={setCursorM}
+                                            registerZoom={registerMapZoom}
+                                        />
+                                    </div>
+                                </Show>
 
                                 <SetupCard
                                     rows={setupRows()}
