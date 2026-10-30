@@ -1415,7 +1415,7 @@ const CompareBanner = (props: {
             <div class="flex w-full min-w-0 flex-wrap items-center justify-center gap-2 text-base">
                 <For each={props.selected}>
                     {(choice, index) => (
-                        <div class="w-48 min-w-0">
+                        <div class="max-w-64 min-w-44 flex-1 basis-52">
                             <LapPicker
                                 label={
                                     index() === 0
@@ -1467,9 +1467,11 @@ const LapPicker = (props: {
     onChange: (lapId: string) => void
 }) => {
     const groups = createMemo(() => groupLapChoices(props.choices))
-    const selected = createMemo(
-        () => props.choices.find(item => item.lap.id === props.value)?.lap
+    const chosen = createMemo(() =>
+        props.choices.find(item => item.lap.id === props.value)
     )
+    const selected = () => chosen()?.lap
+    const driver = () => chosen()?.session.driver
     const collection = createMemo(() =>
         createListCollection({
             items: [...props.choices],
@@ -1493,7 +1495,7 @@ const LapPicker = (props: {
             <Select.Control class="min-w-0 flex-1">
                 <Select.Trigger
                     class={cn(
-                        "inline-flex h-9 w-full min-w-0 max-w-full cursor-pointer items-center gap-2 rounded border border-line bg-inset px-3 text-left outline-none transition-colors hover:border-secondary focus-visible:border-ink",
+                        "inline-flex h-12 w-full min-w-0 max-w-full cursor-pointer items-center gap-2.5 rounded border border-line bg-inset px-3 text-left outline-none transition-colors hover:border-secondary focus-visible:border-ink",
                         "disabled:cursor-not-allowed disabled:hover:border-line",
                         tone().text
                     )}
@@ -1503,23 +1505,38 @@ const LapPicker = (props: {
                         class={cn("size-2.5 shrink-0 rounded-full", tone().dot)}
                         aria-hidden="true"
                     />
-                    <span class="min-w-0 truncate text-base font-semibold">
-                        <Show
-                            when={selected()}
-                            fallback={
-                                <span class="text-muted">
-                                    {props.placeholder ?? t("app.pickLap")}
+                    <Show
+                        when={selected()}
+                        fallback={
+                            <span class="min-w-0 truncate text-base font-semibold text-muted">
+                                {props.placeholder ?? t("app.pickLap")}
+                            </span>
+                        }
+                    >
+                        {lap => (
+                            <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                                <span
+                                    class={cn(
+                                        "truncate text-sm leading-4 font-semibold",
+                                        driver()?.trim() === ""
+                                            ? "text-muted"
+                                            : "text-ink"
+                                    )}
+                                    title={driverLabel(driver() ?? "")}
+                                >
+                                    {driverLabel(driver() ?? "")}
                                 </span>
-                            }
-                        >
-                            {lap => (
-                                <>
-                                    L{lap().number} ·{" "}
-                                    {formatLapTime(lap().timeMs)}
-                                </>
-                            )}
-                        </Show>
-                    </span>
+                                <span class="flex items-baseline gap-2 leading-5 whitespace-nowrap">
+                                    <span class="text-sm font-semibold">
+                                        L{lap().number}
+                                    </span>
+                                    <span class="font-mono text-base font-semibold tabular-nums">
+                                        {formatLapTime(lap().timeMs)}
+                                    </span>
+                                </span>
+                            </span>
+                        )}
+                    </Show>
                     <ChevronDown
                         class="ml-auto size-4 shrink-0 text-muted"
                         strokeWidth={2}
