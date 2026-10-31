@@ -5,6 +5,7 @@ import {
     GitCompareArrows,
     Map as MapIcon,
     Radio,
+    Trash2,
 } from "lucide-solid"
 import { For, Show, type JSX } from "solid-js"
 import { Portal } from "solid-js/web"
@@ -27,6 +28,9 @@ const contentClass =
 
 const itemClass =
     "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[12px] text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-disabled:cursor-default data-disabled:opacity-40"
+
+const dangerItemClass =
+    "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[12px] text-loss outline-none data-highlighted:bg-loss/10 data-highlighted:text-loss"
 
 const iconProps = { class: "size-4", strokeWidth: 1.75 } as const
 
@@ -93,6 +97,13 @@ export function ColumnsMenu(props: {
                                 {t("app.sessionColumnsAll")}
                             </span>
                         </Menu.Item>
+                        <Menu.Separator class="my-1 border-t border-line" />
+                        <Menu.Item value="delete" class={dangerItemClass}>
+                            <Trash2 {...iconProps} />
+                            <span class="flex-1 text-left">
+                                {t("app.deleteSession")}
+                            </span>
+                        </Menu.Item>
                     </Menu.Content>
                 </Menu.Positioner>
             </Portal>
@@ -114,6 +125,7 @@ export function SessionContextMenu(props: {
     onTarget: (sessionId: string) => void
     onCompare: () => void
     onToggleLive: () => void
+    onDelete: () => void
     children: JSX.Element
 }) {
     const pick = (event: MouseEvent) => {
@@ -141,6 +153,7 @@ export function SessionContextMenu(props: {
             onSelect={details => {
                 if (details.value === "compare") props.onCompare()
                 if (details.value === "live") props.onToggleLive()
+                if (details.value === "delete") props.onDelete()
             }}
         >
             <Menu.ContextTrigger

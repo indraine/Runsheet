@@ -22,6 +22,11 @@ import {
 } from "~/app/session-list-sort"
 import { sessionColumns, type SessionColumn } from "~/app/session-columns"
 import { accLink, accPresence } from "~/app/status"
+import {
+    deleteWithoutAsking,
+    setDeleteWithoutAsking,
+} from "~/app/delete-confirm"
+import { DeleteSessionDialog } from "~/app/pages/delete-session-dialog"
 import { useSessionRepository } from "~/db"
 import {
     SESSION_FILTERS,
@@ -222,6 +227,14 @@ export function TimelinePage() {
                                                 sessions={sheet().past}
                                                 openedId={review()?.session.id}
                                                 onShowLive={showSession}
+                                                onDeleted={id => {
+                                                    if (
+                                                        review()?.session.id ===
+                                                        id
+                                                    ) {
+                                                        setReview(undefined)
+                                                    }
+                                                }}
                                             />
                                         </Show>
                                     }
@@ -286,6 +299,7 @@ function PastSheet(props: {
     sessions: DaySession[]
     openedId: string | undefined
     onShowLive: (session: Session) => void
+    onDeleted: (sessionId: string) => void
 }) {
     const [filter, setFilter] = createSignal<SessionFilter>("all")
     const [chosen, setChosen] = createSignal<number>()
@@ -326,6 +340,26 @@ function PastSheet(props: {
         const lap = bestLap(session.id)
         if (lap && lap.timeMs !== null) params.set("lap", lap.id)
         navigate(`/telemetry?${params.toString()}`)
+    }
+    const repository = useSessionRepository()
+    const [deleting, setDeleting] = createSignal<string>()
+    const removeSession = async (sessionId: string) => {
+        const repo = repository()
+        if (!repo) return
+        try {
+            await repo.deleteSession(sessionId)
+            props.onDeleted(sessionId)
+        } catch (error) {
+            const detail =
+                error instanceof Error ? error.message : String(error)
+            window.alert(`${t("app.deleteSessionFailed")}\n${detail}`)
+        }
+    }
+    const askDelete = () => {
+        const id = target()
+        if (!id) return
+        if (deleteWithoutAsking()) void removeSession(id)
+        else setDeleting(id)
     }
     const toggleLive = () => {
         const session = targetSession()
@@ -377,6 +411,7 @@ function PastSheet(props: {
                     onTarget={setTarget}
                     onCompare={compare}
                     onToggleLive={toggleLive}
+                    onDelete={askDelete}
                 >
                     <div class="min-h-0 flex-1 overflow-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
                         <table class="w-full border-collapse text-left">
@@ -408,6 +443,18 @@ function PastSheet(props: {
                         </table>
                     </div>
                 </SessionContextMenu>
+            </Show>
+            <Show when={deleting()}>
+                {id => (
+                    <DeleteSessionDialog
+                        onCancel={() => setDeleting(undefined)}
+                        onConfirm={async remember => {
+                            if (remember) setDeleteWithoutAsking(true)
+                            setDeleting(undefined)
+                            await removeSession(id())
+                        }}
+                    />
+                )}
             </Show>
         </section>
     )

@@ -148,6 +148,31 @@ export class SessionRepository {
         this.setRevision(current => current + 1)
     }
 
+    /** Removes one recorded session with its laps and telemetry. */
+    async deleteSession(sessionId: string): Promise<void> {
+        const tx = this.database.transaction(
+            ["sessions", "laps", "lap_telemetry"],
+            "readwrite"
+        )
+        const session = await tx.objectStore("sessions").get(sessionId)
+        if (!session || isReference(session)) {
+            await tx.done
+            return
+        }
+        const laps = tx.objectStore("laps")
+        const telemetry = tx.objectStore("lap_telemetry")
+        for (const lap of await laps.index("sessionId").getAll(sessionId)) {
+            await telemetry.delete(lap.id)
+            await laps.delete(lap.id)
+        }
+        await tx.objectStore("sessions").delete(sessionId)
+        await tx.done
+        batch(() => {
+            this.setLastWrite(undefined)
+            this.setRevision(current => current + 1)
+        })
+    }
+
     /** Removes recorded data; the bundled reference laps stay. */
     async clearAll(): Promise<void> {
         const tx = this.database.transaction(
