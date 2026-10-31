@@ -1,4 +1,5 @@
 import type { SessionRepository, SessionWrite } from "~/db"
+import { hasRecordedLaps } from "~/app/pages/empty-session"
 import {
     fastestValidLap,
     liveCard,
@@ -67,12 +68,16 @@ const readDayMemory = async (
     const sessions = await repo.readSessions()
     const liveSession = shownLive(sessions, sessionId)
     const closed = sessions.filter(session => session.status === "closed")
-    const past = await Promise.all(
+    const entries = await Promise.all(
         closed.map(async session => ({
             session,
-            bestLap: fastestValidLap(await repo.readLaps(session.id)),
+            laps: await repo.readLaps(session.id),
         }))
     )
+    const past = entries.filter(hasRecordedLaps).map(({ session, laps }) => ({
+        session,
+        bestLap: fastestValidLap(laps),
+    }))
     return {
         past,
         live: liveSession ? await readBuffer(repo, liveSession) : undefined,
@@ -120,12 +125,16 @@ const closeSession = (memory: DayMemory, write: SessionWrite): DayMemory => {
           ? [write.lap]
           : []
     const previous = memory.past.find(row => row.session.id === session.id)
+    const live = buffer ? undefined : memory.live
+    if (!previous && !hasRecordedLaps({ session, laps })) {
+        return { past: memory.past, live }
+    }
     return {
         past: upsertPast(memory.past, {
             session,
             bestLap: preferLap(fastestValidLap(laps), previous?.bestLap),
         }),
-        live: buffer ? undefined : memory.live,
+        live,
     }
 }
 
