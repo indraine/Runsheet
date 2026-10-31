@@ -4,11 +4,9 @@ import {
     Columns3,
     Download,
     GitCompareArrows,
-    Map as MapIcon,
-    Radio,
     Trash2,
 } from "lucide-solid"
-import { For, Show, type JSX } from "solid-js"
+import { For, type JSX } from "solid-js"
 import { Portal } from "solid-js/web"
 import { screenPopupClass, screenPositioning } from "~/app/screen-position"
 import {
@@ -99,6 +97,80 @@ export function ColumnsMenu(props: {
                                 {t("app.sessionColumnsAll")}
                             </span>
                         </Menu.Item>
+                    </Menu.Content>
+                </Menu.Positioner>
+            </Portal>
+        </Menu.Root>
+    )
+}
+
+/**
+ * Right-click menu for the rows inside `children`.
+ *
+ * The click is read in the capture phase, before Ark sees it. A row (an
+ * element with `data-session-id`) is reported through `onTarget` and the menu
+ * opens. Anywhere else the click is swallowed and no menu opens.
+ */
+export function SessionContextMenu(props: {
+    class?: string
+    onTarget: (sessionId: string) => void
+    onCompare: () => void
+    onDelete: () => void
+    onExport: (format: ExportFormat) => void
+    children: JSX.Element
+}) {
+    const pick = (event: MouseEvent) => {
+        const target = event.target
+        const row =
+            target instanceof Element
+                ? target.closest(`[${SESSION_ROW_ATTR}]`)
+                : null
+        const id = row?.getAttribute(SESSION_ROW_ATTR)
+        if (!id) {
+            event.preventDefault()
+            event.stopImmediatePropagation()
+            return
+        }
+        props.onTarget(id)
+    }
+
+    return (
+        <Menu.Root
+            aria-label={t("app.sessionActions")}
+            positioning={screenPositioning({
+                placement: "bottom-start",
+                gutter: 2,
+            })}
+            onSelect={details => {
+                if (details.value === "compare") props.onCompare()
+                if (details.value === "delete") props.onDelete()
+                if (details.value === "export-json") props.onExport("json")
+                if (details.value === "export-binary") props.onExport("binary")
+            }}
+        >
+            <Menu.ContextTrigger
+                asChild={trigger => (
+                    <div
+                        {...trigger()}
+                        class={props.class}
+                        on:contextmenu={{
+                            handleEvent: pick,
+                            capture: true,
+                        }}
+                    />
+                )}
+            >
+                {props.children}
+            </Menu.ContextTrigger>
+            <Portal>
+                <Menu.Positioner class={screenPopupClass}>
+                    <Menu.Content class={contentClass}>
+                        <Menu.Item value="compare" class={itemClass}>
+                            <GitCompareArrows {...iconProps} />
+                            <span class="flex-1 text-left">
+                                {t("app.compare")}
+                            </span>
+                        </Menu.Item>
                         <Menu.Separator class="my-1 border-t border-line" />
                         <Menu.Item value="export-json" class={itemClass}>
                             <Download {...iconProps} />
@@ -130,97 +202,6 @@ export function ColumnsMenu(props: {
                             <Trash2 {...iconProps} />
                             <span class="flex-1 text-left">
                                 {t("app.deleteSession")}
-                            </span>
-                        </Menu.Item>
-                    </Menu.Content>
-                </Menu.Positioner>
-            </Portal>
-        </Menu.Root>
-    )
-}
-
-/**
- * Right-click menu for the rows inside `children`.
- *
- * The click is read in the capture phase, before Ark sees it. A row (an
- * element with `data-session-id`) is reported through `onTarget` and the menu
- * opens. Anywhere else the click is swallowed and no menu opens.
- */
-export function SessionContextMenu(props: {
-    class?: string
-    /** The row the menu opened on shows its live card right now. */
-    opened: boolean
-    onTarget: (sessionId: string) => void
-    onCompare: () => void
-    onToggleLive: () => void
-    onDelete: () => void
-    onExport: (format: ExportFormat) => void
-    children: JSX.Element
-}) {
-    const pick = (event: MouseEvent) => {
-        const target = event.target
-        const row =
-            target instanceof Element
-                ? target.closest(`[${SESSION_ROW_ATTR}]`)
-                : null
-        const id = row?.getAttribute(SESSION_ROW_ATTR)
-        if (!id) {
-            event.preventDefault()
-            event.stopImmediatePropagation()
-            return
-        }
-        props.onTarget(id)
-    }
-
-    return (
-        <Menu.Root
-            aria-label={t("app.sessionActions")}
-            positioning={screenPositioning({
-                placement: "bottom-start",
-                gutter: 2,
-            })}
-            onSelect={details => {
-                if (details.value === "compare") props.onCompare()
-                if (details.value === "live") props.onToggleLive()
-                if (details.value === "delete") props.onDelete()
-                if (details.value === "export-json") props.onExport("json")
-                if (details.value === "export-binary") props.onExport("binary")
-            }}
-        >
-            <Menu.ContextTrigger
-                asChild={trigger => (
-                    <div
-                        {...trigger()}
-                        class={props.class}
-                        on:contextmenu={{
-                            handleEvent: pick,
-                            capture: true,
-                        }}
-                    />
-                )}
-            >
-                {props.children}
-            </Menu.ContextTrigger>
-            <Portal>
-                <Menu.Positioner class={screenPopupClass}>
-                    <Menu.Content class={contentClass}>
-                        <Menu.Item value="compare" class={itemClass}>
-                            <GitCompareArrows {...iconProps} />
-                            <span class="flex-1 text-left">
-                                {t("app.compare")}
-                            </span>
-                        </Menu.Item>
-                        <Menu.Item value="live" class={itemClass}>
-                            <Show
-                                when={props.opened}
-                                fallback={<Radio {...iconProps} />}
-                            >
-                                <MapIcon {...iconProps} />
-                            </Show>
-                            <span class="flex-1 text-left">
-                                {props.opened
-                                    ? t("app.showTracks")
-                                    : t("app.showLiveCard")}
                             </span>
                         </Menu.Item>
                     </Menu.Content>
