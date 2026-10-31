@@ -118,8 +118,42 @@ export function parseDump(raw: unknown): RunsheetDump {
     }
 }
 
+/**
+ * Dump as indented JSON. Objects get one key per line; arrays of plain
+ * values stay on one line, so a trace of thousands of samples does not
+ * grow into thousands of lines and the file stays close to its compact size.
+ */
+export function stringifyDump(dump: RunsheetDump): string {
+    return indentJson(dump, 0)
+}
+
+function indentJson(value: unknown, depth: number): string {
+    if (Array.isArray(value)) {
+        const plain = value.every(
+            item => item === null || typeof item !== "object"
+        )
+        if (plain) return JSON.stringify(value)
+        const pad = "  ".repeat(depth + 1)
+        const items = value.map(item => pad + indentJson(item, depth + 1))
+        return `[\n${items.join(",\n")}\n${"  ".repeat(depth)}]`
+    }
+    if (value !== null && typeof value === "object") {
+        const entries = Object.entries(value).filter(
+            ([, item]) => item !== undefined
+        )
+        if (entries.length === 0) return "{}"
+        const pad = "  ".repeat(depth + 1)
+        const lines = entries.map(
+            ([key, item]) =>
+                `${pad}${JSON.stringify(key)}: ${indentJson(item, depth + 1)}`
+        )
+        return `{\n${lines.join(",\n")}\n${"  ".repeat(depth)}}`
+    }
+    return JSON.stringify(value) ?? "null"
+}
+
 export async function downloadDump(dump: RunsheetDump): Promise<void> {
-    const contents = JSON.stringify(dump)
+    const contents = stringifyDump(dump)
     const name = dumpFileName(dump.exportedAt)
     if (isTauri()) {
         const body = await invoke<CommandBody<boolean>>("save_text_file", {
