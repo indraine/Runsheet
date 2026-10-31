@@ -139,8 +139,8 @@ export class SessionRepository {
         })
     }
 
-    async exportAll(): Promise<RunsheetDump> {
-        return readDump(this.database)
+    async exportAll(sessionId?: string): Promise<RunsheetDump> {
+        return readDump(this.database, sessionId)
     }
 
     async importAll(dump: RunsheetDump): Promise<void> {

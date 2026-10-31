@@ -27,7 +27,12 @@ import {
     setDeleteWithoutAsking,
 } from "~/app/delete-confirm"
 import { DeleteSessionDialog } from "~/app/pages/delete-session-dialog"
-import { useSessionRepository } from "~/db"
+import {
+    buildExport,
+    saveExport,
+    useSessionRepository,
+    type ExportFormat,
+} from "~/db"
 import {
     SESSION_FILTERS,
     closedSheet,
@@ -355,6 +360,19 @@ function PastSheet(props: {
             window.alert(`${t("app.deleteSessionFailed")}\n${detail}`)
         }
     }
+    const exportSession = async (format: ExportFormat) => {
+        const repo = repository()
+        const session = targetSession()
+        if (!repo || !session) return
+        try {
+            const dump = await repo.exportAll(session.id)
+            await saveExport(await buildExport(dump, format, session.track))
+        } catch (error) {
+            const detail =
+                error instanceof Error ? error.message : String(error)
+            window.alert(`${t("app.exportFailed")}\n${detail}`)
+        }
+    }
     const askDelete = () => {
         const id = target()
         if (!id) return
@@ -412,6 +430,7 @@ function PastSheet(props: {
                     onCompare={compare}
                     onToggleLive={toggleLive}
                     onDelete={askDelete}
+                    onExport={format => void exportSession(format)}
                 >
                     <div class="min-h-0 flex-1 overflow-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
                         <table class="w-full border-collapse text-left">

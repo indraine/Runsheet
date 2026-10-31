@@ -2,6 +2,7 @@ import { Menu } from "@ark-ui/solid/menu"
 import {
     Check,
     Columns3,
+    Download,
     GitCompareArrows,
     Map as MapIcon,
     Radio,
@@ -17,6 +18,7 @@ import {
     setSessionColumnShown,
     type SessionColumn,
 } from "~/app/session-columns"
+import type { ExportFormat } from "~/db"
 import { t } from "~/i18n"
 import { buttonVariants, cn } from "~/ui"
 
@@ -98,6 +100,32 @@ export function ColumnsMenu(props: {
                             </span>
                         </Menu.Item>
                         <Menu.Separator class="my-1 border-t border-line" />
+                        <Menu.Item value="export-json" class={itemClass}>
+                            <Download {...iconProps} />
+                            <span class="flex-1 text-left">
+                                {t("app.exportSessionJson")}
+                            </span>
+                        </Menu.Item>
+                        <Menu.Item value="export-binary" class={itemClass}>
+                            <Download {...iconProps} />
+                            <span class="flex-1 text-left">
+                                {t("app.exportSessionBinary")}
+                            </span>
+                        </Menu.Item>
+                        <Menu.Item
+                            value="export-motec"
+                            class={itemClass}
+                            disabled
+                        >
+                            <Download {...iconProps} />
+                            <span class="flex-1 text-left">
+                                {t("app.exportSessionMotec")}
+                            </span>
+                            <span class="text-[12px] tracking-wide text-muted uppercase">
+                                {t("app.exportSoon")}
+                            </span>
+                        </Menu.Item>
+                        <Menu.Separator class="my-1 border-t border-line" />
                         <Menu.Item value="delete" class={dangerItemClass}>
                             <Trash2 {...iconProps} />
                             <span class="flex-1 text-left">
@@ -126,6 +154,7 @@ export function SessionContextMenu(props: {
     onCompare: () => void
     onToggleLive: () => void
     onDelete: () => void
+    onExport: (format: ExportFormat) => void
     children: JSX.Element
 }) {
     const pick = (event: MouseEvent) => {
@@ -154,6 +183,8 @@ export function SessionContextMenu(props: {
                 if (details.value === "compare") props.onCompare()
                 if (details.value === "live") props.onToggleLive()
                 if (details.value === "delete") props.onDelete()
+                if (details.value === "export-json") props.onExport("json")
+                if (details.value === "export-binary") props.onExport("binary")
             }}
         >
             <Menu.ContextTrigger

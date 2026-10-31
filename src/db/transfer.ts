@@ -31,13 +31,21 @@ export type RunsheetDump = {
 
 export type EncodedTrace = { lapId: string } & Record<TraceChannel, number[]>
 
-export async function readDump(db: RunsheetDatabase): Promise<RunsheetDump> {
+/** All recorded data, or one session with its laps when `sessionId` is given. */
+export async function readDump(
+    db: RunsheetDatabase,
+    sessionId?: string
+): Promise<RunsheetDump> {
     const [sessions, laps, traces] = await Promise.all([
         db.getAll("sessions"),
         db.getAll("laps"),
         db.getAll("lap_telemetry"),
     ])
-    const recorded = sessions.filter(session => !isReference(session))
+    const recorded = sessions.filter(
+        session =>
+            !isReference(session) &&
+            (sessionId === undefined || session.id === sessionId)
+    )
     const ids = new Set(recorded.map(session => session.id))
     const ownLaps = laps.filter(lap => ids.has(lap.sessionId))
     const lapIds = new Set(ownLaps.map(lap => lap.id))
@@ -173,19 +181,20 @@ export type ExportFile = {
 /** The dump as a file of the chosen format; its length is the exact size. */
 export async function buildExport(
     dump: RunsheetDump,
-    format: ExportFormat
+    format: ExportFormat,
+    label?: string
 ): Promise<ExportFile> {
     if (format === "binary") {
         return {
             format,
-            name: dumpFileName(dump.exportedAt, BINARY_EXTENSION),
+            name: dumpFileName(dump.exportedAt, BINARY_EXTENSION, label),
             bytes: await encodeBinaryDump(dump),
             mime: "application/octet-stream",
         }
     }
     return {
         format,
-        name: dumpFileName(dump.exportedAt, "json"),
+        name: dumpFileName(dump.exportedAt, "json", label),
         bytes: new TextEncoder().encode(stringifyDump(dump)),
         mime: "application/json",
     }
@@ -230,13 +239,14 @@ type CommandBody<T> =
 
 export function dumpFileName(
     exportedAt: number,
-    extension: string = "json"
+    extension: string = "json",
+    label?: string
 ): string {
     const day = new Date(exportedAt)
     const yyyy = day.getFullYear()
     const mm = String(day.getMonth() + 1).padStart(2, "0")
     const dd = String(day.getDate()).padStart(2, "0")
-    return `runsheet-${yyyy}-${mm}-${dd}.${extension}`
+    return `runsheet-${label ? `${label}-` : ""}${yyyy}-${mm}-${dd}.${extension}`
 }
 
 export function encodeTrace(trace: Trace): EncodedTrace {

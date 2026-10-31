@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 import { seedReferenceLaps, type ReferenceFile } from "~/db/reference-laps"
 import { SessionRepository } from "~/db/repository"
 import { openRunsheetDb, type RunsheetDatabase } from "~/db/schema"
+import { dumpFileName } from "~/db/transfer"
 import { TRACE_CHANNELS, type Lap, type Session, type Trace } from "~/domain"
 
 const files = Object.values(
@@ -95,5 +96,26 @@ describe("deleting a session", () => {
     it("ignores an unknown id", async () => {
         await repo.deleteSession("nope")
         expect(await repo.readSessions()).toHaveLength(2)
+    })
+})
+
+describe("exporting one session", () => {
+    it("holds only that session, its laps and traces", async () => {
+        const dump = await repo.exportAll("b")
+        expect(dump.sessions.map(item => item.id)).toEqual(["b"])
+        expect(dump.laps.map(item => item.id)).toEqual(["lap-b"])
+        expect(dump.traces.map(item => item.lapId)).toEqual(["lap-b"])
+    })
+
+    it("still exports everything without an id", async () => {
+        expect((await repo.exportAll()).sessions).toHaveLength(2)
+    })
+
+    it("names the file after the track", () => {
+        const at = new Date(2026, 9, 31).getTime()
+        expect(dumpFileName(at, "runsheet", "monza")).toBe(
+            "runsheet-monza-2026-10-31.runsheet"
+        )
+        expect(dumpFileName(at)).toBe("runsheet-2026-10-31.json")
     })
 })

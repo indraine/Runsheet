@@ -226,6 +226,9 @@ const en = {
     unitByte: "B",
     unitKb: "KB",
     unitMb: "MB",
+    exportSessionJson: "Export as JSON",
+    exportSessionBinary: "Export as binary",
+    exportSessionMotec: "Export as MoTeC",
     deleteSession: "Delete",
     deleteSessionTitle: "Delete this record?",
     deleteSessionBody:
@@ -470,6 +473,9 @@ const ru: typeof en = {
     unitByte: "Б",
     unitKb: "КБ",
     unitMb: "МБ",
+    exportSessionJson: "Экспорт в JSON",
+    exportSessionBinary: "Экспорт в бинарный",
+    exportSessionMotec: "Экспорт в MoTeC",
     deleteSession: "Удалить",
     deleteSessionTitle: "Удалить запись?",
     deleteSessionBody:
