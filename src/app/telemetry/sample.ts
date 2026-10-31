@@ -192,6 +192,26 @@ export const wheelRotationDeg = (steer: number, peak: number): number => {
     return (steer * 180) / Math.PI
 }
 
+/**
+ * Wheel angle for the readout: `0°` when straight, `−12°` left, `+12°` right.
+ *
+ * Anything under half a degree reads as straight, so noise around the
+ * centre never shows `-0°`.
+ *
+ * @example
+ * ```ts
+ * formatSteerDeg(0.2) // "0°"
+ * formatSteerDeg(-12.4) // "−12°"
+ * formatSteerDeg(40) // "+40°"
+ * ```
+ */
+export const formatSteerDeg = (deg: number): string => {
+    if (!Number.isFinite(deg)) return "0°"
+    const rounded = Math.round(deg)
+    if (rounded === 0) return "0°"
+    return `${rounded < 0 ? "−" : "+"}${Math.abs(rounded)}°`
+}
+
 /** Downsample columnar channels to at most `limit` points (keeps ends). */
 export const downsampleIndices = (count: number, limit: number): number[] => {
     if (count <= 0) return []
