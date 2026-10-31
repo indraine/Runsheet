@@ -1,5 +1,5 @@
 import { Select, createListCollection } from "@ark-ui/solid/select"
-import { Check, X } from "lucide-solid"
+import { ArrowDown, ArrowUp, Check, X } from "lucide-solid"
 import {
     createEffect,
     createMemo,
@@ -16,6 +16,12 @@ import {
     screenPositioning,
 } from "~/app/screen-position"
 import { PaneToggle } from "~/app/pages/home-split"
+import {
+    nextLiveSort,
+    sortLiveRows,
+    type LiveSort,
+    type LiveSortKey,
+} from "~/app/live-sort"
 import { liveClock } from "~/app/status"
 import { hasAsphalt } from "~/app/track-catalog"
 import { TrackView } from "~/app/track-view"
@@ -260,55 +266,98 @@ const Summary = (props: {
     </div>
 )
 
-const VISIBLE_LAP_ROWS = 7
-
-const LAP_HEAD_REM = 2
-
-const LAP_ROW_REM = 2.25
-
-const lapTableMaxHeight = (): string =>
-    `calc(${LAP_HEAD_REM}rem + ${VISIBLE_LAP_ROWS} * ${LAP_ROW_REM}rem + 1px)`
+const SORTABLE: readonly { key: LiveSortKey; label: () => string }[] = [
+    { key: "lap", label: () => t("app.colLap") },
+    { key: "time", label: () => t("app.colTime") },
+    { key: "delta", label: () => t("app.colDelta") },
+    { key: "s1", label: () => "S1" },
+    { key: "s2", label: () => "S2" },
+    { key: "s3", label: () => "S3" },
+    { key: "fuel", label: () => t("app.colFuel") },
+    { key: "valid", label: () => t("app.colValid") },
+]
 
 const LapTable = (props: {
     rows: LiveLapRow[]
     best: LiveCardModel["bestLap"]
     clock: LiveClock | undefined
-}) => (
-    <div
-        class="h-full min-h-0 min-w-0 overflow-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]"
-        style={{ "max-height": lapTableMaxHeight() }}
-    >
-        <table class="w-full min-w-[30rem] border-collapse text-left">
-            <caption class="sr-only">{t("app.lapTable")}</caption>
-            <thead class="sticky top-0 z-10 bg-surface">
-                <tr class="border-b border-line text-[12px] font-semibold tracking-wide text-secondary uppercase">
-                    <th class="h-8 px-3 font-semibold">{t("app.colLap")}</th>
-                    <th class="h-8 px-3 font-semibold">{t("app.colTime")}</th>
-                    <th class="h-8 px-3 font-semibold">{t("app.colDelta")}</th>
-                    <th class="h-8 px-3 font-semibold">S1</th>
-                    <th class="h-8 px-3 font-semibold">S2</th>
-                    <th class="h-8 px-3 font-semibold">S3</th>
-                    <th class="h-8 px-3 font-semibold">{t("app.colFuel")}</th>
-                    <th class="h-8 px-3 font-semibold">{t("app.colValid")}</th>
-                </tr>
-            </thead>
-            <tbody>
-                <Index each={props.rows}>
-                    {row => (
-                        <LapRow
-                            row={row()}
-                            best={props.best}
-                            clock={props.clock}
-                        />
-                    )}
-                </Index>
-                <Show when={props.clock?.outlap}>
-                    <OutlapRow />
-                </Show>
-            </tbody>
-        </table>
-    </div>
-)
+}) => {
+    const [sort, setSort] = createSignal<LiveSort>()
+    const rows = createMemo(() => sortLiveRows(props.rows, sort()))
+    const ariaSort = (key: LiveSortKey) => {
+        const current = sort()
+        if (current?.key !== key) return "none"
+        return current.descending ? "descending" : "ascending"
+    }
+
+    return (
+        <div class="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]">
+            <table class="w-full min-w-[30rem] border-collapse text-left">
+                <caption class="sr-only">{t("app.lapTable")}</caption>
+                <thead class="sticky top-0 z-10 bg-surface">
+                    <tr class="border-b border-line text-[12px] font-semibold tracking-wide text-secondary uppercase">
+                        <For each={SORTABLE}>
+                            {column => (
+                                <th
+                                    class="h-8 px-3 font-semibold"
+                                    aria-sort={ariaSort(column.key)}
+                                >
+                                    <button
+                                        type="button"
+                                        class={cn(
+                                            "-mx-1 inline-flex cursor-pointer items-center gap-1 rounded px-1 uppercase outline-none hover:text-ink focus-visible:text-ink",
+                                            sort()?.key === column.key &&
+                                                "text-ink"
+                                        )}
+                                        onClick={() =>
+                                            setSort(
+                                                nextLiveSort(sort(), column.key)
+                                            )
+                                        }
+                                    >
+                                        {column.label()}
+                                        <Show when={sort()?.key === column.key}>
+                                            <Show
+                                                when={sort()?.descending}
+                                                fallback={
+                                                    <ArrowUp
+                                                        class="size-3"
+                                                        strokeWidth={2}
+                                                        aria-hidden="true"
+                                                    />
+                                                }
+                                            >
+                                                <ArrowDown
+                                                    class="size-3"
+                                                    strokeWidth={2}
+                                                    aria-hidden="true"
+                                                />
+                                            </Show>
+                                        </Show>
+                                    </button>
+                                </th>
+                            )}
+                        </For>
+                    </tr>
+                </thead>
+                <tbody>
+                    <Index each={rows()}>
+                        {row => (
+                            <LapRow
+                                row={row()}
+                                best={props.best}
+                                clock={props.clock}
+                            />
+                        )}
+                    </Index>
+                    <Show when={props.clock?.outlap}>
+                        <OutlapRow />
+                    </Show>
+                </tbody>
+            </table>
+        </div>
+    )
+}
 
 const LapRow = (props: {
     row: LiveLapRow
