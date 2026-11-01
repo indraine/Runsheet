@@ -19,7 +19,9 @@ const GAME_DIR: &str = "Assetto Corsa Competizione";
 pub(crate) enum Presence {
     Off,
     Menu,
+    Garage,
     InPits,
+    PitLane,
     OnTrack,
     Pause,
     OnGrid,
@@ -32,7 +34,9 @@ pub(crate) fn presence(running: bool, place: crate::domain::SessionPlace) -> Pre
     }
     match place {
         crate::domain::SessionPlace::Menu => Presence::Menu,
+        crate::domain::SessionPlace::Garage => Presence::Garage,
         crate::domain::SessionPlace::InPits => Presence::InPits,
+        crate::domain::SessionPlace::PitLane => Presence::PitLane,
         crate::domain::SessionPlace::OnTrack => Presence::OnTrack,
         crate::domain::SessionPlace::Pause => Presence::Pause,
         crate::domain::SessionPlace::OnGrid => Presence::OnGrid,

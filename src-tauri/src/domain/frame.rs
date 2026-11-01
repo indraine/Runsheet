@@ -39,6 +39,10 @@ pub(crate) struct CleanSessionGraphic {
     pub online: bool,
     pub car_count: i32,
     pub setup_menu: bool,
+    /// ACC `mainMenuVisible`. The shared-memory crate stores that int as `main_display_index`.
+    pub main_menu: bool,
+    pub in_pit_box: bool,
+    pub in_pit_lane: bool,
     pub air: Celsius,
     pub road: Celsius,
     pub tc: i32,

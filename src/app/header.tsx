@@ -106,17 +106,21 @@ const presenceBubble =
 
 const presenceTone = (value: AccPresence): string => {
     if (value === "onTrack") return "bg-gain/15 text-gain"
-    if (value === "inPits") return "bg-accent/15 text-accent"
-    if (value === "menu") return "bg-caution/15 text-caution"
-    if (value === "pause") return "bg-caution/15 text-caution"
-    if (value === "onGrid") return "bg-accent/15 text-accent"
+    if (value === "inPits" || value === "pitLane" || value === "onGrid") {
+        return "bg-accent/15 text-accent"
+    }
+    if (value === "menu" || value === "garage" || value === "pause") {
+        return "bg-caution/15 text-caution"
+    }
     return "bg-inset text-secondary"
 }
 
 const presenceName = (value: AccPresence): string => {
     if (value === "onTrack") return t("app.accOnTrack")
     if (value === "inPits") return t("app.accInPits")
+    if (value === "pitLane") return t("app.accPitLane")
     if (value === "menu") return t("app.accMenu")
+    if (value === "garage") return t("app.accGarage")
     if (value === "pause") return t("app.accPause")
     if (value === "onGrid") return t("app.accOnGrid")
     return ""

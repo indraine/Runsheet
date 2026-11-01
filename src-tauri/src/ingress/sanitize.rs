@@ -106,7 +106,7 @@ impl TryFrom<&RawGraphicPage> for CleanSessionGraphic {
         let place = CarPlace {
             status,
             setup_menu: page.is_setup_menu_visible,
-            in_pit: page.is_in_pit,
+            in_pit_box: page.is_in_pit,
             in_pit_lane: page.is_in_pit_lane,
             checkered: checkered_flag(page.flag as i32)?,
         };
@@ -122,6 +122,9 @@ impl TryFrom<&RawGraphicPage> for CleanSessionGraphic {
             online: false,
             car_count: page.active_cars,
             setup_menu: page.is_setup_menu_visible,
+            main_menu: page.main_display_index != 0,
+            in_pit_box: page.is_in_pit,
+            in_pit_lane: page.is_in_pit_lane,
             air: Celsius::from_celsius_unchecked(0.0),
             road: Celsius::from_celsius_unchecked(0.0),
             tc: page.tc_level,

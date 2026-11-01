@@ -3,10 +3,12 @@ import type { Locale } from "~/i18n/locale"
 const en = {
     wordmark: "Runsheet",
     accMenu: "In menu",
+    accGarage: "In garage",
     accInPits: "In pits",
+    accPitLane: "Pit lane",
     accOnTrack: "On track",
     accPause: "Pause",
-    accOnGrid: "On grid",
+    accOnGrid: "In grid",
     welcomeSlogan: "Drove! Recorded! Reviewed!",
     welcomeBody:
         "Automatic session recording for the\nAssetto Corsa Competizione simulator.",
@@ -250,10 +252,12 @@ const en = {
 const ru: typeof en = {
     wordmark: "Runsheet",
     accMenu: "В меню",
+    accGarage: "В гараже",
     accInPits: "В боксах",
+    accPitLane: "На пит-лейне",
     accOnTrack: "На трассе",
     accPause: "Пауза",
-    accOnGrid: "В стартовой решётке",
+    accOnGrid: "В сетке",
     welcomeSlogan: "Проехал! Записал! Изучил!",
     welcomeBody:
         "Программа автоматической записи сессий заездов в\nсимуляторе Assetto Corsa Competizione.",

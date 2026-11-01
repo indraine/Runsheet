@@ -21,7 +21,9 @@ export type AccStatusEvent =
 export type AccPresence =
     | "off"
     | "menu"
+    | "garage"
     | "inPits"
+    | "pitLane"
     | "onTrack"
     | "pause"
     | "onGrid"
@@ -291,7 +293,9 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const PRESENCE = new Set<AccPresence>([
     "off",
     "menu",
+    "garage",
     "inPits",
+    "pitLane",
     "onTrack",
     "pause",
     "onGrid",

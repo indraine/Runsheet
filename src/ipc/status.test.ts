@@ -29,6 +29,17 @@ const linked = {
     events: [],
 }
 
+describe("parseAccStatus", () => {
+    it("keeps the garage and pit lane presence", () => {
+        expect(parseAccStatus({ ...linked, presence: "garage" })?.presence).toBe(
+            "garage"
+        )
+        expect(parseAccStatus({ ...linked, presence: "pitLane" })?.presence).toBe(
+            "pitLane"
+        )
+    })
+})
+
 describe("liveClockFromStatus", () => {
     it("marks an outlap without painting a lap time", () => {
         const status = parseAccStatus({

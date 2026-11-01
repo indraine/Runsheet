@@ -187,6 +187,8 @@ export function TimelinePage() {
                             if (
                                 presence === "onTrack" ||
                                 presence === "inPits" ||
+                                presence === "pitLane" ||
+                                presence === "garage" ||
                                 presence === "pause" ||
                                 presence === "onGrid"
                             ) {

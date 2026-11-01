@@ -1,6 +1,7 @@
 use crate::domain::{
-    CarState, CleanSessionGraphic, Frame, GameStatus, LapTime, OutingEvent, OutingId, Session,
-    SessionId, SessionKind, SessionPlace,
+    CarState, CleanSessionGraphic, Frame, GameStatus, LapTime, OutingEvent, OutingId, PlaceView,
+    RacePhase, RaceSample, Session, SessionId, SessionKind, SessionPlace, note_race_phase,
+    session_place,
 };
 use crate::ingress::CleanTick;
 use crate::services::laps::{Collector, Sample, sector_elapsed, show_outlap};
@@ -69,6 +70,7 @@ pub(crate) struct Sequencer {
     laps: Collector,
     clock: UiClock,
     car: CarState,
+    race: RacePhase,
     seen_packet: Option<i32>,
     had_motion: bool,
     last_lap_time_ms: Option<i32>,
@@ -82,6 +84,7 @@ impl Sequencer {
         }
         self.note_motion(&tick);
         self.note_clock(&tick, moment.mono_ms);
+        self.note_race(&tick.graphic);
         if self.parked_on_track(&tick, moment.mono_ms) {
             return self.on_absent(moment);
         }
@@ -104,6 +107,7 @@ impl Sequencer {
     pub(crate) fn on_absent(&mut self, moment: Moment) -> Outcome {
         self.kill_clock();
         self.car = CarState::InGarage;
+        self.race = RacePhase::default();
         self.had_motion = false;
         let outing_events = self.machine.step(&Tick {
             mono_ms: moment.mono_ms,
@@ -199,11 +203,35 @@ impl Sequencer {
             .is_some_and(|fresh| mono_ms.saturating_sub(fresh) < CLOCK_DEAD_AFTER_MS)
     }
 
+    fn note_race(&mut self, graphic: &CleanSessionGraphic) {
+        note_race_phase(
+            &mut self.race,
+            RaceSample {
+                status: graphic.status,
+                kind: graphic.kind,
+                session_index: graphic.session_index,
+                completed_lap: graphic.completed_lap,
+                lap_ms: graphic.current_lap_time.map(LapTime::ms),
+                green: graphic.green,
+                in_pits: graphic.in_pit_box || graphic.in_pit_lane,
+            },
+        );
+    }
+
     fn parked_on_track(&self, tick: &CleanTick, mono_ms: u64) -> bool {
         self.had_motion
             && !self.clock_live(mono_ms)
             && tick.graphic.status == GameStatus::Live
             && tick.graphic.car_state == CarState::OnTrack
+            && !self.grid_wait(tick)
+    }
+
+    /// Formation keeps the lap clock frozen. That is not a dead session.
+    fn grid_wait(&self, tick: &CleanTick) -> bool {
+        tick.graphic.kind == SessionKind::Race
+            && tick.graphic.completed_lap == 0
+            && !self.race.clock_started
+            && !self.race.released
     }
 
     /// Moving on the racing surface. The lap clock is still stopped on an outlap.
@@ -213,35 +241,34 @@ impl Sequencer {
             && tick.physics.speed.kmh() >= MOTION_SPEED_KMH
     }
 
-    /// ESC pause keeps `CarState::OnTrack` — still "on track", not the game menu.
     fn place(&self, tick: Option<&CleanTick>) -> SessionPlace {
-        let Some(tick) = tick else {
-            return SessionPlace::Menu;
-        };
-        if tick.graphic.status == GameStatus::Pause {
-            return SessionPlace::Pause;
-        }
-        if tick.graphic.status == GameStatus::Live
-            && tick.graphic.kind == SessionKind::Race
-            && !tick.graphic.green
-            && self.car == CarState::OnTrack
-        {
-            return SessionPlace::OnGrid;
-        }
-        match self.car {
-            CarState::InPitLane => SessionPlace::InPits,
-            CarState::OnTrack => SessionPlace::OnTrack,
-            CarState::InGarage | CarState::SessionFinished => SessionPlace::Menu,
+        session_place(self.car, tick.map(|tick| self.place_view(tick)))
+    }
+
+    fn place_view(&self, tick: &CleanTick) -> PlaceView {
+        let graphic = &tick.graphic;
+        PlaceView {
+            status: graphic.status,
+            kind: graphic.kind,
+            setup_menu: graphic.setup_menu,
+            main_menu: graphic.main_menu,
+            in_pit_box: graphic.in_pit_box,
+            in_pit_lane: graphic.in_pit_lane,
+            completed_lap: graphic.completed_lap,
+            race_clock_started: self.race.clock_started,
+            race_released: self.race.released,
         }
     }
 
     fn snap(&self, tick: Option<&CleanTick>) -> Snap {
         let split = self.laps.open_split();
         let place = self.place(tick);
-        // On track (and pause/menu) the graphics clock may keep advancing; only
-        // the pits should drop the running lap/sector paint.
+        // The running lap stays on track. Garage, pits, the pit lane, pause
+        // and the grid keep the card blank.
         let running = split.is_some()
+            && place != SessionPlace::Garage
             && place != SessionPlace::InPits
+            && place != SessionPlace::PitLane
             && place != SessionPlace::Pause
             && place != SessionPlace::OnGrid;
         let lap_ms = if running {
@@ -254,14 +281,15 @@ impl Sequencer {
                 sector_elapsed(lap_ms, split.sector_index, split.s1_ms, split.s2_ms)
             })
         });
-        let outlap = tick.is_some_and(|tick| {
-            show_outlap(
-                split.is_some(),
-                self.rolling(tick),
-                tick.graphic.kind == SessionKind::Race,
-                tick.graphic.green,
-            )
-        });
+        let outlap = place != SessionPlace::OnGrid
+            && tick.is_some_and(|tick| {
+                show_outlap(
+                    split.is_some(),
+                    self.rolling(tick),
+                    tick.graphic.kind == SessionKind::Race,
+                    tick.graphic.green,
+                )
+            });
         Snap {
             packet_id: tick.map(|tick| tick.physics.packet_id),
             outing_id: self.machine.outing_id(),
