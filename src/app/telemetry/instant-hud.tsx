@@ -1,6 +1,10 @@
 import { Show } from "solid-js"
 import wheelMark from "~/assets/steering-wheel.png"
-import { wheelRotationDeg, type TraceSample } from "~/app/telemetry/sample"
+import {
+    formatSteerDeg,
+    wheelRotationDeg,
+    type TraceSample,
+} from "~/app/telemetry/sample"
 import { t } from "~/i18n"
 import { cn } from "~/ui"
 
@@ -162,6 +166,9 @@ const WheelReadout = (props: {
             )}
         >
             {props.speed.toFixed(0)}
+        </span>
+        <span class="font-mono text-xs text-secondary">
+            {formatSteerDeg(props.steer)}
         </span>
     </div>
 )

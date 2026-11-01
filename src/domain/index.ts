@@ -33,12 +33,14 @@ export {
     completeSession,
     isSessionType,
     SESSION_TYPES,
+    isReference,
     type Session,
     type SessionStatus,
     type SessionType,
 } from "~/domain/session"
 export {
     TRACE_CHANNELS,
+    hasTrajectory,
     lapPointAt,
     type LapPoint,
     type Trace,

@@ -3,7 +3,8 @@ import { createSignal, onCleanup, onMount, Show } from "solid-js"
 import { Portal } from "solid-js/web"
 import { screenPopupClass, screenPositioning } from "~/app/screen-position"
 import { Download, RotateCcw, Settings, Trash2, Upload } from "lucide-solid"
-import { downloadDump, parseDumpFile, useSessionRepository } from "~/db"
+import { ExportDialog } from "~/app/export-dialog"
+import { parseDumpFile, useSessionRepository } from "~/db"
 import { resetSettings } from "~/app/stored"
 import { t } from "~/i18n"
 import { Button, buttonVariants } from "~/ui"
@@ -19,16 +20,11 @@ export function SettingsMenu() {
     const [confirming, setConfirming] = createSignal(false)
     let fileInput!: HTMLInputElement
 
-    const exportData = async () => {
-        const repo = repository()
-        if (!repo) return
-        try {
-            await downloadDump(await repo.exportAll())
-        } catch (error) {
-            const detail =
-                error instanceof Error ? error.message : String(error)
-            window.alert(`${t("app.exportFailed")}\n${detail}`)
-        }
+    const [exporting, setExporting] = createSignal(false)
+
+    const exportFailed = (error: unknown) => {
+        const detail = error instanceof Error ? error.message : String(error)
+        window.alert(`${t("app.exportFailed")}\n${detail}`)
     }
 
     const importData = async (file: File) => {
@@ -48,7 +44,7 @@ export function SettingsMenu() {
             <input
                 ref={fileInput}
                 type="file"
-                accept="application/json,.json"
+                accept=".json,.runsheet,application/json"
                 class="hidden"
                 onChange={event => {
                     const file = event.currentTarget.files?.[0]
@@ -61,7 +57,7 @@ export function SettingsMenu() {
                 positioning={screenPositioning({ placement: "bottom-end" })}
                 onSelect={details => {
                     if (details.value === "reset") resetSettings()
-                    if (details.value === "export") void exportData()
+                    if (details.value === "export") setExporting(true)
                     if (details.value === "import") fileInput.click()
                     if (details.value === "clear") setConfirming(true)
                 }}
@@ -105,6 +101,15 @@ export function SettingsMenu() {
                     </Menu.Positioner>
                 </Portal>
             </Menu.Root>
+            <Show when={exporting() ? repository() : undefined}>
+                {repo => (
+                    <ExportDialog
+                        repository={repo()}
+                        onClose={() => setExporting(false)}
+                        onError={exportFailed}
+                    />
+                )}
+            </Show>
             <Show when={confirming()}>
                 <ClearDataDialog
                     onCancel={() => setConfirming(false)}

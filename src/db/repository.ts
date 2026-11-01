@@ -4,6 +4,7 @@ import {
     completeSession,
     fastestValidLap,
     groupDay,
+    isReference,
     type DayItem,
     type Lap,
     type Session,
@@ -43,8 +44,14 @@ export class SessionRepository {
         this.setLastWrite = setLastWrite
     }
 
-    async readSessions(): Promise<Session[]> {
-        return loadSessions(this.database)
+    /** Recorded sessions; bundled reference laps only with `withReference`. */
+    async readSessions(
+        options: { withReference?: boolean } = {}
+    ): Promise<Session[]> {
+        const sessions = await loadSessions(this.database)
+        return options.withReference
+            ? sessions
+            : sessions.filter(session => !isReference(session))
     }
 
     async readSession(id: string): Promise<Session | undefined> {
@@ -53,7 +60,7 @@ export class SessionRepository {
     }
 
     async readDay(at: number = Date.now()): Promise<DayItem[]> {
-        const sessions = await loadSessions(this.database)
+        const sessions = await this.readSessions()
         const onDay = sessions.filter(session =>
             sameLocalDay(session.startedAt, at)
         )
@@ -132,8 +139,8 @@ export class SessionRepository {
         })
     }
 
-    async exportAll(): Promise<RunsheetDump> {
-        return readDump(this.database)
+    async exportAll(sessionId?: string): Promise<RunsheetDump> {
+        return readDump(this.database, sessionId)
     }
 
     async importAll(dump: RunsheetDump): Promise<void> {
@@ -141,17 +148,52 @@ export class SessionRepository {
         this.setRevision(current => current + 1)
     }
 
+    /** Removes one recorded session with its laps and telemetry. */
+    async deleteSession(sessionId: string): Promise<void> {
+        const tx = this.database.transaction(
+            ["sessions", "laps", "lap_telemetry"],
+            "readwrite"
+        )
+        const session = await tx.objectStore("sessions").get(sessionId)
+        if (!session || isReference(session)) {
+            await tx.done
+            return
+        }
+        const laps = tx.objectStore("laps")
+        const telemetry = tx.objectStore("lap_telemetry")
+        for (const lap of await laps.index("sessionId").getAll(sessionId)) {
+            await telemetry.delete(lap.id)
+            await laps.delete(lap.id)
+        }
+        await tx.objectStore("sessions").delete(sessionId)
+        await tx.done
+        batch(() => {
+            this.setLastWrite(undefined)
+            this.setRevision(current => current + 1)
+        })
+    }
+
+    /** Removes recorded data; the bundled reference laps stay. */
     async clearAll(): Promise<void> {
         const tx = this.database.transaction(
             ["sessions", "laps", "lap_telemetry"],
             "readwrite"
         )
-        await Promise.all([
-            tx.objectStore("sessions").clear(),
-            tx.objectStore("laps").clear(),
-            tx.objectStore("lap_telemetry").clear(),
-            tx.done,
-        ])
+        const sessions = tx.objectStore("sessions")
+        const laps = tx.objectStore("laps")
+        const telemetry = tx.objectStore("lap_telemetry")
+        const recorded = new Set<string>()
+        for (const session of await sessions.getAll()) {
+            if (isReference(session)) continue
+            recorded.add(session.id)
+            await sessions.delete(session.id)
+        }
+        for (const lap of await laps.getAll()) {
+            if (!recorded.has(lap.sessionId)) continue
+            await telemetry.delete(lap.id)
+            await laps.delete(lap.id)
+        }
+        await tx.done
         batch(() => {
             this.setLastWrite(undefined)
             this.setRevision(current => current + 1)

@@ -2859,7 +2859,7 @@ dependencies = [
 
 [[package]]
 name = "runsheet"
-version = "1.3.1"
+version = "1.4.0"
 dependencies = [
  "acc_shared_memory_rs",
  "rfd",

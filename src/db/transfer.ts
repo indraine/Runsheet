@@ -1,5 +1,11 @@
 import { invoke, isTauri } from "@tauri-apps/api/core"
 import {
+    decodeBinaryDump,
+    encodeBinaryDump,
+    isBinaryDump,
+} from "~/db/binary-dump"
+import {
+    isReference,
     isSessionType,
     TRACE_CHANNELS,
     type Lap,
@@ -25,20 +31,34 @@ export type RunsheetDump = {
 
 export type EncodedTrace = { lapId: string } & Record<TraceChannel, number[]>
 
-export async function readDump(db: RunsheetDatabase): Promise<RunsheetDump> {
+/** All recorded data, or one session with its laps when `sessionId` is given. */
+export async function readDump(
+    db: RunsheetDatabase,
+    sessionId?: string
+): Promise<RunsheetDump> {
     const [sessions, laps, traces] = await Promise.all([
         db.getAll("sessions"),
         db.getAll("laps"),
         db.getAll("lap_telemetry"),
     ])
+    const recorded = sessions.filter(
+        session =>
+            !isReference(session) &&
+            (sessionId === undefined || session.id === sessionId)
+    )
+    const ids = new Set(recorded.map(session => session.id))
+    const ownLaps = laps.filter(lap => ids.has(lap.sessionId))
+    const lapIds = new Set(ownLaps.map(lap => lap.id))
     return {
         format: DUMP_FORMAT,
         version: DUMP_VERSION,
         dbVersion: DB_VERSION,
         exportedAt: Date.now(),
-        sessions,
-        laps,
-        traces: traces.map(encodeTrace),
+        sessions: recorded,
+        laps: ownLaps,
+        traces: traces
+            .filter(trace => lapIds.has(trace.lapId))
+            .map(encodeTrace),
     }
 }
 
@@ -63,9 +83,11 @@ export async function writeDump(
 }
 
 export async function parseDumpFile(file: File): Promise<RunsheetDump> {
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    if (isBinaryDump(bytes)) return parseDump(await decodeBinaryDump(bytes))
     let raw: unknown
     try {
-        raw = JSON.parse(await file.text())
+        raw = JSON.parse(new TextDecoder().decode(bytes))
     } catch {
         throw new Error("Файл не является JSON")
     }
@@ -111,41 +133,120 @@ export function parseDump(raw: unknown): RunsheetDump {
     }
 }
 
-export async function downloadDump(dump: RunsheetDump): Promise<void> {
-    const contents = JSON.stringify(dump)
-    const name = dumpFileName(dump.exportedAt)
+/**
+ * Dump as indented JSON. Objects get one key per line; arrays of plain
+ * values stay on one line, so a trace of thousands of samples does not
+ * grow into thousands of lines and the file stays close to its compact size.
+ */
+export function stringifyDump(dump: RunsheetDump): string {
+    return indentJson(dump, 0)
+}
+
+function indentJson(value: unknown, depth: number): string {
+    if (Array.isArray(value)) {
+        const plain = value.every(
+            item => item === null || typeof item !== "object"
+        )
+        if (plain) return JSON.stringify(value)
+        const pad = "  ".repeat(depth + 1)
+        const items = value.map(item => pad + indentJson(item, depth + 1))
+        return `[\n${items.join(",\n")}\n${"  ".repeat(depth)}]`
+    }
+    if (value !== null && typeof value === "object") {
+        const entries = Object.entries(value).filter(
+            ([, item]) => item !== undefined
+        )
+        if (entries.length === 0) return "{}"
+        const pad = "  ".repeat(depth + 1)
+        const lines = entries.map(
+            ([key, item]) =>
+                `${pad}${JSON.stringify(key)}: ${indentJson(item, depth + 1)}`
+        )
+        return `{\n${lines.join(",\n")}\n${"  ".repeat(depth)}}`
+    }
+    return JSON.stringify(value) ?? "null"
+}
+
+export type ExportFormat = "json" | "binary"
+
+export const BINARY_EXTENSION = "runsheet"
+
+export type ExportFile = {
+    format: ExportFormat
+    name: string
+    bytes: Uint8Array
+    mime: string
+}
+
+/** The dump as a file of the chosen format; its length is the exact size. */
+export async function buildExport(
+    dump: RunsheetDump,
+    format: ExportFormat,
+    label?: string
+): Promise<ExportFile> {
+    if (format === "binary") {
+        return {
+            format,
+            name: dumpFileName(dump.exportedAt, BINARY_EXTENSION, label),
+            bytes: await encodeBinaryDump(dump),
+            mime: "application/octet-stream",
+        }
+    }
+    return {
+        format,
+        name: dumpFileName(dump.exportedAt, "json", label),
+        bytes: new TextEncoder().encode(stringifyDump(dump)),
+        mime: "application/json",
+    }
+}
+
+export async function saveExport(file: ExportFile): Promise<boolean> {
     if (isTauri()) {
-        const body = await invoke<CommandBody<boolean>>("save_text_file", {
-            defaultName: name,
-            contents,
-        })
+        const extension = file.format === "binary" ? BINARY_EXTENSION : "json"
+        const body = await invoke<CommandBody<boolean>>(
+            "save_file",
+            file.bytes,
+            {
+                headers: {
+                    "x-file-name": file.name,
+                    "x-file-label":
+                        file.format === "binary" ? "Runsheet" : "JSON",
+                    "x-file-extension": extension,
+                },
+            }
+        )
         if (body.status === "error") {
             throw new Error(body.message)
         }
-        return
+        return body.data
     }
-    const blob = new Blob([contents], { type: "application/json" })
+    const blob = new Blob([file.bytes as BlobPart], { type: file.mime })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement("a")
     anchor.href = url
-    anchor.download = name
+    anchor.download = file.name
     anchor.rel = "noopener"
     document.body.appendChild(anchor)
     anchor.click()
     anchor.remove()
     window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
+    return true
 }
 
 type CommandBody<T> =
     | { status: "success"; data: T }
     | { status: "error"; message: string; hint: string }
 
-export function dumpFileName(exportedAt: number): string {
+export function dumpFileName(
+    exportedAt: number,
+    extension: string = "json",
+    label?: string
+): string {
     const day = new Date(exportedAt)
     const yyyy = day.getFullYear()
     const mm = String(day.getMonth() + 1).padStart(2, "0")
     const dd = String(day.getDate()).padStart(2, "0")
-    return `runsheet-${yyyy}-${mm}-${dd}.json`
+    return `runsheet-${label ? `${label}-` : ""}${yyyy}-${mm}-${dd}.${extension}`
 }
 
 export function encodeTrace(trace: Trace): EncodedTrace {

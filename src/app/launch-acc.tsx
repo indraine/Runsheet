@@ -109,6 +109,7 @@ export const LaunchAcc = () => {
 export const LaunchAccButton = () => (
     <Button
         size="sm"
+        class="leading-none"
         disabled={install() === null || launching()}
         title={install() === null ? t("app.launchMissing") : undefined}
         onClick={launchAcc}

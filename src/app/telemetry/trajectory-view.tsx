@@ -21,10 +21,7 @@ import {
 import { ensurePlotSize, followPlotBox, plotResolution } from "~/app/plot-frame"
 import { uiScale } from "~/app/scale"
 import { cssColor } from "~/app/telemetry/css-color"
-import {
-    lapColorFallback,
-    lapColorVar,
-} from "~/app/telemetry/lap-colors"
+import { lapColorFallback, lapColorVar } from "~/app/telemetry/lap-colors"
 import {
     guardPointerCapture,
     popupBlocksCanvas,
@@ -44,11 +41,15 @@ import {
     windowRadius,
 } from "~/app/telemetry/trajectory-camera"
 import { themeGeneration } from "~/app/theme"
+import {
+    orderedForFit,
+    resolveFit,
+    type FitChoice,
+} from "~/app/telemetry/fit-asphalt"
 import { boundariesFor } from "~/app/track-catalog"
 import { asphaltPolygon } from "~/app/track-geometry"
 import {
     applySimilarity,
-    placeOnTrack,
     type Placement,
     type PlanarPoint,
     type Similarity,
@@ -109,7 +110,8 @@ export const TrajectoryView = (props: {
     let camera = { x: 0, y: 0 }
     let gesture: { x: number; y: number; moved: boolean } | undefined
     let lastPointer = { x: 0, y: 0 }
-    let placement: Placement | undefined
+    const placements = new Map<string, Placement>()
+    const chosen: FitChoice = { signature: [] }
     let hitPoints: HitPoint[] = []
 
     const [zoom, setZoom] = createSignal(
@@ -211,8 +213,13 @@ export const TrajectoryView = (props: {
         const bounds = props.track ? boundariesFor(props.track) : undefined
         const primary =
             props.lines.find(line => line.colorIndex === 0) ?? props.lines[0]
-        const fit = resolveFit(bounds?.center, props.track, primary, placement)
-        if (fit.placement) placement = fit.placement
+        const fit = resolveFit(
+            bounds?.center,
+            props.track,
+            orderedForFit(props.lines, primary),
+            placements,
+            chosen
+        )
 
         const series: GroundSeries[] = []
         const kinds: ("asphalt" | "outer" | "inner" | "line" | "car")[] = []
@@ -654,19 +661,6 @@ const midpoint = (points: readonly GroundPoint[]): GroundPoint | undefined => {
     return { x: x / points.length, y: y / points.length }
 }
 
-const resolveFit = (
-    center: readonly PlanarPoint[] | undefined,
-    track: string | undefined,
-    primary: TrajectoryLine | undefined,
-    previous: Placement | undefined
-): { placement?: Placement; similarity?: Similarity } => {
-    if (!center || !track || !primary) return {}
-    const driven = tracePlanar(primary.trace)
-    const next = placeOnTrack(center, track, primary.id, driven, previous)
-    if (next.status !== "matched") return { placement: next }
-    return { placement: next, similarity: next.fit }
-}
-
 const placedTrace = (
     trace: Trace,
     similarity: Similarity | undefined
@@ -697,19 +691,6 @@ const projectPoint = (
     point: PlanarPoint,
     similarity: Similarity | undefined
 ): PlanarPoint => (similarity ? applySimilarity(point, similarity) : point)
-
-const tracePlanar = (trace: Trace): PlanarPoint[] => {
-    const count = Math.min(trace.x.length, trace.z.length)
-    const points: PlanarPoint[] = []
-    const indices = downsampleIndices(count, MAX_POINTS)
-    for (const index of indices) {
-        const x = trace.x[index]
-        const y = trace.z[index]
-        if (!Number.isFinite(x) || !Number.isFinite(y)) continue
-        points.push({ x, y })
-    }
-    return points
-}
 
 const asGround = (
     points: readonly { x: number; y: number }[]

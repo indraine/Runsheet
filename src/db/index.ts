@@ -12,10 +12,14 @@ export {
     type RunsheetSchema,
 } from "~/db/schema"
 export {
-    downloadDump,
+    BINARY_EXTENSION,
+    buildExport,
+    saveExport,
     DUMP_FORMAT,
     DUMP_VERSION,
     parseDump,
     parseDumpFile,
+    type ExportFile,
+    type ExportFormat,
     type RunsheetDump,
 } from "~/db/transfer"

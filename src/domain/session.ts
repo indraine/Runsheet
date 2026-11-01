@@ -35,7 +35,15 @@ export type Session = {
     status: SessionStatus
     airTemp: number
     roadTemp: number
+    /**
+     * Bundled reference lap (e.g. from a MoTeC log), the version of its data.
+     * Absent on recorded sessions. References show up only in lap comparison.
+     */
+    reference?: number
 }
+
+export const isReference = (session: Pick<Session, "reference">): boolean =>
+    (session.reference ?? 0) > 0
 
 /** Rows written before the driver and car index existed still load. */
 export const completeSession = (session: Session): Session => ({

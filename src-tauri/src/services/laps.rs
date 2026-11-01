@@ -8,6 +8,9 @@ const LAP_CLOCK_GUARD_MS: i32 = 3_000;
 
 const CLOCK_DROP_MS: i32 = 1_500;
 
+/// How long a lap waits after the line for the game to publish its own time.
+const LINE_WAIT_MS: u64 = 300;
+
 const CHANNEL_COUNT: usize = 19;
 
 const HEADER_LEN: usize = 92;
@@ -60,8 +63,21 @@ pub(crate) struct Sample {
 pub(crate) struct Collector {
     open: Option<OpenLap>,
     carry_completed: Option<i32>,
+    crossing: Option<Crossing>,
     watch: StartWatch,
     events: Vec<SessionEvent>,
+}
+
+/// The line was seen, but the game has not published the lap time yet.
+///
+/// `completedLap` and `iLastTime` arrive a few frames after the clock resets.
+/// Closing on the first frame would fall back to the last clock reading, which
+/// is a frame older than the line. The samples seen since are kept and replayed
+/// into the next lap.
+#[derive(Debug)]
+struct Crossing {
+    since_ms: u64,
+    samples: Vec<Sample>,
 }
 
 impl Collector {
@@ -70,8 +86,9 @@ impl Collector {
     }
 
     pub(crate) fn abandon(&mut self) -> Option<Vec<u8>> {
-        self.carry_completed = None;
         self.watch = StartWatch::default();
+        self.crossing = None;
+        self.carry_completed = None;
         let open = self.open.take()?;
         if open.points.is_empty() {
             return None;
@@ -113,11 +130,18 @@ impl Collector {
             .is_some_and(|open| open.session_id != sample.session_id)
         {
             self.open = None;
+            self.crossing = None;
             self.carry_completed = None;
             self.watch = StartWatch::default();
         }
 
+        if self.crossing.is_some() {
+            return self.settle(sample);
+        }
         let closed = self.take_closed(sample);
+        if self.crossing.is_some() {
+            return None;
+        }
         if self.open.is_none() {
             // The sample that closed a lap is already past the line, so it
             // starts the next one. The first lap of a stint waits for that line.
@@ -125,16 +149,43 @@ impl Collector {
                 self.watch.observe(sample);
                 return closed;
             }
-            let completed_at_open = self.carry_completed.take().unwrap_or(sample.completed_lap);
-            let open = OpenLap::begin(sample, completed_at_open);
-            self.events.push(SessionEvent::LapStarted {
-                lap_number: open.number,
-            });
-            self.open = Some(open);
-            self.watch = StartWatch::default();
+            self.open_next(sample);
         }
         self.observe(sample);
         closed
+    }
+
+    fn open_next(&mut self, sample: &Sample) {
+        let completed_at_open = self.carry_completed.take().unwrap_or(sample.completed_lap);
+        let open = OpenLap::begin(sample, completed_at_open);
+        self.events.push(SessionEvent::LapStarted {
+            lap_number: open.number,
+        });
+        self.open = Some(open);
+        self.watch = StartWatch::default();
+    }
+
+    /// Waits for the game's own lap time after the line, then closes the lap.
+    fn settle(&mut self, sample: &Sample) -> Option<Vec<u8>> {
+        let grown = self
+            .open
+            .as_ref()
+            .is_some_and(|open| sample.completed_lap > open.completed_at_open);
+        let crossing = self.crossing.as_mut()?;
+        let waited = sample.mono_ms.saturating_sub(crossing.since_ms) >= LINE_WAIT_MS;
+        if !grown && !waited {
+            crossing.samples.push(*sample);
+            return None;
+        }
+        let crossing = self.crossing.take()?;
+        let closed = self.close(sample);
+        for (index, held) in crossing.samples.iter().chain(Some(sample)).enumerate() {
+            if index == 0 {
+                self.open_next(held);
+            }
+            self.observe(held);
+        }
+        Some(closed)
     }
 
     fn take_closed(&mut self, boundary: &Sample) -> Option<Vec<u8>> {
@@ -142,14 +193,29 @@ impl Collector {
             return None;
         };
         let grown = boundary.completed_lap > open.completed_at_open;
-        if !grown && !line_crossed(open, boundary) {
+        if !grown {
+            if line_crossed(open, boundary) {
+                self.crossing = Some(Crossing {
+                    since_ms: boundary.mono_ms,
+                    samples: vec![*boundary],
+                });
+            }
             return None;
         }
+        Some(self.close(boundary))
+    }
+
+    /// Ends the open lap. The boundary carries the game's own time once
+    /// `completedLap` has grown; otherwise the last clock reading stands in.
+    fn close(&mut self, boundary: &Sample) -> Vec<u8> {
+        let Some(open) = self.open.take() else {
+            return Vec::new();
+        };
+        self.crossing = None;
         let consumed = boundary
             .completed_lap
             .max(open.completed_at_open.saturating_add(1));
         let number = open.number;
-        let open = self.open.take()?;
         self.carry_completed = Some(consumed);
         let time =
             (boundary.last_time_ms > 0).then(|| LapTime::from_ms_unchecked(boundary.last_time_ms));
@@ -157,7 +223,7 @@ impl Collector {
             lap_number: number,
             time,
         });
-        Some(pack(&open.finish(boundary)))
+        pack(&open.finish(boundary))
     }
 
     fn observe(&mut self, sample: &Sample) {
@@ -712,5 +778,53 @@ mod tests {
 
         assert_eq!(finished.time_ms, Some(112_235));
         assert_eq!(finished.s3_ms, Some(112_235 - 35_830 - 39_392));
+    }
+    fn waiting_collector() -> Collector {
+        let mut open = OpenLap::begin(&dummy_sample(1, 0, 115_330), 1);
+        open.last_lap_time_ms = Some(112_230);
+        open.last_progress = Some(0.99);
+        open.s1_ms = Some(35_830);
+        open.s2_ms = Some(39_392);
+        Collector {
+            open: Some(open),
+            ..Collector::default()
+        }
+    }
+
+    fn at(mono_ms: u64, completed_lap: i32, lap_time_ms: i32, last_time_ms: i32) -> Sample {
+        let mut sample = dummy_sample(completed_lap, lap_time_ms, last_time_ms);
+        sample.mono_ms = mono_ms;
+        sample.progress = 0.01;
+        sample
+    }
+
+    fn packed_time_ms(packed: &[u8]) -> i32 {
+        i32::from_le_bytes(packed[40..44].try_into().unwrap())
+    }
+
+    #[test]
+    fn line_waits_for_the_official_time_of_the_game() {
+        let mut collector = waiting_collector();
+
+        // The clock reset is seen first, the official time is still stale.
+        assert!(collector.push(&at(2_000, 1, 10, 115_330)).is_none());
+        let closed = collector.push(&at(2_016, 2, 26, 112_235));
+
+        let packed = closed.expect("lap closes once the game publishes its time");
+        assert_eq!(packed_time_ms(&packed), 112_235);
+        assert_eq!(collector.open_number(), Some(2));
+    }
+
+    #[test]
+    fn line_falls_back_to_the_clock_when_the_game_stays_silent() {
+        let mut collector = waiting_collector();
+
+        assert!(collector.push(&at(2_000, 1, 10, 115_330)).is_none());
+        assert!(collector.push(&at(2_100, 1, 110, 115_330)).is_none());
+        let closed = collector.push(&at(2_320, 1, 330, 115_330));
+
+        let packed = closed.expect("lap closes after the wait");
+        assert_eq!(packed_time_ms(&packed), 112_230);
+        assert_eq!(collector.open_number(), Some(2));
     }
 }
