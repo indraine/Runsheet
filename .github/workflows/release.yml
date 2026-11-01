@@ -47,12 +47,62 @@ jobs:
           releaseName: 'Runsheet v__VERSION__'
           releaseDraft: false
           prerelease: false
+          # Edit this body before pushing the next version tag.
+          # An unchanged body republishes the previous release's notes.
+          releaseBody: |
+            ## Runsheet v1.5.0 — Export, Polish & Precision ⚡
+
+            Desktop session sheet for **Assetto Corsa Competizione**.
+            Open the app, drive — sessions, laps, sectors, fuel, and validity are captured automatically.
+
+            ### What's new in 1.5.0
+
+            #### Lap Time Accuracy ✅
+            - Fixed lap time underestimation by 2–10 ms compared to ACC
+            - Collector now waits for official `completedLap` update up to 300 ms after crossing the line
+            - Testing showed full match with ACC times (10/11 laps exact, 2 ms difference on one lap)
+
+            #### Data Export 📦
+            - **New binary `.runsheet` format**: dump compression from 3.45 MB to 0.15 MB (23× smaller)
+            - Export dialog with format selection: JSON / binary / MoTeC (coming soon)
+            - Real file size display for each format
+            - Single session export via row context menu
+            - Backward compatibility: old `.json` dumps still work
+
+            #### Live Card Interface 📊
+            - Lap table spans full card height with its own scrolling
+            - Click column header to sort: ascending → descending → reset
+            - Rows without values automatically move to the bottom
+
+            #### Session Deletion 🗑️
+            - Context menu row action: "Delete"
+            - Confirmation with "Don't ask again" checkbox
+            - Reference laps (benchmarks) are protected from deletion
+
+            #### Interface Improvements ✨
+            - Steering angle label under wheel: 0° straight, − left, + right
+            - Empty "races" hidden from list (when ACC opens race session but car stays in pits)
+            - Updated row context menu: Compare / Export / Delete
+
+            #### CI and Releases 🔧
+            - Auto-generated Release Notes via GitHub instead of static text
+            - Fixed issue with publishing previous version's notes
+
+            ### Download (Windows x64) — pick one
+            | File | What it is |
+            |------|------------|
+            | `Runsheet-*-windows-x64-portable.exe` | **Portable app** — download and run, no install |
+            | `Runsheet-*-windows-x64-installer.msi` | **Installer** — installs via Windows Installer |
+
+            > Live ACC Shared Memory requires Windows. See the [README](https://github.com/indraine/Runsheet#readme) for details.
+
+            **Full Changelog**: https://github.com/indraine/Runsheet/compare/v1.4.0...v1.5.0
           # Avoid "npm run tauri -- … -- …" — the extra "--" leaks into cargo.
           # MSI-only is already set via bundle.targets in tauri.conf.json.
           tauriScript: npm run tauri
           assetNamePattern: 'Runsheet-[version]-windows-[arch]-installer[ext]'
 
-      - name: Upload portable executable and generate release notes
+      - name: Upload portable executable
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
@@ -65,4 +115,3 @@ jobs:
           $dst = "Runsheet-$version-windows-x64-portable.exe"
           Copy-Item -Path $src -Destination $dst -Force
           gh release upload "${{ github.ref_name }}" $dst --clobber
-          gh release edit "${{ github.ref_name }}" --generate-notes
