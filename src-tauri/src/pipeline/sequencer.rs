@@ -271,8 +271,13 @@ impl Sequencer {
             && place != SessionPlace::PitLane
             && place != SessionPlace::Pause
             && place != SessionPlace::OnGrid;
+        let game_ms = tick
+            .and_then(|tick| tick.graphic.current_lap_time.map(LapTime::ms))
+            .filter(|ms| *ms > 0);
+        // The collector clock starts at the pit exit. The game clock may
+        // already have been running since the line inside the lane.
         let lap_ms = if running {
-            tick.and_then(|tick| tick.graphic.current_lap_time.map(LapTime::ms))
+            split.as_ref().and_then(|split| split.shown_ms).or(game_ms)
         } else {
             None
         };
@@ -408,6 +413,8 @@ fn sample_from(tick: &CleanTick, mono_ms: u64, session_id: SessionId) -> Sample 
         brake_bias: physics.brake_bias,
         race: graphic.kind == SessionKind::Race,
         green: graphic.green,
+        in_pit_lane: graphic.in_pit_lane,
+        in_pit_box: graphic.in_pit_box,
     }
 }
 

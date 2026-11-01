@@ -11,6 +11,13 @@ const CLOCK_DROP_MS: i32 = 1_500;
 /// How long a lap waits after the line for the game to publish its own time.
 const LINE_WAIT_MS: u64 = 300;
 
+/// Same threshold the sequencer uses for "the car is moving".
+const OUTLAP_SPEED_KMH: f32 = 5.0;
+
+/// An in-lap with no sector split is still kept once it has been driven this long.
+/// The few seconds between the line and the pit entry are not a lap.
+const INLAP_KEEP_MS: u64 = 15_000;
+
 const CHANNEL_COUNT: usize = 19;
 
 const HEADER_LEN: usize = 92;
@@ -57,6 +64,10 @@ pub(crate) struct Sample {
     pub race: bool,
     /// Green flag or the global green light from the graphics page.
     pub green: bool,
+    /// Pit lane from the entry line to the exit line. ACC `isInPitLane`.
+    pub in_pit_lane: bool,
+    /// Pit box stall. ACC `isInPit`. Standing in the box sets the lane flag too.
+    pub in_pit_box: bool,
 }
 
 #[derive(Debug, Default)]
@@ -66,6 +77,12 @@ pub(crate) struct Collector {
     crossing: Option<Crossing>,
     watch: StartWatch,
     events: Vec<SessionEvent>,
+    /// Previous sample was in the pit lane or the pit box.
+    was_in_pits: bool,
+    /// Next lap number when it must not follow `completed_lap + 1`.
+    pending_number: Option<i32>,
+    /// Highest `completed_lap` seen while the car is in the pits.
+    lane_completed: Option<i32>,
 }
 
 /// The line was seen, but the game has not published the lap time yet.
@@ -111,6 +128,7 @@ impl Collector {
             sector_index: open.sector,
             s1_ms: open.s1_ms,
             s2_ms: open.s2_ms,
+            shown_ms: open.shown_ms,
         })
     }
 
@@ -133,6 +151,18 @@ impl Collector {
             self.crossing = None;
             self.carry_completed = None;
             self.watch = StartWatch::default();
+            self.was_in_pits = false;
+            self.pending_number = None;
+            self.lane_completed = None;
+        }
+
+        if in_pits(sample) {
+            return self.hold_in_pits(sample);
+        }
+        let left_pits = self.was_in_pits;
+        self.was_in_pits = false;
+        if left_pits {
+            return self.begin_outlap(sample);
         }
 
         if self.crossing.is_some() {
@@ -144,20 +174,115 @@ impl Collector {
         }
         if self.open.is_none() {
             // The sample that closed a lap is already past the line, so it
-            // starts the next one. The first lap of a stint waits for that line.
-            if closed.is_none() && !self.watch.ready(sample) {
+            // starts the next one. A stint that is already rolling opens now,
+            // so the outlap is stored instead of waiting for the line.
+            let start = closed.is_some() || self.watch.ready(sample) || outlap_due(sample);
+            if !start {
                 self.watch.observe(sample);
                 return closed;
             }
-            self.open_next(sample);
+            self.open_next(sample, false);
         }
         self.observe(sample);
         closed
     }
 
-    fn open_next(&mut self, sample: &Sample) {
+    /// The start/finish line inside the pit lane does not end the in-lap and
+    /// does not start the next one. That lap begins at the pit exit.
+    fn hold_in_pits(&mut self, sample: &Sample) -> Option<Vec<u8>> {
+        self.was_in_pits = true;
+        self.watch = StartWatch::default();
+        self.remember_completed(sample.completed_lap);
+
+        if self.crossing.is_some() {
+            // The line was crossed on track; the lap the game just opened has
+            // not been driven. Drop it before a preview can leave.
+            let closed = self.settle(sample);
+            self.discard_unseen();
+            return closed;
+        }
+
+        let young = self
+            .open
+            .as_ref()
+            .is_some_and(|open| !open.worth_keeping(sample.mono_ms));
+        if young {
+            let retired = self.retire_open();
+            return (!retired.is_empty()).then_some(retired);
+        }
+        None
+    }
+
+    /// Closes the in-lap without a finishing sector and opens the outlap.
+    fn begin_outlap(&mut self, sample: &Sample) -> Option<Vec<u8>> {
+        let game = self
+            .lane_completed
+            .unwrap_or(sample.completed_lap)
+            .max(sample.completed_lap);
+        self.lane_completed = None;
+        let closed = if self
+            .open
+            .as_ref()
+            .is_some_and(|open| open.worth_keeping(sample.mono_ms))
+        {
+            Some(self.seal_inlap())
+        } else if self.open.is_some() {
+            Some(self.retire_open())
+        } else {
+            None
+        };
+        self.carry_completed = Some(game);
+        self.watch = StartWatch::default();
+        self.open_next(sample, true);
+        self.observe(sample);
+        closed.filter(|packet| !packet.is_empty())
+    }
+
+    fn remember_completed(&mut self, completed: i32) {
+        self.lane_completed = Some(
+            self.lane_completed
+                .map_or(completed, |seen| seen.max(completed)),
+        );
+    }
+
+    fn seal_inlap(&mut self) -> Vec<u8> {
+        let Some(open) = self.open.take() else {
+            return Vec::new();
+        };
+        self.pending_number = Some(open.number.saturating_add(1));
+        self.crossing = None;
+        let number = open.number;
+        self.events.push(SessionEvent::LapCompleted {
+            lap_number: number,
+            time: None,
+        });
+        pack(&open.abandoned())
+    }
+
+    fn retire_open(&mut self) -> Vec<u8> {
+        let Some(open) = self.open.take() else {
+            return Vec::new();
+        };
+        self.pending_number = Some(open.number);
+        self.crossing = None;
+        pack(&open.retire())
+    }
+
+    /// The lap was opened in this same push and never previewed.
+    fn discard_unseen(&mut self) {
+        if let Some(open) = self.open.take() {
+            self.pending_number = Some(open.number);
+            self.crossing = None;
+        }
+    }
+
+    fn open_next(&mut self, sample: &Sample, from_pit_exit: bool) {
         let completed_at_open = self.carry_completed.take().unwrap_or(sample.completed_lap);
-        let open = OpenLap::begin(sample, completed_at_open);
+        let number = self
+            .pending_number
+            .take()
+            .unwrap_or_else(|| completed_at_open.saturating_add(1));
+        let open = OpenLap::begin(sample, completed_at_open, number, from_pit_exit);
         self.events.push(SessionEvent::LapStarted {
             lap_number: open.number,
         });
@@ -181,7 +306,7 @@ impl Collector {
         let closed = self.close(sample);
         for (index, held) in crossing.samples.iter().chain(Some(sample)).enumerate() {
             if index == 0 {
-                self.open_next(held);
+                self.open_next(held, false);
             }
             self.observe(held);
         }
@@ -232,10 +357,12 @@ impl Collector {
                 return;
             };
             let along_m = sample.distance_m - open.origin_m;
+            let lap_clock = open.clock_ms(sample);
+            open.shown_ms = Some(lap_clock);
             let sector = open.note_sector(
                 sample.sector_index,
                 sample.last_sector_time_ms,
-                sample.lap_time_ms,
+                lap_clock,
                 along_m,
             );
             open.valid = sample.valid;
@@ -251,7 +378,8 @@ impl Collector {
             open.last_lap_time_ms = Some(sample.lap_time_ms);
             open.last_progress = Some(sample.progress);
             if open.due(sample.mono_ms) {
-                open.points.push(LapPoint::capture(sample, along_m));
+                open.points
+                    .push(LapPoint::capture(sample, along_m, lap_clock));
                 open.last_trace_ms = Some(sample.mono_ms);
             }
             sector
@@ -284,15 +412,33 @@ struct OpenLap {
     last_trace_ms: Option<u64>,
     last_lap_time_ms: Option<i32>,
     last_progress: Option<f32>,
+    origin_mono: u64,
+    /// Clock the sheet shows. Zero at the lap open, even when the game clock
+    /// was already running through the pit lane.
+    shown_ms: Option<i32>,
+    from_pit_exit: bool,
+    /// Game lap clock at the open, subtracted so a pit-lane timer does not
+    /// count as part of the outlap.
+    game_origin_ms: i32,
     points: Vec<LapPoint>,
 }
 
 impl OpenLap {
-    fn begin(sample: &Sample, completed_at_open: i32) -> Self {
+    fn begin(
+        sample: &Sample,
+        completed_at_open: i32,
+        number: i32,
+        from_pit_exit: bool,
+    ) -> Self {
+        let game_origin_ms = if from_pit_exit && clock_ticking(sample.lap_time_ms) {
+            sample.lap_time_ms
+        } else {
+            0
+        };
         Self {
             id: LapId::from_bytes(Uuid::new_v4().into_bytes()),
             session_id: sample.session_id,
-            number: completed_at_open.saturating_add(1),
+            number,
             completed_at_open,
             origin_m: sample.distance_m,
             sector: sample.sector_index,
@@ -310,16 +456,27 @@ impl OpenLap {
             last_trace_ms: None,
             last_lap_time_ms: None,
             last_progress: None,
+            origin_mono: sample.mono_ms,
+            shown_ms: None,
+            from_pit_exit,
+            game_origin_ms,
             points: Vec::new(),
         }
     }
 
     fn finish(self, boundary: &Sample) -> Finished {
-        let time_ms = if boundary.completed_lap > self.completed_at_open {
-            real_ms(boundary.last_time_ms).or_else(|| self.last_lap_time_ms.and_then(real_ms))
+        // A lap that started at the pit exit keeps the clock we ran from that
+        // line. The game's last time still includes the pit lane.
+        let time_ms = if self.from_pit_exit {
+            self.shown_ms.and_then(real_ms)
+        } else if boundary.completed_lap > self.completed_at_open {
+            real_ms(boundary.last_time_ms)
+                .or_else(|| self.shown_ms.and_then(real_ms))
+                .or_else(|| self.last_lap_time_ms.and_then(real_ms))
         } else {
             self.last_lap_time_ms
                 .and_then(real_ms)
+                .or_else(|| self.shown_ms.and_then(real_ms))
                 .or_else(|| real_ms(boundary.last_time_ms))
         };
         let s3_ms = match (time_ms, self.s1_ms, self.s2_ms) {
@@ -346,6 +503,7 @@ impl OpenLap {
             brake_bias: self.brake_bias,
             max_speed: self.max_speed.unwrap_or(0.0),
             points: self.points,
+            retire: false,
         }
     }
 
@@ -368,7 +526,14 @@ impl OpenLap {
             brake_bias: self.brake_bias,
             max_speed: self.max_speed.unwrap_or(0.0),
             points: self.points,
+            retire: false,
         }
+    }
+
+    fn retire(self) -> Finished {
+        let mut finished = self.abandoned();
+        finished.retire = true;
+        finished
     }
 
     fn partial(&self) -> Finished {
@@ -390,7 +555,27 @@ impl OpenLap {
             brake_bias: self.brake_bias,
             max_speed: self.max_speed.unwrap_or(0.0),
             points: self.points.clone(),
+            retire: false,
         }
+    }
+
+    /// Sheet clock. The game clock wins while it is counting from this lap.
+    /// Otherwise the time since the lap opened is used, which is the outlap
+    /// while ACC holds `iCurrentTime` at zero.
+    fn clock_ms(&self, sample: &Sample) -> i32 {
+        if clock_ticking(sample.lap_time_ms) {
+            return sample
+                .lap_time_ms
+                .saturating_sub(self.game_origin_ms)
+                .max(0);
+        }
+        i32::try_from(sample.mono_ms.saturating_sub(self.origin_mono)).unwrap_or(MAX_LAP_MS)
+    }
+
+    fn worth_keeping(&self, now_ms: u64) -> bool {
+        self.s1_ms.is_some()
+            || self.s2_ms.is_some()
+            || now_ms.saturating_sub(self.origin_mono) >= INLAP_KEEP_MS
     }
 
     fn note_sector(
@@ -404,15 +589,24 @@ impl OpenLap {
             return None;
         }
         let recorded = if sector_index == 1 && self.s1_ms.is_none() {
-            let ms = real_ms(sector_ms).or_else(|| real_ms(lap_ms));
+            // After a pit exit the game split still starts at the line inside
+            // the lane. The sheet's split starts at the exit.
+            let ms = if self.from_pit_exit {
+                real_ms(lap_ms)
+            } else {
+                real_ms(sector_ms).or_else(|| real_ms(lap_ms))
+            };
             if let Some(ms) = ms {
                 self.s1_ms = Some(ms);
                 self.s1_end_m = Some(along_m);
             }
             ms
         } else if sector_index == 2 && self.s2_ms.is_none() {
-            let ms =
-                sector_duration(sector_ms, self.s1_ms).or_else(|| split_after(lap_ms, self.s1_ms));
+            let ms = if self.from_pit_exit {
+                split_after(lap_ms, self.s1_ms)
+            } else {
+                sector_duration(sector_ms, self.s1_ms).or_else(|| split_after(lap_ms, self.s1_ms))
+            };
             if let Some(ms) = ms {
                 self.s2_ms = Some(ms);
                 self.s2_end_m = Some(along_m);
@@ -462,10 +656,10 @@ struct LapPoint {
 }
 
 impl LapPoint {
-    fn capture(sample: &Sample, along_m: f32) -> Self {
+    fn capture(sample: &Sample, along_m: f32, lap_ms: i32) -> Self {
         Self {
             distance: along_m,
-            timestamp: sample.lap_time_ms as f32,
+            timestamp: lap_ms as f32,
             speed: sample.speed,
             throttle: sample.throttle,
             brake: sample.brake,
@@ -504,6 +698,8 @@ struct Finished {
     engine_map: i32,
     brake_bias: f32,
     max_speed: f32,
+    /// The lap was opened and then thrown away. The sheet drops this id.
+    retire: bool,
     points: Vec<LapPoint>,
 }
 
@@ -530,6 +726,8 @@ pub(crate) struct OpenSplit {
     pub sector_index: i32,
     pub s1_ms: Option<i32>,
     pub s2_ms: Option<i32>,
+    /// Lap clock to paint. Counts from the pit exit when the game clock does not.
+    pub shown_ms: Option<i32>,
 }
 
 /// Progress and lap clock seen before a lap is allowed to open.
@@ -578,12 +776,21 @@ impl StartWatch {
     }
 }
 
-/// The car is on its way to the start line, so the sheet can show an outlap.
+/// The car is rolling and the lap has not opened yet.
 ///
 /// A race with the green flag still down is the grid or the formation lap.
-/// That wait stays blank. The outlap is not stored: it only rides the live status.
+/// That wait stays blank. Once the lap opens, the outlap is stored with its
+/// sectors and stays on the sheet after the line.
 pub(crate) fn show_outlap(lap_open: bool, rolling: bool, race: bool, green: bool) -> bool {
     rolling && !lap_open && (!race || green)
+}
+
+fn in_pits(sample: &Sample) -> bool {
+    sample.in_pit_lane || sample.in_pit_box
+}
+
+fn outlap_due(sample: &Sample) -> bool {
+    sample.speed >= OUTLAP_SPEED_KMH && (!sample.race || sample.green)
 }
 
 fn clock_ticking(ms: i32) -> bool {
@@ -651,7 +858,9 @@ fn pack(lap: &Finished) -> Vec<u8> {
     write_f32(&mut out, lap.s1_end_m.unwrap_or(MISSING_M));
     write_f32(&mut out, lap.s2_end_m.unwrap_or(MISSING_M));
     out.push(u8::from(lap.valid));
-    out.extend_from_slice(&[0, 0, 0]);
+    // Byte 65 tells the sheet to drop this lap id. The two bytes after stay zero.
+    out.push(u8::from(lap.retire));
+    out.extend_from_slice(&[0, 0]);
     write_f32(&mut out, lap.fuel);
     write_f32(&mut out, lap.max_speed);
     write_i32(&mut out, lap.tc);
@@ -743,13 +952,15 @@ mod tests {
             brake_bias: 0.6,
             race: false,
             green: true,
+            in_pit_lane: false,
+            in_pit_box: false,
         }
     }
 
     #[test]
     fn finish_prefers_last_lap_time_when_completed_lap_not_incremented() {
         let start_sample = dummy_sample(1, 0, 115_330);
-        let mut open = OpenLap::begin(&start_sample, 1);
+        let mut open = OpenLap::begin(&start_sample, 1, 2, false);
         open.last_lap_time_ms = Some(112_235);
         open.s1_ms = Some(35_830);
         open.s2_ms = Some(39_392);
@@ -766,7 +977,7 @@ mod tests {
     #[test]
     fn finish_uses_boundary_last_time_when_completed_lap_incremented() {
         let start_sample = dummy_sample(1, 0, 115_330);
-        let mut open = OpenLap::begin(&start_sample, 1);
+        let mut open = OpenLap::begin(&start_sample, 1, 2, false);
         open.last_lap_time_ms = Some(112_230);
         open.s1_ms = Some(35_830);
         open.s2_ms = Some(39_392);
@@ -780,7 +991,7 @@ mod tests {
         assert_eq!(finished.s3_ms, Some(112_235 - 35_830 - 39_392));
     }
     fn waiting_collector() -> Collector {
-        let mut open = OpenLap::begin(&dummy_sample(1, 0, 115_330), 1);
+        let mut open = OpenLap::begin(&dummy_sample(1, 0, 115_330), 1, 2, false);
         open.last_lap_time_ms = Some(112_230);
         open.last_progress = Some(0.99);
         open.s1_ms = Some(35_830);
