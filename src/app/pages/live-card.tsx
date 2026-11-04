@@ -240,6 +240,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                     rows={card().rows}
                     best={card().bestLap}
                     clock={clockFor()}
+                    currentId={card().currentLap?.id}
                 />
             </div>
         </section>
@@ -281,6 +282,7 @@ const LapTable = (props: {
     rows: LiveLapRow[]
     best: LiveCardModel["bestLap"]
     clock: LiveClock | undefined
+    currentId: string | undefined
 }) => {
     const [sort, setSort] = createSignal<LiveSort>()
     const rows = createMemo(() => sortLiveRows(props.rows, sort()))
@@ -347,11 +349,12 @@ const LapTable = (props: {
                                 row={row()}
                                 best={props.best}
                                 clock={props.clock}
+                                currentId={props.currentId}
                             />
                         )}
                     </Index>
                     <Show when={props.clock?.outlap}>
-                        <OutlapRow />
+                        <OutlapRow clock={props.clock} />
                     </Show>
                 </tbody>
             </table>
@@ -363,14 +366,17 @@ const LapRow = (props: {
     row: LiveLapRow
     best: LiveCardModel["bestLap"]
     clock: LiveClock | undefined
+    currentId: string | undefined
 }) => {
+    const live = () =>
+        props.currentId !== undefined && props.currentId === props.row.lap.id
     const muted = () => !props.row.lap.valid
     const timeMs = () => {
         if (props.row.lap.timeMs !== null) return props.row.lap.timeMs
+        if (!live()) return null
         return props.clock?.lapMs ?? null
     }
-    const running = () =>
-        props.row.lap.timeMs === null && props.clock?.lapMs != null
+    const running = () => live() && props.clock?.lapMs != null
     const timeLabel = () => {
         const ms = timeMs()
         return ms === null ? t("app.empty") : fmt.lap(ms)
@@ -386,7 +392,7 @@ const LapRow = (props: {
             <th scope="row" class="px-3 font-mono text-sm font-medium">
                 <span class="inline-flex items-center gap-1.5">
                     L{props.row.lap.number}
-                    <Show when={props.row.lap.timeMs === null}>
+                    <Show when={live()}>
                         <span
                             class="size-1.5 rounded-full bg-accent"
                             aria-hidden="true"
@@ -413,21 +419,21 @@ const LapRow = (props: {
                 column={1}
                 milliseconds={props.row.lap.s1Ms}
                 bestMilliseconds={props.best?.s1Ms ?? null}
-                clock={props.clock}
+                clock={live() ? props.clock : undefined}
             />
             <SectorCell
                 row={props.row}
                 column={2}
                 milliseconds={props.row.lap.s2Ms}
                 bestMilliseconds={props.best?.s2Ms ?? null}
-                clock={props.clock}
+                clock={live() ? props.clock : undefined}
             />
             <SectorCell
                 row={props.row}
                 column={3}
                 milliseconds={props.row.lap.s3Ms}
                 bestMilliseconds={props.best?.s3Ms ?? null}
-                clock={props.clock}
+                clock={live() ? props.clock : undefined}
             />
             <td class="px-3 font-mono text-sm">
                 {props.row.lap.fuel.toFixed(1)} {t("app.litre")}
@@ -502,33 +508,43 @@ const currentRow = (card: LiveCardModel): LiveLapRow | undefined => {
     return card.rows.find(row => row.lap.id === current.id)
 }
 
-const OutlapRow = () => (
-    <tr class="h-9 text-muted">
-        <th scope="row" class="px-3 font-mono text-sm font-medium">
-            <span class="inline-flex items-center gap-1.5">
-                {t("app.outlap")}
-                <span
-                    class="size-1.5 rounded-full bg-accent"
-                    aria-hidden="true"
-                />
-            </span>
-        </th>
-        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
-        <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
-    </tr>
-)
+const OutlapRow = (props: { clock: LiveClock | undefined }) => {
+    const time = () => {
+        const ms = props.clock?.lapMs
+        return ms == null ? t("app.empty") : fmt.lap(ms)
+    }
+    const sector = (column: 1 | 2 | 3) => {
+        const read = readSectorMs(column, null, props.clock)
+        return read ? fmt.sector(read.ms) : t("app.empty")
+    }
+    return (
+        <tr class="h-9 text-ink">
+            <th scope="row" class="px-3 font-mono text-sm font-medium">
+                <span class="inline-flex items-center gap-1.5">
+                    {t("app.outlap")}
+                    <span
+                        class="size-1.5 rounded-full bg-accent"
+                        aria-hidden="true"
+                    />
+                </span>
+            </th>
+            <td class="px-3 font-mono text-sm">{time()}</td>
+            <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
+            <td class="px-3 font-mono text-sm">{sector(1)}</td>
+            <td class="px-3 font-mono text-sm">{sector(2)}</td>
+            <td class="px-3 font-mono text-sm">{sector(3)}</td>
+            <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
+            <td class="px-3 font-mono text-sm">{t("app.empty")}</td>
+        </tr>
+    )
+}
 
 const currentValue = (
     card: LiveCardModel,
     clock: LiveClock | undefined
 ): string => {
-    if (clock?.outlap) return t("app.outlap")
     if (clock?.lapMs != null) return fmt.lap(clock.lapMs)
+    if (clock?.outlap) return t("app.outlap")
     return lapLabel(card.currentLap)
 }
 
@@ -536,7 +552,9 @@ const currentHint = (
     card: LiveCardModel,
     clock: LiveClock | undefined
 ): string => {
-    if (clock?.outlap) return t("app.outlapHint")
+    if (clock?.outlap && clock.lapMs == null && clock.sector == null) {
+        return t("app.outlapHint")
+    }
     if (!clock) {
         if (!card.currentLap || card.sector === undefined) return t("app.empty")
         return hintWithDelta(card, `${t("app.liveSector")} ${card.sector}`)

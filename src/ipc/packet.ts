@@ -13,6 +13,8 @@ const OFF_S3 = 52
 const OFF_S1_END = 56
 const OFF_S2_END = 60
 const OFF_VALID = 64
+/** Set when the backend opened a lap and then threw it away. */
+const OFF_RETIRE = 65
 const OFF_FUEL = 68
 const OFF_MAX_SPEED = 72
 const OFF_TC = 76
@@ -23,6 +25,8 @@ const OFF_BRAKE_BIAS = 88
 export type DecodedLap = {
     lap: Lap
     trace: Trace
+    /** Drop this lap id. A start/finish line in the pit lane must not keep a row. */
+    retire: boolean
 }
 
 export const encodeLapPacket = (lap: Lap, trace: Trace): ArrayBuffer => {
@@ -92,7 +96,11 @@ export const decodeLapPacket = (
         brakeBias: view.getFloat32(OFF_BRAKE_BIAS, true),
     }
 
-    return { lap, trace: readPlane(view, lapId, count) }
+    return {
+        lap,
+        trace: readPlane(view, lapId, count),
+        retire: view.getUint8(OFF_RETIRE) !== 0,
+    }
 }
 
 const writePlane = (view: DataView, trace: Trace, count: number): void => {

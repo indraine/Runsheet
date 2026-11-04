@@ -31,12 +31,12 @@ const linked = {
 
 describe("parseAccStatus", () => {
     it("keeps the garage and pit lane presence", () => {
-        expect(parseAccStatus({ ...linked, presence: "garage" })?.presence).toBe(
-            "garage"
-        )
-        expect(parseAccStatus({ ...linked, presence: "pitLane" })?.presence).toBe(
-            "pitLane"
-        )
+        expect(
+            parseAccStatus({ ...linked, presence: "garage" })?.presence
+        ).toBe("garage")
+        expect(
+            parseAccStatus({ ...linked, presence: "pitLane" })?.presence
+        ).toBe("pitLane")
     })
 })
 
@@ -59,6 +59,29 @@ describe("liveClockFromStatus", () => {
             lapMs: null,
             sectorMs: null,
             sector: null,
+            s1Ms: null,
+            s2Ms: null,
+        })
+    })
+
+    it("paints the shared-memory clock on an outlap", () => {
+        const status = parseAccStatus({
+            ...linked,
+            lapNumber: null,
+            sector: 0,
+            currentLapMs: 12_400,
+            sectorMs: 12_400,
+            s1Ms: null,
+            s2Ms: null,
+            outlap: true,
+        })
+
+        expect(liveClockFromStatus(status!)).toEqual({
+            sessionId: "session-1",
+            outlap: true,
+            lapMs: 12_400,
+            sectorMs: 12_400,
+            sector: 1,
             s1Ms: null,
             s2Ms: null,
         })

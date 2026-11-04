@@ -140,6 +140,11 @@ export const createAccIngest = (): AccIngest => {
     ): Promise<void> => {
         const decoded = decodeLapPacket(buffer)
         if (!decoded) return
+        if (decoded.retire) {
+            pending.delete(decoded.lap.id)
+            await repo.deleteLap(decoded.lap.id)
+            return
+        }
 
         const stored = (await repo.readSessions()).find(
             session => session.id === decoded.lap.sessionId
@@ -243,7 +248,7 @@ const unfinishedLap = async (
     if (!open) return undefined
     const trace = (await repo.readTraces([open.id])).get(open.id)
     if (!trace || trace.distance.length < 1) return undefined
-    return { lap: open, trace }
+    return { lap: open, trace, retire: false }
 }
 
 const hasSamples = (decoded: DecodedLap): boolean =>

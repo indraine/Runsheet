@@ -148,6 +148,23 @@ export class SessionRepository {
         this.setRevision(current => current + 1)
     }
 
+    /** Drops a lap the backend retired, such as a start line crossed in the pits. */
+    async deleteLap(lapId: string): Promise<void> {
+        const tx = this.database.transaction(
+            ["laps", "lap_telemetry"],
+            "readwrite"
+        )
+        await Promise.all([
+            tx.objectStore("laps").delete(lapId),
+            tx.objectStore("lap_telemetry").delete(lapId),
+            tx.done,
+        ])
+        batch(() => {
+            this.setLastWrite(undefined)
+            this.setRevision(current => current + 1)
+        })
+    }
+
     /** Removes one recorded session with its laps and telemetry. */
     async deleteSession(sessionId: string): Promise<void> {
         const tx = this.database.transaction(

@@ -271,21 +271,6 @@ impl Sequencer {
             && place != SessionPlace::PitLane
             && place != SessionPlace::Pause
             && place != SessionPlace::OnGrid;
-        let game_ms = tick
-            .and_then(|tick| tick.graphic.current_lap_time.map(LapTime::ms))
-            .filter(|ms| *ms > 0);
-        // The collector clock starts at the pit exit. The game clock may
-        // already have been running since the line inside the lane.
-        let lap_ms = if running {
-            split.as_ref().and_then(|split| split.shown_ms).or(game_ms)
-        } else {
-            None
-        };
-        let sector_ms = split.as_ref().and_then(|split| {
-            lap_ms.and_then(|lap_ms| {
-                sector_elapsed(lap_ms, split.sector_index, split.s1_ms, split.s2_ms)
-            })
-        });
         let outlap = place != SessionPlace::OnGrid
             && tick.is_some_and(|tick| {
                 show_outlap(
@@ -295,12 +280,37 @@ impl Sequencer {
                     tick.graphic.green,
                 )
             });
+        let game_ms = tick
+            .and_then(|tick| tick.graphic.current_lap_time.map(LapTime::ms))
+            .filter(|ms| *ms > 0);
+        // Prefer the collector clock: it follows shared memory, and after a
+        // pit exit it starts at the blend line rather than the line in the lane.
+        let lap_ms = if running {
+            split.as_ref().and_then(|split| split.shown_ms).or(game_ms)
+        } else if outlap {
+            game_ms
+        } else {
+            None
+        };
+        let sector_index = if let Some(split) = split.as_ref() {
+            Some(split.sector_index)
+        } else if outlap {
+            tick.map(|tick| tick.graphic.sector_index)
+        } else {
+            None
+        };
+        let sector_ms = lap_ms.and_then(|lap_ms| {
+            let index = sector_index?;
+            let s1_ms = split.as_ref().and_then(|split| split.s1_ms);
+            let s2_ms = split.as_ref().and_then(|split| split.s2_ms);
+            sector_elapsed(lap_ms, index, s1_ms, s2_ms)
+        });
         Snap {
             packet_id: tick.map(|tick| tick.physics.packet_id),
             outing_id: self.machine.outing_id(),
             session: self.machine.session().cloned(),
             lap_number: self.laps.open_number(),
-            sector: split.as_ref().map(|split| split.sector_index),
+            sector: sector_index,
             lap_ms,
             sector_ms,
             s1_ms: split.as_ref().and_then(|split| split.s1_ms),

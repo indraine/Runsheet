@@ -424,12 +424,7 @@ struct OpenLap {
 }
 
 impl OpenLap {
-    fn begin(
-        sample: &Sample,
-        completed_at_open: i32,
-        number: i32,
-        from_pit_exit: bool,
-    ) -> Self {
+    fn begin(sample: &Sample, completed_at_open: i32, number: i32, from_pit_exit: bool) -> Self {
         let game_origin_ms = if from_pit_exit && clock_ticking(sample.lap_time_ms) {
             sample.lap_time_ms
         } else {
@@ -1023,7 +1018,7 @@ mod tests {
 
         let packed = closed.expect("lap closes once the game publishes its time");
         assert_eq!(packed_time_ms(&packed), 112_235);
-        assert_eq!(collector.open_number(), Some(2));
+        assert_eq!(collector.open_number(), Some(3));
     }
 
     #[test]
@@ -1036,6 +1031,141 @@ mod tests {
 
         let packed = closed.expect("lap closes after the wait");
         assert_eq!(packed_time_ms(&packed), 112_230);
+        assert_eq!(collector.open_number(), Some(3));
+    }
+
+    fn rolling(completed: i32, mono_ms: u64, progress: f32) -> Sample {
+        let mut sample = dummy_sample(completed, 0, -1);
+        sample.mono_ms = mono_ms;
+        sample.progress = progress;
+        sample.speed = 80.0;
+        sample.sector_index = 0;
+        sample.last_sector_time_ms = -1;
+        sample
+    }
+
+    fn packed_i32(packed: &[u8], offset: usize) -> i32 {
+        i32::from_le_bytes(packed[offset..offset + 4].try_into().unwrap())
+    }
+
+    #[test]
+    fn outlap_keeps_shared_memory_time_and_sectors() {
+        let mut collector = Collector::default();
+        let mut start = rolling(0, 1_000, 0.1);
+        start.lap_time_ms = 1_200;
+        assert!(collector.push(&start).is_none());
+        assert_eq!(collector.open_number(), Some(1));
+        assert_eq!(collector.open_split().unwrap().shown_ms, Some(1_200));
+
+        let mut sector_one = rolling(0, 21_000, 0.4);
+        sector_one.lap_time_ms = 28_400;
+        sector_one.sector_index = 1;
+        sector_one.last_sector_time_ms = 28_400;
+        let _ = collector.push(&sector_one);
+        assert_eq!(collector.open_split().unwrap().s1_ms, Some(28_400));
+        assert_eq!(collector.open_split().unwrap().shown_ms, Some(28_400));
+
+        let mut sector_two = rolling(0, 41_000, 0.7);
+        sector_two.lap_time_ms = 61_000;
+        sector_two.sector_index = 2;
+        sector_two.last_sector_time_ms = 61_000;
+        let _ = collector.push(&sector_two);
+        assert_eq!(collector.open_split().unwrap().s2_ms, Some(32_600));
+
+        let mut line = rolling(1, 60_000, 0.01);
+        line.lap_time_ms = 40;
+        line.last_time_ms = 95_000;
+        let closed = collector.push(&line).expect("outlap is stored");
+        assert_eq!(packed_i32(&closed, 40), 95_000);
+        assert_eq!(packed_i32(&closed, 44), 28_400);
+        assert_eq!(packed_i32(&closed, 48), 32_600);
+        assert_eq!(packed_i32(&closed, 52), 34_000);
         assert_eq!(collector.open_number(), Some(2));
+    }
+
+    #[test]
+    fn outlap_uses_its_own_clock_when_shared_memory_is_stopped() {
+        let mut collector = Collector::default();
+        let _ = collector.push(&rolling(0, 1_000, 0.2));
+        let mut later = rolling(0, 6_500, 0.3);
+        later.sector_index = 1;
+        let _ = collector.push(&later);
+        let split = collector.open_split().unwrap();
+        assert_eq!(split.shown_ms, Some(5_500));
+        assert_eq!(split.s1_ms, Some(5_500));
+    }
+
+    #[test]
+    fn formation_lap_does_not_open() {
+        let mut collector = Collector::default();
+        let mut sample = rolling(0, 1_000, 0.4);
+        sample.race = true;
+        sample.green = false;
+        let _ = collector.push(&sample);
+        assert_eq!(collector.open_number(), None);
+    }
+
+    #[test]
+    fn pit_lane_line_waits_for_the_exit() {
+        let mut collector = Collector::default();
+        let _ = collector.push(&rolling(0, 1_000, 0.2));
+        let mut sector_one = rolling(0, 15_000, 0.45);
+        sector_one.sector_index = 1;
+        sector_one.lap_time_ms = 14_000;
+        sector_one.last_sector_time_ms = 14_000;
+        let _ = collector.push(&sector_one);
+
+        let mut entered = rolling(0, 20_000, 0.5);
+        entered.in_pit_lane = true;
+        assert!(collector.push(&entered).is_none());
+        assert_eq!(collector.open_number(), Some(1));
+
+        let mut line = rolling(1, 21_000, 0.01);
+        line.in_pit_lane = true;
+        line.lap_time_ms = 10;
+        line.last_time_ms = 40_000;
+        line.sector_index = 0;
+        assert!(collector.push(&line).is_none());
+        assert_eq!(collector.open_number(), Some(1));
+
+        let mut exit = rolling(1, 50_000, 0.08);
+        exit.lap_time_ms = 30_000;
+        let sealed = collector.push(&exit).expect("in-lap stays on the sheet");
+        assert_eq!(packed_i32(&sealed, 40), -1);
+        assert_eq!(packed_i32(&sealed, 44), 14_000);
+        assert_eq!(packed_i32(&sealed, 52), -1);
+        assert_eq!(sealed[65], 0);
+        let split = collector.open_split().unwrap();
+        assert_eq!(split.shown_ms, Some(0));
+        assert_eq!(collector.open_number(), Some(2));
+    }
+
+    #[test]
+    fn line_then_pit_entry_does_not_keep_an_empty_lap() {
+        let mut collector = Collector::default();
+        let _ = collector.push(&rolling(0, 1_000, 0.2));
+        let mut sector_one = rolling(0, 20_000, 0.4);
+        sector_one.sector_index = 1;
+        sector_one.lap_time_ms = 19_000;
+        sector_one.last_sector_time_ms = 19_000;
+        let _ = collector.push(&sector_one);
+
+        let mut line = rolling(1, 40_000, 0.01);
+        line.lap_time_ms = 20;
+        line.last_time_ms = 39_000;
+        let _ = collector.push(&line);
+        assert_eq!(collector.open_number(), Some(2));
+
+        let mut entered = rolling(1, 41_000, 0.02);
+        entered.in_pit_lane = true;
+        let retired = collector.push(&entered).expect("empty lap is retired");
+        assert_eq!(retired[65], 1);
+        assert_eq!(collector.open_number(), None);
+
+        let mut exit = rolling(1, 70_000, 0.1);
+        exit.lap_time_ms = 25_000;
+        assert!(collector.push(&exit).is_none());
+        assert_eq!(collector.open_number(), Some(2));
+        assert_eq!(collector.open_split().unwrap().shown_ms, Some(0));
     }
 }

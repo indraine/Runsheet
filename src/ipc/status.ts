@@ -128,7 +128,7 @@ export const liveClockFromStatus = (
 ): LiveClock | undefined => {
     if (status.link !== "linked" || !status.session) return undefined
     if (status.lapNumber == null) {
-        return status.outlap ? outlapClock(status.session.id) : undefined
+        return status.outlap ? outlapClock(status) : undefined
     }
     if (
         status.currentLapMs == null &&
@@ -149,14 +149,14 @@ export const liveClockFromStatus = (
     }
 }
 
-const outlapClock = (sessionId: string): LiveClock => ({
-    sessionId,
+const outlapClock = (status: AccStatus): LiveClock => ({
+    sessionId: status.session?.id ?? "",
     outlap: true,
-    lapMs: null,
-    sectorMs: null,
-    sector: null,
-    s1Ms: null,
-    s2Ms: null,
+    lapMs: status.currentLapMs,
+    sectorMs: status.sectorMs,
+    sector: sectorNumber(status.sector),
+    s1Ms: status.s1Ms,
+    s2Ms: status.s2Ms,
 })
 
 const sectorNumber = (index: number | null): 1 | 2 | 3 | null => {
@@ -307,7 +307,6 @@ const parsePresence = (value: unknown, link: AccLinkState): AccPresence => {
     }
     return link === "linked" ? "menu" : "off"
 }
-
 
 const isLinkState = (value: unknown): value is AccLinkState =>
     typeof value === "string" && LINK_STATES.has(value as AccLinkState)
