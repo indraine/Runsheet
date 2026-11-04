@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::ingress::layout::{
+use crate::ingress::acc::layout::{
     GRAPHICS_SEGMENT_BYTES, PHYSICS_SEGMENT_BYTES, STATICS_SEGMENT_BYTES,
 };
 
@@ -43,7 +43,7 @@ impl StartupProbes {
         pinned("physics", PHYSICS_SEGMENT_BYTES, PINNED_PHYSICS_BYTES)?;
         pinned("graphics", GRAPHICS_SEGMENT_BYTES, PINNED_GRAPHICS_BYTES)?;
         pinned("statics", STATICS_SEGMENT_BYTES, PINNED_STATICS_BYTES)?;
-        crate::ingress::layout::ensure_mapped_views()
+        crate::ingress::acc::layout::ensure_mapped_views()
             .map_err(|message| ProbeFailure::new(message, LAYOUT_HINT))
     }
 }

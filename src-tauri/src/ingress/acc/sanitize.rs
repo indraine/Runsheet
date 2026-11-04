@@ -1,5 +1,3 @@
-use std::fmt;
-
 use acc_shared_memory_rs::datatypes::{CarDamage, ContactPoint, Vector3f, Wheels};
 use acc_shared_memory_rs::enums::{
     AccFlagType, AccPenaltyType, AccRainIntensity, AccSessionType, AccStatus, AccTrackGripStatus,
@@ -13,40 +11,10 @@ use crate::domain::{
 };
 
 use super::raw::{RawGraphicPage, RawPhysicsPage, RawStaticPage};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum BoundaryError {
-    NonFinite { field: &'static str },
-    UnknownDiscriminant { field: &'static str, value: i32 },
-}
-
-impl fmt::Display for BoundaryError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::NonFinite { field } => write!(formatter, "поле {field} не конечное"),
-            Self::UnknownDiscriminant { field, value } => {
-                write!(formatter, "поле {field} содержит неизвестный код {value}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for BoundaryError {}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum PageOutcome {
-    Stale,
-    Fresh(CleanTick),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct CleanTick {
-    pub physics: PhysicsFrame,
-    pub graphic: GraphicsFrame,
-    pub statics: StaticsFrame,
-}
+use crate::ingress::{BoundaryError, CleanTick, PageOutcome};
 
 #[must_use]
+#[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn decode(
     previous_packet_id: Option<i32>,
     map: &ACCMap,

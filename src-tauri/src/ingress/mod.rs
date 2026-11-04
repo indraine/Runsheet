@@ -1,10 +1,9 @@
+//! Граница симов. Каждый сим живёт в своей папке и отдаёт наружу только `CleanTick`.
+
 #![cfg_attr(not(any(windows, test)), allow(dead_code))]
 
-pub(crate) mod layout;
-mod raw;
-mod sanitize;
+pub(crate) mod acc;
+pub(crate) mod lmu;
+mod outcome;
 
-#[allow(unused_imports)]
-pub(crate) use sanitize::BoundaryError;
-#[cfg_attr(not(windows), allow(unused_imports))]
-pub(crate) use sanitize::{CleanTick, PageOutcome, decode};
+pub(crate) use outcome::{BoundaryError, CleanTick, PageOutcome};

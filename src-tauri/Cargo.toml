@@ -14,6 +14,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
+[target.'cfg(windows)'.dependencies]
+kerb = { version = "0.4.0", default-features = false, features = ["lmu"] }
+
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"

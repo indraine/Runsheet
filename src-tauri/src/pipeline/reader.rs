@@ -10,7 +10,9 @@ use acc_shared_memory_rs::ACCSharedMemory;
 use acc_shared_memory_rs::maps::ACCMap;
 
 #[cfg(windows)]
-use crate::ingress::{PageOutcome, decode};
+use crate::ingress::PageOutcome;
+#[cfg(windows)]
+use crate::ingress::acc::decode;
 use crate::ipc::LinkState;
 #[cfg(not(windows))]
 use crate::ipc::{self, Capture, Status};
