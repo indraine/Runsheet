@@ -2,12 +2,6 @@ import { createSignal, onCleanup, onMount } from "solid-js"
 import { t } from "~/i18n"
 import { Button } from "~/ui"
 
-/**
- * Asks before a recorded session is removed.
- *
- * The «don't ask again» box is handed to `onConfirm`; the caller stores it
- * only when the user actually deletes, so cancelling never changes the habit.
- */
 export function DeleteSessionDialog(props: {
     onCancel: () => void
     onConfirm: (remember: boolean) => Promise<void>

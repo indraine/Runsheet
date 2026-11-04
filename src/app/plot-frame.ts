@@ -4,13 +4,6 @@ import { documentZoom } from "~/app/zoom-space"
 
 const MAX_DEVICE_PIXELS = 2
 
-/**
- * Backing-store density for a canvas that CSS zoom will stretch.
- *
- * The canvas CSS box is in layout pixels. Zoom then scales that bitmap, so
- * the buffer has to carry `devicePixelRatio * zoom` or the picture softens
- * as the footer scale rises. `devicePixelRatio` 2 and zoom 1.5 => 3.
- */
 export const plotResolutionFor = (
     devicePixelRatio: number,
     zoom: number
@@ -25,13 +18,6 @@ export const plotResolution = (): number =>
 
 export type PlotBox = { width: number; height: number }
 
-/**
- * Layout size of the host.
- *
- * `clientWidth` is the CSS box. Under document zoom a transient layout pass
- * can report 0 while `getBoundingClientRect` still has the previous box, so
- * fall back to that rect divided by zoom.
- */
 export const measurePlotBox = (host: HTMLElement): PlotBox | undefined => {
     if (host.clientWidth >= 2 && host.clientHeight >= 2) {
         return { width: host.clientWidth, height: host.clientHeight }
@@ -44,10 +30,6 @@ export const measurePlotBox = (host: HTMLElement): PlotBox | undefined => {
     return { width, height }
 }
 
-/**
- * Make the canvas CSS box match the host. A 0×0 style sticks after a swap
- * reflow, because the host size itself did not change and nothing else resizes.
- */
 export const ensurePlotSize = (
     app: Application,
     host: HTMLElement
@@ -63,16 +45,6 @@ export const ensurePlotSize = (
     return box
 }
 
-/**
- * Keep a Pixi canvas on its host's layout box, sharp at the current zoom.
- *
- * The resize plugin only listens to `window` `resize`. Footer scale changes
- * the document through CSS zoom and does not emit that event.
- *
- * Call from `onMount` before init resolves. `ready` gates the resize until
- * the stage exists. Invoke the returned function after init and whenever
- * `uiScale` changes.
- */
 export const followPlotBox = (
     app: Application,
     host: HTMLElement,

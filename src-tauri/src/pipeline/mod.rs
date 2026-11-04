@@ -1,3 +1,8 @@
+//! Цикл чтения и потребитель, который превращает тики в IPC.
+//!
+//! Читатель кладёт тики в кольцо. Потребитель шагает секвенсор и публикует
+//! статус не чаще, чем позволяют часы UI.
+
 mod broadcast;
 mod reader;
 mod ring;
@@ -60,7 +65,6 @@ fn publish(
     outcome: &Outcome,
     last_presence: &mut Option<game::Presence>,
 ) {
-    // The open lap has to land before the status that adopts the new session id.
     if outcome.laps.is_empty() {
         outbox.drain();
     } else {

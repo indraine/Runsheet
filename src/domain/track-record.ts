@@ -48,15 +48,6 @@ export const trackRecords = (
 }
 
 
-/**
- * Order of tracks. `name` sorts by the name shown to the reader, in the
- * rules of `locale`, so the Russian list runs А–Я and the English one A–Z.
- * The other orders break ties in catalog order.
- *
- * With names {cota: "Остин", barcelona: "Барселона"} and locale "ru":
- * sortTracks(["cota", "barcelona"], new Map(), "name", nameOf, "ru")
- *   -> ["barcelona", "cota"]
- */
 export const sortTracks = (
     codes: readonly string[],
     records: ReadonlyMap<string, TrackRecord>,

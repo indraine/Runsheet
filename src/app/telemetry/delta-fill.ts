@@ -1,26 +1,10 @@
 export type PlotPoint = { x: number; y: number }
 
-/** A closed area between a delta curve and the zero line. */
 export type DeltaArea = {
-    /** `slower` lies above zero (the lap is behind the baseline). */
     side: "slower" | "faster"
-    /** Flat `[x0, y0, x1, y1, …]` polygon, ready for `Graphics.poly`. */
     polygon: number[]
 }
 
-/**
- * Split a delta curve into areas between it and the zero line.
- *
- * Screen `y` grows downwards, so a point above `zeroY` is a lap behind the
- * baseline. Where the curve crosses zero the area is cut at the crossing,
- * so the two colors never overlap.
- *
- * @example
- * ```ts
- * deltaAreas([{ x: 0, y: 10 }, { x: 10, y: 30 }], 20)
- * // two triangles: "slower" on the left, "faster" on the right
- * ```
- */
 export const deltaAreas = (
     points: readonly PlotPoint[],
     zeroY: number

@@ -1,3 +1,5 @@
+//! Windows: опрашивает shared memory ACC и кладёт тики. Остальные платформы: публикует холостой линк.
+
 use std::time::Duration;
 #[cfg(windows)]
 use std::time::Instant;

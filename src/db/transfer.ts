@@ -31,7 +31,6 @@ export type RunsheetDump = {
 
 export type EncodedTrace = { lapId: string } & Record<TraceChannel, number[]>
 
-/** All recorded data, or one session with its laps when `sessionId` is given. */
 export async function readDump(
     db: RunsheetDatabase,
     sessionId?: string
@@ -133,11 +132,6 @@ export function parseDump(raw: unknown): RunsheetDump {
     }
 }
 
-/**
- * Dump as indented JSON. Objects get one key per line; arrays of plain
- * values stay on one line, so a trace of thousands of samples does not
- * grow into thousands of lines and the file stays close to its compact size.
- */
 export function stringifyDump(dump: RunsheetDump): string {
     return indentJson(dump, 0)
 }
@@ -178,7 +172,6 @@ export type ExportFile = {
     mime: string
 }
 
-/** The dump as a file of the chosen format; its length is the exact size. */
 export async function buildExport(
     dump: RunsheetDump,
     format: ExportFormat,

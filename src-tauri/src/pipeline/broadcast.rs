@@ -1,3 +1,5 @@
+//! Как часто UI слышит статус (30 Гц) и превью открытого круга (1 Гц).
+
 use crate::domain::LapId;
 
 pub(crate) const STATUS_PERIOD_MS: u64 = 33;

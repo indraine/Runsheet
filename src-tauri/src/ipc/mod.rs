@@ -1,3 +1,5 @@
+//! Команды Tauri и каналы, по которым статус и готовые круги идут в webview.
+
 mod commands;
 mod laps;
 mod response;

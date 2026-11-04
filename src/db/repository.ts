@@ -44,7 +44,6 @@ export class SessionRepository {
         this.setLastWrite = setLastWrite
     }
 
-    /** Recorded sessions; bundled reference laps only with `withReference`. */
     async readSessions(
         options: { withReference?: boolean } = {}
     ): Promise<Session[]> {
@@ -148,7 +147,6 @@ export class SessionRepository {
         this.setRevision(current => current + 1)
     }
 
-    /** Drops a lap the backend retired, such as a start line crossed in the pits. */
     async deleteLap(lapId: string): Promise<void> {
         const tx = this.database.transaction(
             ["laps", "lap_telemetry"],
@@ -165,7 +163,6 @@ export class SessionRepository {
         })
     }
 
-    /** Removes one recorded session with its laps and telemetry. */
     async deleteSession(sessionId: string): Promise<void> {
         const tx = this.database.transaction(
             ["sessions", "laps", "lap_telemetry"],
@@ -190,7 +187,6 @@ export class SessionRepository {
         })
     }
 
-    /** Removes recorded data; the bundled reference laps stay. */
     async clearAll(): Promise<void> {
         const tx = this.database.transaction(
             ["sessions", "laps", "lap_telemetry"],

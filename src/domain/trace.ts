@@ -22,15 +22,8 @@ export const TRACE_CHANNELS = [
 
 export type TraceChannel = (typeof TRACE_CHANNELS)[number]
 
-/** Columnar lap telemetry stored in IndexedDB (`lap_telemetry`). */
 export type Trace = { lapId: string } & Record<TraceChannel, Float32Array>
 
-/**
- * One high-rate sample along a lap.
- *
- * ACC ground plane is `x`/`z` (world Y is vertical). `timestamp` is the
- * in-lap clock in milliseconds (`trace.time` on the wire).
- */
 export type LapPoint = {
     distance: number
     x: number
@@ -43,15 +36,6 @@ export type LapPoint = {
     timestamp: number
 }
 
-/**
- * Read one {@link LapPoint} from a columnar {@link Trace}.
- *
- * @example
- * ```ts
- * const point = lapPointAt(trace, 0)
- * point?.gear // current gear at sample 0
- * ```
- */
 export function lapPointAt(trace: Trace, index: number): LapPoint | undefined {
     if (index < 0 || index >= trace.distance.length) return undefined
     return {
@@ -67,19 +51,8 @@ export function lapPointAt(trace: Trace, index: number): LapPoint | undefined {
     }
 }
 
-/** A lap whose ground track spans less than this has no usable trajectory. */
 const MIN_TRAJECTORY_SPAN_M = 20
 
-/**
- * Whether the lap carries a real ground track. Missing channels are stored
- * as zeros (imports without positions, old dumps), so a constant `x`/`z`
- * counts as no trajectory.
- *
- * @example
- * ```ts
- * hasTrajectory(trace) // false for a lap imported without positions
- * ```
- */
 export function hasTrajectory(trace: Trace): boolean {
     const count = Math.min(trace.x.length, trace.z.length)
     if (count < 2) return false

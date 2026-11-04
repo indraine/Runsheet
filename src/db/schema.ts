@@ -53,7 +53,6 @@ export function openRunsheetDb(
     })
 }
 
-/** Fill channels added after v1 dumps / stores (e.g. `gear`). */
 export function normalizeTrace(trace: Trace): Trace {
     const count = trace.distance?.length ?? 0
     const next = { lapId: trace.lapId } as Trace

@@ -1,5 +1,7 @@
+//! По каждому новому кадру обновление выезда, круга и положения машины.
+
 use crate::domain::{
-    CarState, CleanSessionGraphic, Frame, GameStatus, LapTime, OutingEvent, OutingId, PlaceView,
+    CarState, Frame, GameStatus, GraphicsFrame, LapTime, OutingEvent, OutingId, PlaceView,
     RacePhase, RaceSample, Session, SessionId, SessionKind, SessionPlace, note_race_phase,
     session_place,
 };
@@ -95,7 +97,7 @@ impl Sequencer {
         let outing_events = self.machine.step(&Tick {
             mono_ms: moment.mono_ms,
             wall_ms: moment.wall_ms,
-            sight: Sight::Frame(frame_from(&tick.graphic)),
+            sight: Sight::Frame(frame_from(&tick)),
         });
         let session_id = self.machine.session().map(|session| session.id);
         let closed = self.record(session_id, status, &tick, moment.mono_ms);
@@ -132,7 +134,7 @@ impl Sequencer {
         }
     }
 
-    fn step_car(&mut self, graphic: &CleanSessionGraphic) {
+    fn step_car(&mut self, graphic: &GraphicsFrame) {
         if graphic.status == GameStatus::Replay {
             return;
         }
@@ -145,9 +147,6 @@ impl Sequencer {
             self.had_motion = false;
             self.kill_clock();
         }
-        // When the game is off we do not trust the car position from the
-        // graphics page; the sequencer should report "menu" until a fresh
-        // live frame arrives.
         if graphic.status == GameStatus::Off {
             self.car = CarState::InGarage;
             return;
@@ -155,8 +154,6 @@ impl Sequencer {
         self.car = next;
     }
 
-    /// The open lap is packed while it still carries the previous session id.
-    /// `push` may then start a lap on the id the machine just adopted.
     fn record(
         &mut self,
         session_id: Option<SessionId>,
@@ -203,7 +200,7 @@ impl Sequencer {
             .is_some_and(|fresh| mono_ms.saturating_sub(fresh) < CLOCK_DEAD_AFTER_MS)
     }
 
-    fn note_race(&mut self, graphic: &CleanSessionGraphic) {
+    fn note_race(&mut self, graphic: &GraphicsFrame) {
         note_race_phase(
             &mut self.race,
             RaceSample {
@@ -226,7 +223,6 @@ impl Sequencer {
             && !self.grid_wait(tick)
     }
 
-    /// Formation keeps the lap clock frozen. That is not a dead session.
     fn grid_wait(&self, tick: &CleanTick) -> bool {
         tick.graphic.kind == SessionKind::Race
             && tick.graphic.completed_lap == 0
@@ -234,7 +230,6 @@ impl Sequencer {
             && !self.race.released
     }
 
-    /// Moving on the racing surface. The lap clock is still stopped on an outlap.
     fn rolling(&self, tick: &CleanTick) -> bool {
         tick.graphic.status == GameStatus::Live
             && self.car == CarState::OnTrack
@@ -263,8 +258,6 @@ impl Sequencer {
     fn snap(&self, tick: Option<&CleanTick>) -> Snap {
         let split = self.laps.open_split();
         let place = self.place(tick);
-        // The running lap stays on track. Garage, pits, the pit lane, pause
-        // and the grid keep the card blank.
         let running = split.is_some()
             && place != SessionPlace::Garage
             && place != SessionPlace::InPits
@@ -283,8 +276,6 @@ impl Sequencer {
         let game_ms = tick
             .and_then(|tick| tick.graphic.current_lap_time.map(LapTime::ms))
             .filter(|ms| *ms > 0);
-        // Prefer the collector clock: it follows shared memory, and after a
-        // pit exit it starts at the blend line rather than the line in the lane.
         let lap_ms = if running {
             split.as_ref().and_then(|split| split.shown_ms).or(game_ms)
         } else if outlap {
@@ -318,8 +309,8 @@ impl Sequencer {
             outlap,
             speed: tick.map(|tick| tick.physics.speed.kmh()),
             place,
-            air_c: tick.map(|tick| tick.graphic.air.celsius()),
-            road_c: tick.map(|tick| tick.graphic.road.celsius()),
+            air_c: tick.map(|tick| tick.physics.air.celsius()),
+            road_c: tick.map(|tick| tick.physics.road.celsius()),
         }
     }
 
@@ -368,20 +359,22 @@ impl Sequencer {
     }
 }
 
-fn frame_from(graphic: &CleanSessionGraphic) -> Frame {
+fn frame_from(tick: &CleanTick) -> Frame {
+    let graphic = &tick.graphic;
+    let statics = &tick.statics;
     Frame {
         status: graphic.status,
         kind: graphic.kind,
         session_index: graphic.session_index,
-        track: graphic.track.clone(),
-        car: graphic.car.clone(),
-        driver: graphic.driver.clone(),
+        track: statics.track.clone(),
+        car: statics.car.clone(),
+        driver: statics.driver.clone(),
         car_id: graphic.car_id,
-        online: graphic.online,
+        online: statics.online,
         car_count: graphic.car_count,
         setup_menu: graphic.setup_menu,
-        air_c: graphic.air.celsius(),
-        road_c: graphic.road.celsius(),
+        air_c: tick.physics.air.celsius(),
+        road_c: tick.physics.road.celsius(),
     }
 }
 
@@ -406,17 +399,17 @@ fn sample_from(tick: &CleanTick, mono_ms: u64, session_id: SessionId) -> Sample 
         heading: physics.heading,
         speed: physics.speed.kmh(),
         lap_time_ms: lap_ms(graphic.current_lap_time),
-        progress: physics.progress.fraction(),
+        progress: graphic.progress.fraction(),
         g_long: physics.g_long,
         g_lat: physics.g_lat,
-        x: physics.ground_x,
-        z: physics.ground_z,
+        x: graphic.ground_x,
+        z: graphic.ground_z,
         pressure_fl: physics.pressure.front_left.psi(),
         pressure_fr: physics.pressure.front_right.psi(),
         pressure_rl: physics.pressure.rear_left.psi(),
         pressure_rr: physics.pressure.rear_right.psi(),
-        brake_temp_fl: physics.brake_temp_fl.celsius(),
-        brake_temp_fr: physics.brake_temp_fr.celsius(),
+        brake_temp_fl: physics.brake_temp.front_left.celsius(),
+        brake_temp_fr: physics.brake_temp.front_right.celsius(),
         tc: graphic.tc,
         abs: graphic.abs,
         engine_map: graphic.engine_map,

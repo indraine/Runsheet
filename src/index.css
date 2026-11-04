@@ -394,7 +394,6 @@ html[data-theme="solarized-light"] {
         user-select: text;
     }
 
-    /* Numbers that people compare by eye: times, deltas, fuel, pressures. */
     .font-mono {
         font-feature-settings:
             "tnum" 1,
@@ -402,8 +401,6 @@ html[data-theme="solarized-light"] {
     }
 }
 
-/* `inset: 0` pins a fixed layer to the layout viewport. Zoom then scales that
-   box past the window. Size it in pre-zoom pixels so the painted layer fits. */
 .fixed-screen {
     position: fixed;
     top: 0;

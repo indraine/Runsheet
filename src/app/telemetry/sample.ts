@@ -18,11 +18,6 @@ export type TraceSample = {
     pressureRr: number
 }
 
-/** Distance span used for chart domain, clamped to non-negative values.
- *
- * ACC can emit negative `distance` samples when the car is teleported or
- * reset to the pits, which would otherwise stretch the domain and squash
- * the visible lap. We ignore negative values for the span. */
 export const distanceSpan = (
     trace: Trace | undefined
 ): { min: number; max: number } | undefined => {
@@ -38,18 +33,6 @@ export const distanceSpan = (
     return { min, max }
 }
 
-/**
- * Sample a lap at a distance, blending the two surrounding points.
- *
- * Continuous channels move with the cursor. Gear stays on the nearer
- * sample because it is a step signal.
- *
- * @example
- * ```ts
- * const point = sampleAtDistance(trace, 50)
- * point?.throttle // halfway when samples sit at 0 and 100
- * ```
- */
 export const sampleAtDistance = (
     trace: Trace | undefined,
     distance: number
@@ -76,16 +59,6 @@ export const sampleAtDistance = (
     return readSample(trace, previous, previous, 0)
 }
 
-/**
- * Time delta to the baseline at the same distance, milliseconds.
- *
- * Positive means the lap is behind the baseline.
- *
- * @example
- * ```ts
- * deltaToBaseline(challenger, baseline, 100) // ms
- * ```
- */
 export const deltaToBaseline = (
     lap: Trace | undefined,
     baseline: Trace | undefined,
@@ -147,14 +120,6 @@ const readSample = (
     }
 }
 
-/**
- * Largest absolute steer in a lap, or `0` when the trace is missing.
- *
- * @example
- * ```ts
- * steerPeak(trace) // 1.2
- * ```
- */
 export const steerPeak = (trace: Trace | undefined): number => {
     if (!trace) return 0
     let peak = 0
@@ -166,45 +131,14 @@ export const steerPeak = (trace: Trace | undefined): number => {
     return peak
 }
 
-/**
- * Peaks at or below this are ACC `steerAngle` in radians.
- * A GT3 wheel stays under ~4 rad at full lock; the seed lap is degrees
- * and peaks far above this.
- */
 export const STEER_RADIAN_PEAK = 6
 
-/**
- * Wheel rotation in degrees, clockwise positive (right).
- *
- * ACC stores `steerAngle` in radians, so a raw value of `1` is only one
- * degree on screen. Degree traces (peak above {@link STEER_RADIAN_PEAK})
- * are left unchanged.
- *
- * @example
- * ```ts
- * wheelRotationDeg(Math.PI / 2, 2) // 90
- * wheelRotationDeg(40, 110) // 40
- * ```
- */
 export const wheelRotationDeg = (steer: number, peak: number): number => {
     if (!Number.isFinite(steer)) return 0
     if (Number.isFinite(peak) && peak > STEER_RADIAN_PEAK) return steer
     return (steer * 180) / Math.PI
 }
 
-/**
- * Wheel angle for the readout: `0°` when straight, `−12°` left, `+12°` right.
- *
- * Anything under half a degree reads as straight, so noise around the
- * centre never shows `-0°`.
- *
- * @example
- * ```ts
- * formatSteerDeg(0.2) // "0°"
- * formatSteerDeg(-12.4) // "−12°"
- * formatSteerDeg(40) // "+40°"
- * ```
- */
 export const formatSteerDeg = (deg: number): string => {
     if (!Number.isFinite(deg)) return "0°"
     const rounded = Math.round(deg)
@@ -212,7 +146,6 @@ export const formatSteerDeg = (deg: number): string => {
     return `${rounded < 0 ? "−" : "+"}${Math.abs(rounded)}°`
 }
 
-/** Downsample columnar channels to at most `limit` points (keeps ends). */
 export const downsampleIndices = (count: number, limit: number): number[] => {
     if (count <= 0) return []
     if (count <= limit) {

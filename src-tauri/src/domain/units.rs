@@ -1,3 +1,5 @@
+//! Именованные величины
+
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]

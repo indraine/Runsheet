@@ -1,7 +1,3 @@
-/**
- * Tailwind classes per compare slot. Class names are written out in full so
- * the Tailwind scanner can see them.
- */
 export type LapTone = {
     text: string
     dot: string
@@ -40,14 +36,6 @@ const LAP_TONES: readonly LapTone[] = [
     },
 ]
 
-/**
- * Classes for a compare slot. Index `0` is the baseline.
- *
- * @example
- * ```ts
- * lapTone(1).text // "text-lap-b"
- * ```
- */
 export const lapTone = (index: number): LapTone =>
     LAP_TONES[Math.max(0, Math.min(index, LAP_TONES.length - 1))] ??
     LAP_TONES[0]!

@@ -1,3 +1,5 @@
+//! Стабильные идентификаторы выезда, строки сессии и круга. Каждый — 16 байт.
+
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]

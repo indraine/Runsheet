@@ -19,29 +19,11 @@ export type ChannelLayout = {
 
 const DEFAULT_ORDER: AnalysisChannel[] = [...ANALYSIS_CHANNELS]
 
-/**
- * Visible analysis channels in draw order.
- *
- * @example
- * ```ts
- * visibleChannels({ order: ["speed", "delta"], hidden: ["delta"] })
- * // ["speed"]
- * ```
- */
 export const visibleChannels = (
     layout: ChannelLayout
 ): AnalysisChannel[] =>
     layout.order.filter(channel => !layout.hidden.includes(channel))
 
-/**
- * Parse a stored channel drawer payload.
- *
- * @example
- * ```ts
- * parseChannelLayout('{"order":["speed"],"hidden":[]}')
- * // { order: ["speed", ...defaults], hidden: [] }
- * ```
- */
 export const parseChannelLayout = (
     raw: string | null
 ): ChannelLayout => {
@@ -78,7 +60,6 @@ export const writeChannelLayout = (layout: ChannelLayout): void => {
             })
         )
     } catch {
-        // Private mode still keeps the in-memory drawer.
     }
 }
 
@@ -89,7 +70,6 @@ export const toggleChannel = (
     const hidden = layout.hidden.includes(channel)
         ? layout.hidden.filter(item => item !== channel)
         : [...layout.hidden, channel]
-    // Keep at least one chart so the page never goes blank.
     if (hidden.length >= layout.order.length) return layout
     return { ...layout, hidden }
 }

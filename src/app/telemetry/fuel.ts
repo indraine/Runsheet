@@ -1,19 +1,5 @@
 import type { Lap } from "~/domain"
 
-/**
- * Litres used on a finished lap, from the fuel delta to the previous row.
- *
- * Open laps and the first row of a stint have no previous reading.
- *
- * @example
- * ```ts
- * fuelPerLap(
- *   { fuel: 55, timeMs: 90_000 },
- *   { fuel: 58, timeMs: 91_000 }
- * )
- * // 3
- * ```
- */
 export const fuelPerLap = (
     lap: Pick<Lap, "fuel" | "timeMs">,
     previous: Pick<Lap, "fuel"> | undefined
@@ -24,14 +10,6 @@ export const fuelPerLap = (
     return used
 }
 
-/**
- * Whole laps that fit in the tank at the latest known litres-per-lap.
- *
- * @example
- * ```ts
- * stintLapsLeft(55, 3) // 18
- * ```
- */
 export const stintLapsLeft = (
     fuelL: number,
     litresPerLap: number | undefined
@@ -47,19 +25,6 @@ export const stintLapsLeft = (
     return Math.floor(fuelL / litresPerLap)
 }
 
-/**
- * Mean litres-per-lap across a finished stint, newest last.
- *
- * @example
- * ```ts
- * meanFuelPerLap([
- *   { fuel: 61, timeMs: 91_000 },
- *   { fuel: 58, timeMs: 90_500 },
- *   { fuel: 55, timeMs: 90_000 },
- * ])
- * // 3
- * ```
- */
 export const meanFuelPerLap = (
     laps: readonly Pick<Lap, "fuel" | "timeMs">[]
 ): number | undefined => {

@@ -197,8 +197,6 @@ export function TimelinePage() {
                             return undefined
                         }
                         const shown = () => review() ?? live()
-                        // A session starting while the table fills the page:
-                        // back to 50/50 so the live card shows on the right.
                         createEffect(
                             on(
                                 () => live()?.session.id,
@@ -209,7 +207,6 @@ export function TimelinePage() {
                             )
                         )
                         const hasPast = () => sheet().past.length > 0
-                        // Without a table there is no button to restore it.
                         const expanded = () => {
                             const mode = homeLayout().expanded
                             return mode === "left" && !hasPast() ? "none" : mode
@@ -506,7 +503,6 @@ function ClosedRow(props: {
                 props.opened && "bg-inset"
             )}
             onClick={() => {
-                // A click that ends a text selection is not a request to open.
                 if (window.getSelection()?.toString()) return
                 props.onOpen(props.session)
             }}

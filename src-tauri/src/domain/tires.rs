@@ -1,3 +1,5 @@
+//! Четыре значения по колёсам, в порядке FL, FR, RL, RR.
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TireSet<T> {
     pub front_left: T,

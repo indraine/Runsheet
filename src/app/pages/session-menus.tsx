@@ -20,7 +20,6 @@ import type { ExportFormat } from "~/db"
 import { t } from "~/i18n"
 import { buttonVariants, cn } from "~/ui"
 
-/** Attribute a table row carries so the context menu can find its session. */
 const SESSION_ROW_ATTR = "data-session-id"
 
 const contentClass =
@@ -34,7 +33,6 @@ const dangerItemClass =
 
 const iconProps = { class: "size-4", strokeWidth: 1.75 } as const
 
-/** Button above the table: which columns the table shows. */
 export function ColumnsMenu(props: {
     label: (column: SessionColumn) => string
 }) {
@@ -104,13 +102,6 @@ export function ColumnsMenu(props: {
     )
 }
 
-/**
- * Right-click menu for the rows inside `children`.
- *
- * The click is read in the capture phase, before Ark sees it. A row (an
- * element with `data-session-id`) is reported through `onTarget` and the menu
- * opens. Anywhere else the click is swallowed and no menu opens.
- */
 export function SessionContextMenu(props: {
     class?: string
     onTarget: (sessionId: string) => void

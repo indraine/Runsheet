@@ -26,7 +26,6 @@ export type SectorLayout = {
     bands: readonly SectorBand[]
 }
 
-/** Closed asphalt ribbon: left boundary forward, right boundary reversed. */
 export const asphaltPolygon = (
     bounds: TrackBoundaries
 ): PlanarPoint[] => {
@@ -42,7 +41,6 @@ export const asphaltPolygon = (
     return ring
 }
 
-/** Asphalt ribbon for one distance span along the loop. */
 export const ribbonBetween = (
     bounds: TrackBoundaries,
     fromM: number,
@@ -75,7 +73,6 @@ export const ribbonBetween = (
 export const closedLength = (points: readonly PlanarPoint[]): number =>
     pathLength(points, true)
 
-/** Point on a closed centerline at a driven distance (metres from S/F). */
 export const pointAlongClosed = (
     points: readonly PlanarPoint[],
     distanceM: number
@@ -87,7 +84,6 @@ export const pointAlongClosed = (
     return lerp(points, located.index, located.t)
 }
 
-/** Resolve S1/S2 ends; missing values fall back to equal thirds of the loop. */
 export const resolveSectorEnds = (
     length: number,
     s1EndM?: number | null,

@@ -1,7 +1,3 @@
-# Builds Windows MSI + portable .exe and publishes a GitHub Release on version tags.
-# macOS/Linux are omitted: ACC Shared Memory (live telemetry) is Windows-only.
-#
-# CI uses npm (not Bun): bun install frequently hangs on windows-latest runners.
 name: Release
 
 on:
@@ -37,7 +33,6 @@ jobs:
         timeout-minutes: 10
         run: npm install
 
-      # MSI only (no NSIS *-setup.exe — easy to confuse with the portable app).
       - name: Build and publish MSI to GitHub Release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -47,8 +42,6 @@ jobs:
           releaseName: 'Runsheet v__VERSION__'
           releaseDraft: false
           prerelease: false
-          # Edit this body before pushing the next version tag.
-          # An unchanged body republishes the previous release's notes.
           releaseBody: |
             ## Runsheet v1.5.0 — Export, Polish & Precision ⚡
 
@@ -97,8 +90,6 @@ jobs:
             > Live ACC Shared Memory requires Windows. See the [README](https://github.com/indraine/Runsheet#readme) for details.
 
             **Full Changelog**: https://github.com/indraine/Runsheet/compare/v1.4.0...v1.5.0
-          # Avoid "npm run tauri -- … -- …" — the extra "--" leaks into cargo.
-          # MSI-only is already set via bundle.targets in tauri.conf.json.
           tauriScript: npm run tauri
           assetNamePattern: 'Runsheet-[version]-windows-[arch]-installer[ext]'
 

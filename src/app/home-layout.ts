@@ -2,11 +2,9 @@ import { createSignal } from "solid-js"
 
 export type HomePane = "left" | "right"
 
-/** Which pane fills the whole page, or `none` for the split view. */
 export type HomeExpanded = HomePane | "none"
 
 export type HomeLayout = {
-    /** Share of the page width the right pane takes in the split view. */
     split: number
     expanded: HomeExpanded
 }
@@ -24,12 +22,6 @@ export const DEFAULT_LAYOUT: HomeLayout = {
     expanded: "none",
 }
 
-/**
- * Keep a split inside the range where both panes stay usable. Anything that is
- * not a finite number gives the default.
- *
- * clampSplit(0.9) -> 0.75
- */
 export const clampSplit = (value: number): number => {
     if (!Number.isFinite(value)) return DEFAULT_SPLIT
     return Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, value))
@@ -38,13 +30,6 @@ export const clampSplit = (value: number): number => {
 const isExpanded = (value: unknown): value is HomeExpanded =>
     value === "left" || value === "right" || value === "none"
 
-/**
- * Layout from a stored JSON object. A broken value, or a broken field of it,
- * falls back to the default for that field.
- *
- * parseHomeLayout('{"split":0.4,"expanded":"left"}')
- *   -> { split: 0.4, expanded: "left" }
- */
 export const parseHomeLayout = (stored: string | null): HomeLayout => {
     if (!stored) return DEFAULT_LAYOUT
     let parsed: unknown
@@ -61,10 +46,6 @@ export const parseHomeLayout = (stored: string | null): HomeLayout => {
     }
 }
 
-/**
- * The pane to expand when `pane` is toggled: the same pane again restores the
- * split view.
- */
 export const toggleExpanded = (
     current: HomeExpanded,
     pane: HomePane
@@ -88,7 +69,6 @@ const storeLayout = (layout: HomeLayout): void => {
     try {
         localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
     } catch {
-        // The choice still holds until the window closes.
     }
 }
 
@@ -105,7 +85,6 @@ export const toggleHomePane = (pane: HomePane): void => {
     storeLayout({ ...layout, expanded: toggleExpanded(layout.expanded, pane) })
 }
 
-/** Back to the split view when the table fills the page and hides the live card. */
 export const showRightPane = (): void => {
     const layout = homeLayout()
     if (layout.expanded !== "left") return

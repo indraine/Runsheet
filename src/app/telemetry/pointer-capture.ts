@@ -15,17 +15,10 @@ type PointerHost = PointerSurface & {
     querySelector: (selector: string) => PointerSurface | null
 }
 
-/** A dialog or an open Ark popup is on screen, so a chart must not keep the pointer. */
 export const popupBlocksCanvas = (
     root: { querySelector: (selector: string) => unknown } = document
 ): boolean => root.querySelector(POPUP_SELECTOR) !== null
 
-/**
- * Drop capture on the plot host and its canvas.
- *
- * The host captures a drag. The canvas can still hold the browser's implicit
- * capture, and a later click then never reaches a select.
- */
 export const releaseHeldPointer = (
     host: PointerHost,
     pointerId: number
@@ -91,12 +84,6 @@ const stopWatch = () => {
     listening = false
 }
 
-/**
- * Release pointer capture when the button comes up, when a select or dialog
- * opens, and when the returned function runs from `onCleanup`.
- *
- * `onSuspend` runs only when a popup takes the pointer away mid-gesture.
- */
 export const guardPointerCapture = (
     host: HTMLElement,
     onSuspend?: () => void

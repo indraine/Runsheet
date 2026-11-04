@@ -1,3 +1,8 @@
+//! Открытый круг, пересечение линии и бинарный пакет круга для IPC.
+//!
+//! После линии сборщик коротко ждёт, пока игра опубликует своё время круга.
+//! Сэмплы внутри круга хранятся с шагом 50 мс. Упакованные байты — фиксированный заголовок и по одной плоскости на канал.
+
 use uuid::Uuid;
 
 use crate::domain::{LapId, LapTime, SessionEvent, SessionId};
@@ -8,14 +13,10 @@ const LAP_CLOCK_GUARD_MS: i32 = 3_000;
 
 const CLOCK_DROP_MS: i32 = 1_500;
 
-/// How long a lap waits after the line for the game to publish its own time.
 const LINE_WAIT_MS: u64 = 300;
 
-/// Same threshold the sequencer uses for "the car is moving".
 const OUTLAP_SPEED_KMH: f32 = 5.0;
 
-/// An in-lap with no sector split is still kept once it has been driven this long.
-/// The few seconds between the line and the pit entry are not a lap.
 const INLAP_KEEP_MS: u64 = 15_000;
 
 const CHANNEL_COUNT: usize = 19;
@@ -60,13 +61,9 @@ pub(crate) struct Sample {
     pub abs: i32,
     pub engine_map: i32,
     pub brake_bias: f32,
-    /// Race sessions stay closed until the green flag is shown.
     pub race: bool,
-    /// Green flag or the global green light from the graphics page.
     pub green: bool,
-    /// Pit lane from the entry line to the exit line. ACC `isInPitLane`.
     pub in_pit_lane: bool,
-    /// Pit box stall. ACC `isInPit`. Standing in the box sets the lane flag too.
     pub in_pit_box: bool,
 }
 
@@ -77,20 +74,11 @@ pub(crate) struct Collector {
     crossing: Option<Crossing>,
     watch: StartWatch,
     events: Vec<SessionEvent>,
-    /// Previous sample was in the pit lane or the pit box.
     was_in_pits: bool,
-    /// Next lap number when it must not follow `completed_lap + 1`.
     pending_number: Option<i32>,
-    /// Highest `completed_lap` seen while the car is in the pits.
     lane_completed: Option<i32>,
 }
 
-/// The line was seen, but the game has not published the lap time yet.
-///
-/// `completedLap` and `iLastTime` arrive a few frames after the clock resets.
-/// Closing on the first frame would fall back to the last clock reading, which
-/// is a frame older than the line. The samples seen since are kept and replayed
-/// into the next lap.
 #[derive(Debug)]
 struct Crossing {
     since_ms: u64,
@@ -121,7 +109,6 @@ impl Collector {
         self.open.as_ref().map(|open| open.number)
     }
 
-    /// Splits of the lap currently being driven, if the start line has been crossed.
     pub(crate) fn open_split(&self) -> Option<OpenSplit> {
         let open = self.open.as_ref()?;
         Some(OpenSplit {
@@ -173,9 +160,6 @@ impl Collector {
             return None;
         }
         if self.open.is_none() {
-            // The sample that closed a lap is already past the line, so it
-            // starts the next one. A stint that is already rolling opens now,
-            // so the outlap is stored instead of waiting for the line.
             let start = closed.is_some() || self.watch.ready(sample) || outlap_due(sample);
             if !start {
                 self.watch.observe(sample);
@@ -187,16 +171,12 @@ impl Collector {
         closed
     }
 
-    /// The start/finish line inside the pit lane does not end the in-lap and
-    /// does not start the next one. That lap begins at the pit exit.
     fn hold_in_pits(&mut self, sample: &Sample) -> Option<Vec<u8>> {
         self.was_in_pits = true;
         self.watch = StartWatch::default();
         self.remember_completed(sample.completed_lap);
 
         if self.crossing.is_some() {
-            // The line was crossed on track; the lap the game just opened has
-            // not been driven. Drop it before a preview can leave.
             let closed = self.settle(sample);
             self.discard_unseen();
             return closed;
@@ -213,7 +193,6 @@ impl Collector {
         None
     }
 
-    /// Closes the in-lap without a finishing sector and opens the outlap.
     fn begin_outlap(&mut self, sample: &Sample) -> Option<Vec<u8>> {
         let game = self
             .lane_completed
@@ -268,7 +247,6 @@ impl Collector {
         pack(&open.retire())
     }
 
-    /// The lap was opened in this same push and never previewed.
     fn discard_unseen(&mut self) {
         if let Some(open) = self.open.take() {
             self.pending_number = Some(open.number);
@@ -290,7 +268,6 @@ impl Collector {
         self.watch = StartWatch::default();
     }
 
-    /// Waits for the game's own lap time after the line, then closes the lap.
     fn settle(&mut self, sample: &Sample) -> Option<Vec<u8>> {
         let grown = self
             .open
@@ -330,8 +307,6 @@ impl Collector {
         Some(self.close(boundary))
     }
 
-    /// Ends the open lap. The boundary carries the game's own time once
-    /// `completedLap` has grown; otherwise the last clock reading stands in.
     fn close(&mut self, boundary: &Sample) -> Vec<u8> {
         let Some(open) = self.open.take() else {
             return Vec::new();
@@ -413,12 +388,8 @@ struct OpenLap {
     last_lap_time_ms: Option<i32>,
     last_progress: Option<f32>,
     origin_mono: u64,
-    /// Clock the sheet shows. Zero at the lap open, even when the game clock
-    /// was already running through the pit lane.
     shown_ms: Option<i32>,
     from_pit_exit: bool,
-    /// Game lap clock at the open, subtracted so a pit-lane timer does not
-    /// count as part of the outlap.
     game_origin_ms: i32,
     points: Vec<LapPoint>,
 }
@@ -460,8 +431,6 @@ impl OpenLap {
     }
 
     fn finish(self, boundary: &Sample) -> Finished {
-        // A lap that started at the pit exit keeps the clock we ran from that
-        // line. The game's last time still includes the pit lane.
         let time_ms = if self.from_pit_exit {
             self.shown_ms.and_then(real_ms)
         } else if boundary.completed_lap > self.completed_at_open {
@@ -554,9 +523,6 @@ impl OpenLap {
         }
     }
 
-    /// Sheet clock. The game clock wins while it is counting from this lap.
-    /// Otherwise the time since the lap opened is used, which is the outlap
-    /// while ACC holds `iCurrentTime` at zero.
     fn clock_ms(&self, sample: &Sample) -> i32 {
         if clock_ticking(sample.lap_time_ms) {
             return sample
@@ -584,8 +550,6 @@ impl OpenLap {
             return None;
         }
         let recorded = if sector_index == 1 && self.s1_ms.is_none() {
-            // After a pit exit the game split still starts at the line inside
-            // the lane. The sheet's split starts at the exit.
             let ms = if self.from_pit_exit {
                 real_ms(lap_ms)
             } else {
@@ -623,10 +587,6 @@ impl OpenLap {
     }
 }
 
-/// One high-rate sample along an open lap (packed into the IPC plane).
-///
-/// Ground plane uses ACC `x`/`z` (world Y is vertical). `timestamp` is the
-/// in-lap clock in milliseconds.
 #[derive(Debug, Clone)]
 struct LapPoint {
     distance: f32,
@@ -693,7 +653,6 @@ struct Finished {
     engine_map: i32,
     brake_bias: f32,
     max_speed: f32,
-    /// The lap was opened and then thrown away. The sheet drops this id.
     retire: bool,
     points: Vec<LapPoint>,
 }
@@ -715,20 +674,14 @@ fn split_after(lap_ms: i32, previous: Option<i32>) -> Option<i32> {
     sector_duration(lap_ms, previous)
 }
 
-/// Where the open lap is on track. The game's sector index is `0`, `1`, or `2`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct OpenSplit {
     pub sector_index: i32,
     pub s1_ms: Option<i32>,
     pub s2_ms: Option<i32>,
-    /// Lap clock to paint. Counts from the pit exit when the game clock does not.
     pub shown_ms: Option<i32>,
 }
 
-/// Progress and lap clock seen before a lap is allowed to open.
-///
-/// Sitting on the grid has a sector index and a frozen clock, but the car
-/// has not crossed the start line. That must not become lap 1 sector 1.
 #[derive(Debug, Default)]
 struct StartWatch {
     progress: Option<f32>,
@@ -749,7 +702,6 @@ impl StartWatch {
         if !sample.race {
             return true;
         }
-        // Formation and the grid can cross the line while the flag is still out.
         sample.green && (clock_ticking(sample.lap_time_ms) || sample.lap_time_ms == 0)
     }
 
@@ -771,11 +723,6 @@ impl StartWatch {
     }
 }
 
-/// The car is rolling and the lap has not opened yet.
-///
-/// A race with the green flag still down is the grid or the formation lap.
-/// That wait stays blank. Once the lap opens, the outlap is stored with its
-/// sectors and stays on the sheet after the line.
 pub(crate) fn show_outlap(lap_open: bool, rolling: bool, race: bool, green: bool) -> bool {
     rolling && !lap_open && (!race || green)
 }
@@ -792,11 +739,6 @@ fn clock_ticking(ms: i32) -> bool {
     ms > 0 && ms <= MAX_LAP_MS
 }
 
-/// Elapsed time inside the sector the car is in.
-///
-/// Sector `0` is the lap clock. Later sectors subtract the splits already
-/// stored on the open lap. A missing split stays blank instead of repeating
-/// the previous sector.
 pub(crate) fn sector_elapsed(
     lap_ms: i32,
     sector_index: i32,
@@ -853,7 +795,6 @@ fn pack(lap: &Finished) -> Vec<u8> {
     write_f32(&mut out, lap.s1_end_m.unwrap_or(MISSING_M));
     write_f32(&mut out, lap.s2_end_m.unwrap_or(MISSING_M));
     out.push(u8::from(lap.valid));
-    // Byte 65 tells the sheet to drop this lap id. The two bytes after stay zero.
     out.push(u8::from(lap.retire));
     out.extend_from_slice(&[0, 0]);
     write_f32(&mut out, lap.fuel);
@@ -960,8 +901,6 @@ mod tests {
         open.s1_ms = Some(35_830);
         open.s2_ms = Some(39_392);
 
-        // Boundary triggered by line_crossed before completed_lap increments:
-        // boundary.last_time_ms is still stale (115_330 from lap 1)
         let boundary = dummy_sample(1, 10, 115_330);
         let finished = open.finish(&boundary);
 
@@ -977,8 +916,6 @@ mod tests {
         open.s1_ms = Some(35_830);
         open.s2_ms = Some(39_392);
 
-        // Boundary triggered after completed_lap increments:
-        // boundary.last_time_ms is now officially updated to 112_235
         let boundary = dummy_sample(2, 10, 112_235);
         let finished = open.finish(&boundary);
 
@@ -1012,7 +949,6 @@ mod tests {
     fn line_waits_for_the_official_time_of_the_game() {
         let mut collector = waiting_collector();
 
-        // The clock reset is seen first, the official time is still stale.
         assert!(collector.push(&at(2_000, 1, 10, 115_330)).is_none());
         let closed = collector.push(&at(2_016, 2, 26, 112_235));
 

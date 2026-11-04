@@ -9,11 +9,6 @@ import {
 } from "~/app/screen-position"
 import { Tabs, cn } from "~/ui"
 
-/**
- * Width of the nearest `@container` from which the tabs are shown. Narrower
- * than that a select takes their place. The class names are written out so
- * Tailwind can find them.
- */
 const SWITCH = {
     md: { tabs: "hidden @md:block", select: "@md:hidden" },
     lg: { tabs: "hidden @lg:block", select: "@lg:hidden" },
@@ -27,10 +22,6 @@ export type TabsBreakpoint = keyof typeof SWITCH
 const itemClass =
     "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[12px] text-secondary outline-none data-highlighted:bg-inset data-highlighted:text-ink data-[state=checked]:text-accent"
 
-/**
- * Tabs that fold into a select when their container is too narrow.
- * The parent must be an `@container`.
- */
 export function AdaptiveTabs<T extends string>(props: {
     items: readonly T[]
     value: T

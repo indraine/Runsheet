@@ -5,7 +5,6 @@ import { Tabs } from "~/ui"
 
 const NAMES = { ru: "Русский", en: "English" } as const
 
-/** Both languages at once, each in its own language, so it is findable by a reader of either. */
 export const LocaleSwitch = () => (
     <Tabs.Root
         value={locale()}

@@ -46,12 +46,6 @@ const OPTIONS: readonly Option[] = [
     },
 ]
 
-/**
- * Format choice for the export: JSON, the compact binary file, MoTeC (soon).
- *
- * The files are built when the dialog opens, so the size on each row is the
- * real size of the file that will be saved, not an estimate.
- */
 export function ExportDialog(props: {
     repository: SessionRepository
     onClose: () => void

@@ -1,14 +1,11 @@
 import { TRACE_CHANNELS, type Lap, type Session, type Trace } from "~/domain"
 import type { RunsheetDatabase } from "~/db/schema"
 
-/** Bump when the bundled files or their conversion change: rows are rewritten. */
 export const REFERENCE_VERSION = 1
 
-/** One reference lap as written by `scripts/ld-to-reference.py`. */
 export type ReferenceFile = {
     track: string
     car: string
-    /** Pilot name from the log; `null` when the log has none. */
     driver: string | null
     recordedAt: number
     timeMs: number
@@ -22,10 +19,6 @@ export type ReferenceLap = { session: Session; lap: Lap; trace: Trace }
 export const referenceId = (file: Pick<ReferenceFile, "track" | "car">) =>
     `ref-${file.track}-${file.car}`
 
-/**
- * Turn a converted MoTeC lap into rows of the store. Channels the log does not
- * have (positions, heading) are zeros, so the map stays hidden for them.
- */
 export const referenceLap = (file: ReferenceFile): ReferenceLap => {
     const id = referenceId(file)
     const count = file.channels.distance?.length ?? 0
@@ -84,12 +77,6 @@ const loadFiles = async (): Promise<ReferenceFile[]> => {
     return Promise.all(Object.values(modules).map(load => load()))
 }
 
-/**
- * Put the bundled reference laps into the database. Only the missing or
- * outdated ones are written, so a restart costs one read of the sessions.
- *
- * @returns how many laps were written.
- */
 export async function seedReferenceLaps(
     db: RunsheetDatabase,
     files?: readonly ReferenceFile[]

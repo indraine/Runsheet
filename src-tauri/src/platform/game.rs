@@ -1,3 +1,5 @@
+//! Находит исполняемый файл ACC, запускает его и переводит место сессии в присутствие для UI.
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 

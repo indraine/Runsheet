@@ -1,4 +1,7 @@
 #![cfg_attr(not(any(windows, test)), allow(dead_code))]
+//! Ограниченная очередь от потока чтения к потребителю.
+//!
+//! Более новый тик того же линка заменяет ещё не забранный (`PushResult::Coalesced`).
 
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};

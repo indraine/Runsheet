@@ -5,17 +5,13 @@ import {
 } from "~/app/telemetry/sample"
 import type { Trace } from "~/domain"
 
-/** Which channel pulls the two laps apart the most inside a stretch. */
 export type DivergenceCause = "brake" | "throttle" | "steer" | "speed"
 
-/** A stretch of the lap where the two traces pull apart. */
 export type DivergenceZone = {
     startM: number
     endM: number
-    /** Peak normalized disagreement inside the stretch, roughly 0..1. */
     peak: number
     cause: DivergenceCause
-    /** Compare-slot color index of the non-baseline lap (1..3). */
     colorIndex: number
 }
 
@@ -44,18 +40,6 @@ const PAD_MIN_M = 16
 const PAD_MAX_M = 40
 const PAD_FRACTION = 0.2
 
-/**
- * Stretches where throttle, brake, steer, or speed disagree.
- *
- * A chicane stays one stretch: nearby peaks are merged. A difference that
- * covers most of the lap is dropped — it is not a section you can open.
- *
- * @example
- * ```ts
- * const zones = divergenceZones(primary, reference, 1)
- * zones[0]?.startM // metres where the laps first pull apart
- * ```
- */
 export const divergenceZones = (
     primary: Trace | undefined,
     reference: Trace | undefined,
@@ -100,14 +84,6 @@ export const divergenceZones = (
     }))
 }
 
-/**
- * Zones of each compare lap against the baseline, tagged with that lap's color.
- *
- * @example
- * ```ts
- * compareDivergenceZones(baseline, [lapB, lapC])
- * ```
- */
 export const compareDivergenceZones = (
     baseline: Trace | undefined,
     others: readonly (Trace | undefined)[]
@@ -123,21 +99,6 @@ export const compareDivergenceZones = (
     return zones
 }
 
-/**
- * Window around a zone with entry and exit still in frame.
- *
- * The window is widened so the same chart width covers tens of metres
- * instead of the whole lap, and the cursor moves through the corner finely.
- *
- * @example
- * ```ts
- * zoneWindow(
- *   { startM: 200, endM: 260, peak: 0.4, cause: "brake" },
- *   { min: 0, max: 1000 }
- * )
- * // { min: 184, max: 276 }
- * ```
- */
 export const zoneWindow = (
     zone: DivergenceZone,
     span: DistanceWindow

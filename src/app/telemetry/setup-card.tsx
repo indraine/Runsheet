@@ -17,7 +17,6 @@ export type SetupRow = {
     colorIndex: number
     label: string
     lap: Lap
-    /** Trace sample at the cursor; hot pressures come from here. */
     sample: TraceSample | undefined
     fuelPerLap: number | undefined
 }
@@ -118,7 +117,6 @@ const WikiTip = (props: {
     </Tooltip.Root>
 )
 
-/** Electronics, hot pressures at the cursor and fuel use for each compared lap. */
 export const SetupCard = (props: {
     rows: readonly SetupRow[]
     stintLapsLeft: number | undefined

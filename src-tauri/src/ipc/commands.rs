@@ -1,3 +1,5 @@
+//! Тонкие обработчики команд: найти ACC, запустить её, сохранить файл, который UI уже собрал.
+
 use super::response::IpcResponse;
 use crate::platform::game;
 
@@ -15,10 +17,6 @@ pub(crate) fn launch_acc() -> IpcResponse<()> {
     )
 }
 
-/// Saves the raw request body to a file the user picks.
-///
-/// The name, the filter label and the extension come as headers, so the file
-/// travels as bytes without being wrapped in JSON.
 #[tauri::command]
 pub(crate) fn save_file(request: tauri::ipc::Request<'_>) -> IpcResponse<bool> {
     let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {

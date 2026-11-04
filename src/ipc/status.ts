@@ -34,17 +34,11 @@ export type AccStatus = {
     packetId: number | null
     session: Session | null
     lapNumber: number | null
-    /** Game sector index, `0..2`, once a lap is open. */
     sector: number | null
-    /** Running lap clock from the graphics page, in milliseconds. */
     currentLapMs: number | null
-    /** Running time inside the current sector, in milliseconds. */
     sectorMs: number | null
-    /** Official first-sector split already recorded on the open lap. */
     s1Ms: number | null
-    /** Official second-sector split already recorded on the open lap. */
     s2Ms: number | null
-    /** Driving to the line. The sheet shows a hint and does not store a lap. */
     outlap: boolean
     speed: number | null
     airTemp: number | null
@@ -52,7 +46,6 @@ export type AccStatus = {
     events: AccStatusEvent[]
 }
 
-/** Lap clock painted on the live card. It is not written to the sheet. */
 export type LiveClock = {
     sessionId: string
     outlap: boolean
@@ -95,34 +88,6 @@ export const parseAccStatus = (payload: unknown): AccStatus | undefined => {
     }
 }
 
-/**
- * Live lap clock, or an outlap marker while the car is driving to the line.
- *
- * Without a lap number and without `outlap`, the car is on the grid or in
- * the formation lap. A stale graphics time stays off the card.
- *
- * @example
- * ```ts
- * liveClockFromStatus({
- *   link: "linked",
- *   presence: "onTrack",
- *   packetId: 1,
- *   session: null,
- *   lapNumber: null,
- *   sector: null,
- *   currentLapMs: 111_000,
- *   sectorMs: null,
- *   s1Ms: null,
- *   s2Ms: null,
- *   outlap: false,
- *   speed: null,
- *   airTemp: null,
- *   roadTemp: null,
- *   events: [],
- * })
- * // undefined
- * ```
- */
 export const liveClockFromStatus = (
     status: AccStatus
 ): LiveClock | undefined => {

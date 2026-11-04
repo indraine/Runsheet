@@ -35,7 +35,6 @@ export type ChannelTrace = {
 
 export const ChannelView = (props: {
     kind: ChannelKind
-    /** First entry is the baseline. */
     traces?: readonly ChannelTrace[]
     cursorM: number
     onCursor: (distanceM: number) => void
@@ -291,8 +290,6 @@ const drawChannel = (
     if (kind === "delta") {
         const ySpan = yRange.max - yRange.min
         const zeroY = PAD.top + innerH * (1 - (0 - yRange.min) / ySpan)
-        // Fill between each curve and the zero line, then the zero line itself
-        // in the baseline color: the baseline is the reference at zero.
         for (let index = traces.length - 1; index >= 1; index -= 1) {
             const item = traces[index]
             if (!item) continue
@@ -327,7 +324,6 @@ const drawChannel = (
             alpha: 1,
         })
     }
-    // Draw overlays first so the baseline stays on top.
     for (let index = traces.length - 1; index >= 0; index -= 1) {
         const item = traces[index]
         if (!item) continue
@@ -494,7 +490,6 @@ const seriesPoints = (
     return points
 }
 
-/** Gear as a step line: hold value until the next sample. */
 const stepPoints = (
     trace: Trace,
     range: { min: number; max: number },

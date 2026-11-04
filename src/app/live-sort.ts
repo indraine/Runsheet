@@ -15,7 +15,6 @@ export type LiveSortKey = (typeof LIVE_SORT_KEYS)[number]
 
 export type LiveSort = { key: LiveSortKey; descending: boolean }
 
-/** Header click: ascending, then descending, then the natural lap order. */
 export const nextLiveSort = (
     current: LiveSort | undefined,
     key: LiveSortKey
@@ -46,7 +45,6 @@ const valueOf = (row: LiveLapRow, key: LiveSortKey): number | null => {
     }
 }
 
-/** Rows without a value stay at the bottom in either direction. */
 export const sortLiveRows = (
     rows: readonly LiveLapRow[],
     sort: LiveSort | undefined

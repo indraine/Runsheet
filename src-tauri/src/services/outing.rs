@@ -1,3 +1,8 @@
+//! Когда строка листа открывается и когда закрывается.
+//!
+//! Строка — один заезд: тот же вид, индекс сессии, трасса, машина и флаг онлайна.
+//! Уход из сессии на `OUTING_GAP_MS` её закрывает. Пауза строку не закрывает.
+
 use crate::domain::{Frame, GameStatus, OutingEvent, OutingId, Session, SessionId, SessionKind};
 
 pub(crate) const OUTING_GAP_MS: u64 = 500;
@@ -22,7 +27,6 @@ struct RowKey {
     track: String,
     car: String,
     online: bool,
-    /// Wall clock of the live sight that opened this row after `Off` or a 500 ms gap.
     joined_at_ms: u64,
 }
 
@@ -176,8 +180,6 @@ fn away(sight: &Sight) -> bool {
 
 fn react(machine: &mut OutingMachine, tick: &Tick) -> Vec<OutingEvent> {
     let mut events = Vec::new();
-    // Still gone after the gap: archive the outing. A live frame after the
-    // same gap is a new join and keeps the outing, closing only the row.
     if away(&tick.sight) && machine.gap_reached(tick.mono_ms) {
         events.extend(machine.close(tick.wall_ms));
     }

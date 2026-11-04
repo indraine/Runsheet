@@ -13,18 +13,10 @@ import { layoutPoint } from "~/app/zoom-space"
 import { t } from "~/i18n"
 import { buttonVariants, cn } from "~/ui"
 
-/** Width of the drag handle between the panes: Tailwind `w-6`. */
 const HANDLE_PX = 24
 
-/** Keyboard step of the handle, as a share of the page width. */
 const KEY_STEP = 0.02
 
-/**
- * Two panes with a drag handle between them. One pane can fill the whole
- * page; the other stays mounted, only hidden, so it keeps its state.
- * `expanded` comes from the caller: a pane without anything to expand into
- * must not leave the page stuck on the other one.
- */
 export function HomeSplit(props: {
     expanded: HomeExpanded
     left: JSX.Element
@@ -128,7 +120,6 @@ function Handle(props: {
     )
 }
 
-/** Button in a pane's header: fill the page with this pane, or restore. */
 export function PaneToggle(props: { pane: HomePane; class?: string }) {
     const expanded = () => homeLayout().expanded === props.pane
     const label = () =>

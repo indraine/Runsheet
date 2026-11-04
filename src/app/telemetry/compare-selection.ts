@@ -1,18 +1,15 @@
 const COMPARE_KEY = "runsheet.telemetry-compare"
 export const MAX_COMPARE_LAPS = 4
 
-/** Lap set last confirmed on the telemetry page. First id is the baseline. */
 export type StoredComparison = {
     lapIds: string[]
 }
 
-/** A lap that can be checked against a stored comparison. */
 export type CompareLap = {
     id: string
     track: string
 }
 
-/** A catalog lap that can stand for a timeline session. */
 export type SessionLapRef = {
     id: string
     sessionId: string
@@ -20,18 +17,6 @@ export type SessionLapRef = {
     timeMs: number | null
 }
 
-/**
- * Read a stored comparison payload.
- *
- * Accepts the current `{ lapIds }` shape and the older primary/reference
- * pair so a reload after the upgrade keeps the last selection.
- *
- * @example
- * ```ts
- * parseStoredComparison('{"lapIds":["a","b"]}')
- * // { lapIds: ["a", "b"] }
- * ```
- */
 export const parseStoredComparison = (
     raw: string | null
 ): StoredComparison | undefined => {
@@ -55,21 +40,6 @@ export const parseStoredComparison = (
     return { lapIds: ids }
 }
 
-/**
- * Keep stored ids that still exist on the same track as the first lap.
- *
- * An unknown first lap drops the whole set. Later ids on another track or
- * past the four-lap ceiling are dropped.
- *
- * @example
- * ```ts
- * restoreComparison(
- *   [{ id: "a", track: "spa" }, { id: "b", track: "spa" }],
- *   { lapIds: ["a", "b"] }
- * )
- * // { lapIds: ["a", "b"] }
- * ```
- */
 export const restoreComparison = (
     laps: readonly CompareLap[],
     stored: StoredComparison | undefined
@@ -89,15 +59,6 @@ export const restoreComparison = (
     return { lapIds: kept }
 }
 
-/**
- * Cap and dedupe a manual selection. The first id stays the baseline.
- *
- * @example
- * ```ts
- * normalizeLapIds(["a", "a", "b", "c", "d", "e"])
- * // ["a", "b", "c", "d"]
- * ```
- */
 export const normalizeLapIds = (ids: readonly string[]): string[] => {
     const kept: string[] = []
     for (const id of ids) {
@@ -109,24 +70,6 @@ export const normalizeLapIds = (ids: readonly string[]): string[] => {
     return kept
 }
 
-/**
- * Lap that should open first when a timeline session is compared.
- *
- * The preferred lap wins when it still belongs to that session. Otherwise
- * the fastest valid lap is used, then any timed lap.
- *
- * @example
- * ```ts
- * primaryLapForSession(
- *   [
- *     { id: "slow", sessionId: "s", valid: true, timeMs: 90_000 },
- *     { id: "fast", sessionId: "s", valid: true, timeMs: 80_000 },
- *   ],
- *   "s"
- * )
- * // { id: "fast", sessionId: "s", valid: true, timeMs: 80_000 }
- * ```
- */
 export const primaryLapForSession = <T extends SessionLapRef>(
     laps: readonly T[],
     sessionId: string,
@@ -147,7 +90,6 @@ export const primaryLapForSession = <T extends SessionLapRef>(
     )
 }
 
-/** Last comparison saved in this browser, if the payload is still valid. */
 export const readStoredComparison = (): StoredComparison | undefined => {
     if (typeof localStorage === "undefined") return undefined
     try {
@@ -157,7 +99,6 @@ export const readStoredComparison = (): StoredComparison | undefined => {
     }
 }
 
-/** Remember the comparison that should come back after a reload. */
 export const writeStoredComparison = (comparison: StoredComparison): void => {
     if (typeof localStorage === "undefined") return
     try {
@@ -165,17 +106,14 @@ export const writeStoredComparison = (comparison: StoredComparison): void => {
         if (lapIds.length === 0) return
         localStorage.setItem(COMPARE_KEY, JSON.stringify({ lapIds }))
     } catch {
-        // Storage can be unavailable in private mode. The page still works.
     }
 }
 
-/** Drop a comparison that no longer matches a lap in the catalog. */
 export const clearStoredComparison = (): void => {
     if (typeof localStorage === "undefined") return
     try {
         localStorage.removeItem(COMPARE_KEY)
     } catch {
-        // Same as write: a storage failure leaves the in-memory page usable.
     }
 }
 

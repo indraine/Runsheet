@@ -1,3 +1,5 @@
+//! Снимок статуса для живой карточки: линк, присутствие, выезд и часы открытого круга.
+
 use serde::Serialize;
 
 use crate::domain::{OutingEvent, OutingId, Session, SessionKind};

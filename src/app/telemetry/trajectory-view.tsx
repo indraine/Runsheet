@@ -73,7 +73,6 @@ export type TrajectoryLine = {
     id: string
     label: string
     trace: Trace
-    /** Palette slot; `0` is the baseline. */
     colorIndex: number
 }
 

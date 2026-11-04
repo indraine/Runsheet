@@ -132,7 +132,6 @@ export const applySimilarity = (
     }
 }
 
-/** Mean distance (m) from the placed points to the centre line. */
 export const fitError = (
     center: readonly PlanarPoint[],
     driven: readonly PlanarPoint[],

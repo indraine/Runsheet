@@ -6,23 +6,11 @@ export type CompareChoice = {
 
 export type CompareFilter = {
     track: string
-    /**
-     * Selected driver nicks. Empty means every driver on the track.
-     * Use `""` for sessions with an empty driver string.
-     */
     drivers: readonly string[]
-    /** Local day start ms, or `null` for every day. */
     dayStart: number | null
-    /** Case-insensitive match against driver and car code. */
     query: string
 }
 
-/**
- * Unique driver names for sessions on a track (sorted, empty nick last).
- *
- * @example
- * driversOnTrack([{ session: { track: "monza", driver: "A" } }], "monza")
- */
 export const driversOnTrack = (
     choices: readonly CompareChoice[],
     track: string
@@ -39,13 +27,6 @@ export const driversOnTrack = (
     })
 }
 
-/**
- * Apply track / driver / day / text filters. Track is required; empty drivers
- * or a null day keep those dimensions open.
- *
- * @example
- * filterChoices(choices, { track: "monza", drivers: [], dayStart: null, query: "" })
- */
 export const filterChoices = <T extends CompareChoice>(
     choices: readonly T[],
     filter: CompareFilter
@@ -70,7 +51,6 @@ export const filterChoices = <T extends CompareChoice>(
     })
 }
 
-/** Toggle a driver in a multi-select chip set. */
 export const toggleDriver = (
     selected: readonly string[],
     driver: string

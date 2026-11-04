@@ -1,7 +1,6 @@
 import type { Placement, PositioningOptions } from "@zag-js/popper"
 import { documentZoom } from "~/app/zoom-space"
 
-/** Keep a popup this far from the viewport edge, in visual pixels. */
 const SCREEN_PADDING = 12
 
 type Align = "start" | "center" | "end"
@@ -21,15 +20,6 @@ export type PlacedFrame = {
     width: number
 }
 
-/**
- * Place a popup in layout pixels so CSS `zoom` does not scale it a second time.
- *
- * Anchor and popup sizes are visual pixels. `top` / `left` / `maxHeight` are
- * layout pixels (`visual / zoom`), which the document zoom then paints.
- *
- * zoom 1.5, anchor bottom 108, gap 8, room below:
- * placedFrame(...).top === 116 / 1.5
- */
 export const placedFrame = (input: {
     anchor: AnchorBox
     popupWidth: number
@@ -85,7 +75,6 @@ const alignOf = (placement: string): Align => {
 const preferOf = (placement: string): Prefer =>
     placement.startsWith("top") ? "above" : "below"
 
-/** WebKit includes CSS zoom in rects. Chrome does not. Return visual pixels. */
 const visualBox = (element: HTMLElement, zoom: number): DOMRect => {
     const rect = element.getBoundingClientRect()
     const scale =
@@ -140,9 +129,6 @@ const placeInScreen = (
         align: alignOf(options.placement),
         prefer: preferOf(options.placement),
     })
-    // The positioner is `top/left: 0` plus `translate3d(var(--x), var(--y))`.
-    // Those properties are reapplied by Ark on render, so the correction has to
-    // live in the variables, in layout pixels.
     floating.style.setProperty("--x", `${frame.left}px`)
     floating.style.setProperty("--y", `${frame.top}px`)
     floating.style.setProperty("--available-height", `${frame.maxHeight}px`)
@@ -150,8 +136,6 @@ const placeInScreen = (
         "--available-width",
         `${Math.max(0, (window.innerWidth - SCREEN_PADDING * 2) / zoom)}px`
     )
-    // `max-height` on this node turns it into the scrollport. The list under
-    // it reads `--available-height` and scrolls itself.
     floating.style.removeProperty("max-height")
     floating.style.removeProperty("overflow-y")
     if (options.sameWidth) {
@@ -159,31 +143,13 @@ const placeInScreen = (
     }
 }
 
-/**
- * Ark positioners use `isolation: isolate`, so z-index must live here, not on
- * the menu content. Same layer as screen overlays — a later modal portal
- * covers an open banner select.
- */
 export const screenPopupClass = "z-50"
 
-/** Track / day menus inside a `z-50` modal. */
 export const screenPopupOverModalClass = "z-[60]"
 
-/**
- * Scroll a portaled list inside the room `placeInScreen` stored as
- * `--available-height`. Do not put this class on the positioner.
- */
 export const screenMenuListClass =
     "max-h-(--available-height) overflow-y-auto overscroll-contain [scrollbar-color:var(--muted)_transparent] [scrollbar-width:thin]"
 
-/**
- * Ark Select / Popover / Menu positioning that stays inside the viewport.
- * `flip` and `slide` are the library's collision rules. `fitViewport` stays
- * off: it writes `max-height` onto the positioner and that node then scrolls
- * instead of the list. The list caps itself with `--available-height`.
- * `updatePosition` rewrites the result into layout pixels so document zoom
- * does not push the popup away from its trigger.
- */
 export const screenPositioning = (options: {
     placement: Placement
     gutter?: number

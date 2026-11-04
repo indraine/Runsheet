@@ -10,7 +10,6 @@ import type {
 import { t } from "~/i18n"
 import { cn } from "~/ui"
 
-/** Chart title for each analysis channel. */
 export const CHANNEL_LABEL = {
     speed: "app.telemetrySpeed",
     throttle: "app.telemetryThrottle",
@@ -21,7 +20,6 @@ export const CHANNEL_LABEL = {
     delta: "app.telemetryDelta",
 } as const satisfies Record<AnalysisChannel, string>
 
-/** Popover that shows or hides each chart. The caller persists the layout. */
 export const ChannelDrawer = (props: {
     layout: ChannelLayout
     onToggle: (channel: AnalysisChannel) => void

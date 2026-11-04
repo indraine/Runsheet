@@ -30,7 +30,6 @@ export const DayNav = (props: {
     value: number
     onChange: (start: number) => void
     compact?: boolean
-    /** Same look as a tab list, for a toolbar row with tabs. */
     bar?: boolean
 }) => {
     const available = createMemo(

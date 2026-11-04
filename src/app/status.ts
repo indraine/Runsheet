@@ -27,7 +27,6 @@ export type AnalysisHeading = {
 
 const [liveClock, setLiveClock] = createSignal<LiveClock>()
 
-/** Keep the live card still when a status tick repeats the same clock. */
 export const publishLiveClock = (next: LiveClock | undefined): void => {
     if (sameClock(liveClock(), next)) return
     setLiveClock(next)

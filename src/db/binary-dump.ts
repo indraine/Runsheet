@@ -1,22 +1,9 @@
 import { TRACE_CHANNELS, type TraceChannel } from "~/domain/trace"
 import type { EncodedTrace, RunsheetDump } from "~/db/transfer"
 
-/**
- * Binary dump: `RSHT`, a version byte, then a gzip stream of
- *
- * - `u32` length of the header and the header itself (JSON without traces),
- * - `u32` trace count, and per trace its lap id, sample count and the
- *   channels one after another.
- *
- * A channel is stored as whole numbers (the value times a per-channel scale,
- * rounded), as the difference from the previous sample, zigzag-folded and
- * written as a varint. Smooth channels turn into runs of tiny numbers that
- * gzip squeezes well.
- */
 export const BINARY_MAGIC = "RSHT"
 export const BINARY_VERSION = 1
 
-/** Steps kept per channel: the value is rounded to `1 / scale`. */
 export const CHANNEL_SCALE: Record<TraceChannel, number> = {
     distance: 100,
     time: 1,
@@ -77,7 +64,6 @@ class ByteWriter {
         this.length += chunk.length
     }
 
-    /** Signed whole number as a zigzag varint; arithmetic keeps large values exact. */
     signed(value: number): void {
         let rest = value >= 0 ? value * 2 : -value * 2 - 1
         this.reserve(10)

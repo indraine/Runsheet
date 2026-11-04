@@ -17,7 +17,15 @@ Desktop telemetry recording, lap analysis, and setup tracking for Assetto Corsa 
 | `src-tauri/src/services/` | Outing machine and lap collector. |
 | `src-tauri/src/startup.rs` | Fail-fast probe: shared memory layout validation. |
 | `src-tauri/src/ipc/` | IPC event bridge between Rust and SolidJS. |
-| `src/` | Lightweight frontend: SolidJS + Tailwind CSS 4 + PixiJS. |
+| `src-tauri/src/platform/` | Find and launch ACC. Not telemetry. |
+| `src/domain/` | Sheet types: days, sessions, laps, live-card derivation. No IPC, no IndexedDB. |
+| `src/db/` | IndexedDB: schema, repository, seed, import/export. |
+| `src/ipc/` | Decode Tauri lap packets and status, write them into the store. |
+| `src/i18n/` | Locales, track names, car names. |
+| `src/ui/` | Shared controls (`cn`, button, tabs). |
+| `src/app/` | Shell, chrome, track map, settings. |
+| `src/app/pages/` | Routes: welcome, timeline, telemetry. |
+| `src/app/telemetry/` | Lap comparison: channels, trajectory, divergence, HUD. |
 
 ## Invariants & Boundaries (STRICT)
 

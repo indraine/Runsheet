@@ -8,7 +8,6 @@ export type GroundSeries = {
     z: ArrayLike<number>
 }
 
-/** Metres → fitted pixels for the frame (before view zoom). */
 export const framePixelsPerMeter = (
     frame: readonly GroundSeries[],
     width: number,

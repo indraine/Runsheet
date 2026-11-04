@@ -17,13 +17,6 @@ export const isSessionColumn = (value: unknown): value is SessionColumn =>
 
 const COLUMNS_KEY = "runsheet.session-columns"
 
-/**
- * Visible columns from a stored JSON array, in the table's own order.
- * Unknown ids are dropped. An unreadable or empty value falls back to all
- * columns, so the table never ends up with nothing to show.
- *
- * parseSessionColumns('["best","track","x"]') -> ["track", "best"]
- */
 export const parseSessionColumns = (
     stored: string | null
 ): readonly SessionColumn[] => {
@@ -40,9 +33,6 @@ export const parseSessionColumns = (
     return visible.length > 0 ? visible : SESSION_COLUMNS
 }
 
-/**
- * Flip one column. The last visible column cannot be hidden.
- */
 export const toggleSessionColumn = (
     current: readonly SessionColumn[],
     column: SessionColumn
@@ -76,7 +66,6 @@ const storeColumns = (columns: readonly SessionColumn[]): void => {
     try {
         localStorage.setItem(COLUMNS_KEY, JSON.stringify(columns))
     } catch {
-        // The choice still holds until the window closes.
     }
 }
 

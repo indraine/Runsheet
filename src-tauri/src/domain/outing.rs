@@ -1,3 +1,5 @@
+//! Статус игры, вид сессии и кадр, из которого собирается строка выезда.
+
 use super::{OutingId, SessionId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -31,9 +33,7 @@ pub(crate) struct Frame {
     pub session_index: i32,
     pub track: String,
     pub car: String,
-    /// `player_nick`, or the first and last name when the nick is empty.
     pub driver: String,
-    /// Player car index from the graphics page (`player_car_id`).
     pub car_id: i32,
     pub online: bool,
     pub car_count: i32,

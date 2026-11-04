@@ -1,3 +1,5 @@
+//! Положение машины.
+
 use super::units::LapTime;
 use super::{GameStatus, SessionKind};
 
@@ -43,10 +45,7 @@ pub(crate) enum SessionEvent {
 pub(crate) struct CarPlace {
     pub status: GameStatus,
     pub setup_menu: bool,
-    /// Pit box stall. ACC `isInPit`. Standing in the box sets `in_pit_lane` as well.
     pub in_pit_box: bool,
-    /// Pit lane from the entry line to the exit line. ACC `isInPitLane`.
-    /// Driving along the lane sets this and leaves `in_pit_box` clear.
     pub in_pit_lane: bool,
     pub checkered: bool,
 }
@@ -101,8 +100,6 @@ const fn pit_event(from: CarState, to: CarState) -> Option<SessionEvent> {
     }
 }
 
-/// One graphics frame, already sanitized, plus the race-start memory the
-/// sequencer keeps across ticks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PlaceView {
     pub status: GameStatus,
@@ -116,13 +113,11 @@ pub(crate) struct PlaceView {
     pub race_released: bool,
 }
 
-/// Whether this race has left the grid. Reset when the session changes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct RacePhase {
     pub session: Option<(SessionKind, i32)>,
     pub clock_started: bool,
     pub clock_ms: Option<i32>,
-    /// Green was shown while this car was still in the box or the pit lane.
     pub released: bool,
 }
 
@@ -137,13 +132,8 @@ pub(crate) struct RaceSample {
     pub in_pits: bool,
 }
 
-/// Lap clock counts once it reaches this, or once it rises above the previous sample.
-///
-/// A frozen `0` is still the grid: ACC holds the clock there until the lights
-/// or the start line actually start the lap.
 const LAP_CLOCK_COUNTING_MS: i32 = 200;
 
-/// First matching row wins. See the status table in the domain tests.
 pub(crate) fn session_place(car: CarState, view: Option<PlaceView>) -> SessionPlace {
     let Some(view) = view else {
         return SessionPlace::Menu;

@@ -1,4 +1,3 @@
-/** Read a `#rrggbb` CSS custom property as a Pixi color integer. */
 export const cssColor = (name: string, fallback: number): number => {
     if (typeof document === "undefined") return fallback
     const raw = getComputedStyle(document.documentElement)

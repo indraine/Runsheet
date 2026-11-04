@@ -100,7 +100,6 @@ const spanOf = (samples: Float32Array): number | undefined => {
 
 export type SectorColumn = 1 | 2 | 3
 
-/** Splits and the running sector clock for the lap that is still open. */
 export type SectorClock = {
     sector: SectorColumn | null
     sectorMs: number | null
@@ -110,28 +109,9 @@ export type SectorClock = {
 
 export type SectorRead = {
     ms: number
-    /** A finished split. A running sector time is not settled. */
     settled: boolean
 }
 
-/**
- * Value to paint in one sector cell.
- *
- * The stored split wins. The live clock fills a split the lap packet has
- * not delivered yet, and otherwise the running time of the sector the car
- * is in.
- *
- * @example
- * ```ts
- * readSectorMs(2, null, {
- *   sector: 2,
- *   sectorMs: 4_200,
- *   s1Ms: 28_000,
- *   s2Ms: null,
- * })
- * // { ms: 4200, settled: false }
- * ```
- */
 export const readSectorMs = (
     column: SectorColumn,
     official: number | null,

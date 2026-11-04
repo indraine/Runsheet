@@ -1,3 +1,5 @@
+//! Outbox: пайплайн кладёт круги и статус, webview подписывается и забирает их.
+
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 

@@ -11,24 +11,15 @@ import type { Trace } from "~/domain"
 export const MAX_FIT_POINTS = 900
 export const MIN_FIT_SPEED_KMH = 20
 
-/** The part of a lap line the fit needs. */
 export type FitLine = { id: string; trace: Trace }
 
 export type FitChoice = { signature: Placement[]; similarity?: Similarity }
 
-/** Baseline first, then the other laps: any of them can anchor the asphalt. */
 export const orderedForFit = <T extends FitLine>(
     lines: readonly T[],
     primary: T | undefined
 ): T[] => (primary ? [primary, ...lines.filter(line => line !== primary)] : [])
 
-/**
- * Fit the asphalt to the laps of the comparison. Every lap that matches the
- * centre line is a candidate; the one that keeps all the compared laps
- * closest to the centre line wins, so a lap with a pit-lane start or a noisy
- * line cannot pull the asphalt away from the others. A lap that cannot be
- * matched no longer hides the asphalt for the whole comparison.
- */
 export const resolveFit = (
     center: readonly PlanarPoint[] | undefined,
     track: string | undefined,
@@ -80,7 +71,6 @@ export const tracePlanar = (trace: Trace): PlanarPoint[] => {
         const x = trace.x[index]
         const y = trace.z[index]
         if (!Number.isFinite(x) || !Number.isFinite(y)) continue
-        // Standing in the box or crawling in the pit lane is not the racing line.
         if ((trace.speed[index] ?? Infinity) < MIN_FIT_SPEED_KMH) continue
         moving.push({ x, y })
     }

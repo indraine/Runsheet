@@ -1,33 +1,18 @@
 import type { Graphics } from "pixi.js"
 import type { GroundPoint } from "~/app/fit-ground"
 
-/** Approximate GT3 length used to size the marker against the track. */
 export const CAR_LENGTH_M = 4.6
 
 const MIN_LENGTH_PX = 12
 const MAX_LENGTH_PX = 56
-/** Local design length of {@link drawCarIcon} (nose → tail). */
 const ICON_LEN = 10
 
-/**
- * Screen length of the car icon from track metres×fit×zoom.
- *
- * @example
- * carScreenLength(0.2, 10) // 4.6 * 0.2 * 10 = 9.2 → clamped to 12
- */
 export const carScreenLength = (pixelsPerMeter: number, zoom: number): number => {
     const raw = CAR_LENGTH_M * pixelsPerMeter * zoom
     if (!Number.isFinite(raw) || raw <= 0) return MIN_LENGTH_PX
     return Math.min(MAX_LENGTH_PX, Math.max(MIN_LENGTH_PX, raw))
 }
 
-/**
- * Heading on screen for a distance-parameterized polyline.
- * 0 = up (−Y), +π/2 = right (+X) — matches Pixi rotation for a nose-up icon.
- *
- * @example
- * pathHeading([{x:0,y:10},{x:0,y:0}], [0, 10], 5) // ≈ 0 (up)
- */
 export const pathHeading = (
     points: readonly GroundPoint[],
     distances: readonly number[],
@@ -58,9 +43,6 @@ export const pathHeading = (
 
 type CarLocal = { f: number; r: number }
 
-/**
- * Simple top-down car icon; +f is forward (nose), sized by lengthPx.
- */
 export const drawCarIcon = (
     graphics: Graphics,
     x: number,

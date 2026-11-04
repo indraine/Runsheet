@@ -1,4 +1,3 @@
-/** File size for the export dialog: `812 КБ`, `3.4 МБ`; `binary` units, one decimal over 1 MB. */
 export const formatFileSize = (
     bytes: number,
     units: { kb: string; mb: string; b: string },

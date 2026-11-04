@@ -105,7 +105,6 @@ export type LapChoice = {
 
 type Catalog = {
     choices: LapChoice[]
-    /** Every lap of a session, ordered by number, for fuel deltas. */
     sessionLaps: ReadonlyMap<string, Lap[]>
 }
 
@@ -198,7 +197,6 @@ export const TelemetryPage = () => {
             item => item.session.track === baseline.session.track
         )
     })
-    /** Selected laps in slot order; slot index is the compare color. */
     const selectedChoices = createMemo((): LapChoice[] => {
         const pool = trackChoices()
         return lapIds().flatMap(id => {
@@ -246,7 +244,6 @@ export const TelemetryPage = () => {
         const selected = selectedChoices()
         return selected.flatMap((choice, colorIndex) => {
             const trace = traceOf(choice)
-            // Laps without positions (e.g. imported from MoTeC) stay out of the map.
             if (!trace || !hasTrajectory(trace)) return []
             return [
                 {
@@ -835,7 +832,6 @@ const TrackMenu = (props: {
     )
 }
 
-/** Single-select driver filter with an in-menu search field. */
 const DriverMenu = (props: {
     drivers: string[]
     value: string | null
@@ -989,7 +985,6 @@ const ComparePickerModal = (props: {
     const [day, setDay] = createSignal(
         seedBaseline ? localDayStart(seedBaseline.session.startedAt) : 0
     )
-    /** `null` = every driver on the track. */
     const [driver, setDriver] = createSignal<string | null>(null)
 
     const driversAvailable = createMemo(() =>
@@ -1077,7 +1072,6 @@ const ComparePickerModal = (props: {
         if (props.mode !== "edit") return
         const onKey = (event: KeyboardEvent) => {
             if (event.key !== "Escape") return
-            // Capture runs before the select; leave Escape to the open popup.
             if (floatingMenuOpen()) return
             props.onDismiss()
         }

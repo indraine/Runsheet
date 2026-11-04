@@ -2,7 +2,6 @@ import { createSignal } from "solid-js"
 
 const SCALE_KEY = "runsheet.scale"
 
-/** Stored in place of a number while the scale follows the window width. */
 const AUTO_VALUE = "auto"
 
 export const SCALE_MIN = 80
@@ -13,15 +12,8 @@ export const DEFAULT_SCALE = 100
 export const isUiScale = (value: number): boolean =>
     Number.isInteger(value) && value >= SCALE_MIN && value <= SCALE_MAX
 
-/** Window width, in CSS pixels, up to which the interface keeps 100%. */
 export const AUTO_BASE_WIDTH = 1920
 
-/**
- * Scale for a window width. Up to the base width nothing changes; wider
- * windows grow the interface in steps of 10%, up to the maximum.
- *
- * autoScale(1440) -> 100, autoScale(2560) -> 130, autoScale(3840) -> 200
- */
 export const autoScale = (width: number): number => {
     if (!Number.isFinite(width) || width <= AUTO_BASE_WIDTH) {
         return DEFAULT_SCALE
@@ -31,12 +23,6 @@ export const autoScale = (width: number): number => {
     return Math.min(SCALE_MAX, Math.max(DEFAULT_SCALE, stepped))
 }
 
-/**
- * Stored choice: a number of percent is a manual scale, anything else
- * (nothing stored, "auto", broken value) follows the window width.
- *
- * parseScale("120") -> 120, parseScale(null) -> undefined
- */
 export const parseScale = (stored: string | null): number | undefined => {
     if (stored === null || stored === AUTO_VALUE) return undefined
     const value = Number(stored)
@@ -66,8 +52,6 @@ const readManual = (): number | undefined => {
 const applyScale = (scale: number): void => {
     const root = document.documentElement
     const zoom = scale / 100
-    // Fixed layers and viewport units are sized before zoom, then scaled again.
-    // Overlays divide by this variable so they stay inside the window.
     root.style.setProperty("--ui-zoom", String(zoom))
     if (scale === DEFAULT_SCALE) {
         root.style.zoom = ""
@@ -90,7 +74,6 @@ const [uiScale, setUiScaleSignal] = createSignal(
     initialManual ?? autoScale(windowWidth())
 )
 
-/** True while the scale follows the window width. */
 export const isAutoScale = (): boolean => manualScale() === undefined
 
 const show = (scale: number): void => {
@@ -107,7 +90,6 @@ export const setUiScale = (scale: number): void => {
     show(next)
 }
 
-/** Back to the scale that follows the window width. */
 export const resetUiScale = (): void => {
     setManualScale(undefined)
     try {

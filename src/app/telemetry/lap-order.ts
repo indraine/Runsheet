@@ -1,15 +1,5 @@
 import { normalizeLapIds } from "~/app/telemetry/compare-selection"
 
-/**
- * Put another lap in a slot. A lap already chosen elsewhere is ignored so
- * the set never holds a duplicate.
- *
- * @example
- * ```ts
- * replaceLapId(["a", "b"], 1, "c") // ["a", "c"]
- * replaceLapId(["a", "b"], 1, "a") // ["a", "b"]
- * ```
- */
 export const replaceLapId = (
     ids: readonly string[],
     index: number,
@@ -20,14 +10,6 @@ export const replaceLapId = (
     return normalizeLapIds(ids.map((id, at) => (at === index ? lapId : id)))
 }
 
-/**
- * Swap a lap with the baseline (slot 0), so the colors follow the slots.
- *
- * @example
- * ```ts
- * makeBaselineId(["a", "b", "c"], 2) // ["c", "b", "a"]
- * ```
- */
 export const makeBaselineId = (
     ids: readonly string[],
     index: number
@@ -43,15 +25,6 @@ export const makeBaselineId = (
     return next
 }
 
-/**
- * Add or remove a lap, respecting the four-lap ceiling.
- *
- * @example
- * ```ts
- * toggleLapId(["a"], "b") // ["a", "b"]
- * toggleLapId(["a", "b"], "a") // ["b"]
- * ```
- */
 export const toggleLapId = (ids: readonly string[], lapId: string): string[] =>
     ids.includes(lapId)
         ? ids.filter(id => id !== lapId)
