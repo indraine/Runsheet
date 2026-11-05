@@ -248,7 +248,7 @@ impl TryFrom<&RawStaticPage> for StaticsFrame {
             game_version: page.ac_version.clone(),
             session_count: page.number_of_sessions,
             entered_cars: page.num_cars,
-            track: page.track.clone(),
+            track: track_code(&page.track),
             sector_count: page.sector_count,
             player_name: page.player_name.clone(),
             player_surname: page.player_surname.clone(),
@@ -270,6 +270,11 @@ impl TryFrom<&RawStaticPage> for StaticsFrame {
             wet_tyre: page.wet_tyres_name.clone(),
         })
     }
+}
+
+/// Canonical track code: ACC reports most tracks in snake_case, but Spa arrives as `"Spa"`.
+pub(crate) fn track_code(raw: &str) -> String {
+    raw.trim().to_ascii_lowercase()
 }
 
 pub(crate) fn driver_name(nick: &str, name: &str, surname: &str) -> String {
@@ -450,7 +455,14 @@ fn unit_interval(field: &'static str, value: f32) -> Result<f32, BoundaryError> 
 
 #[cfg(test)]
 mod tests {
-    use super::driver_name;
+    use super::{driver_name, track_code};
+
+    #[test]
+    fn track_codes_are_lowercase_snake_case() {
+        assert_eq!(track_code("Spa"), "spa");
+        assert_eq!(track_code(" brands_hatch "), "brands_hatch");
+        assert_eq!(track_code("monza"), "monza");
+    }
 
     #[test]
     fn nick_wins_over_the_real_name() {

@@ -14,7 +14,7 @@ import {
     type Trace,
     type TraceChannel,
 } from "~/domain"
-import { DB_VERSION, type RunsheetDatabase } from "~/db/schema"
+import { canonicalTrack, DB_VERSION, type RunsheetDatabase } from "~/db/schema"
 
 export const DUMP_FORMAT = "runsheet.dump" as const
 export const DUMP_VERSION = 1 as const
@@ -275,7 +275,7 @@ function parseSession(raw: unknown): Session {
     if (!isRecord(raw)) throw new Error("Session должен быть объектом")
     const id = requireString(raw, "id")
     const outingId = requireString(raw, "outingId")
-    const track = requireString(raw, "track")
+    const track = canonicalTrack(requireString(raw, "track"))
     const car = requireString(raw, "car")
     const typeRaw = requireString(raw, "type")
     if (!isSessionType(typeRaw)) {

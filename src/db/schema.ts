@@ -2,7 +2,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from "idb"
 import { TRACE_CHANNELS, type Lap, type Session, type Trace } from "~/domain"
 
 export const DB_NAME = "runsheet"
-export const DB_VERSION = 2
+export const DB_VERSION = 3
 
 export interface RunsheetSchema extends DBSchema {
     sessions: {
@@ -44,13 +44,32 @@ export function openRunsheetDb(
                     }
                 }
                 const rows = await legacy.objectStore("traces").getAll()
-                await Promise.all(rows.map(row => next.put(normalizeTrace(row))))
+                await Promise.all(
+                    rows.map(row => next.put(normalizeTrace(row)))
+                )
                 ;(
                     db as unknown as { deleteObjectStore(name: string): void }
                 ).deleteObjectStore("traces")
             }
+            if (oldVersion < 3) {
+                let cursor = await transaction
+                    .objectStore("sessions")
+                    .openCursor()
+                while (cursor) {
+                    const track = canonicalTrack(cursor.value.track)
+                    if (track !== cursor.value.track) {
+                        await cursor.update({ ...cursor.value, track })
+                    }
+                    cursor = await cursor.continue()
+                }
+            }
         },
     })
+}
+
+/** Track codes are lowercase snake_case, e.g. `canonicalTrack("Spa") === "spa"`. */
+export function canonicalTrack(track: string): string {
+    return track.trim().toLowerCase()
 }
 
 export function normalizeTrace(trace: Trace): Trace {
