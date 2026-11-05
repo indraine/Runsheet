@@ -43,29 +43,15 @@ jobs:
           releaseDraft: false
           prerelease: false
           releaseBody: |
-            ## Runsheet v1.5.1 — Presence & Outlaps 🏁
+            ## Runsheet v1.5.2 — Export ACL Fix 🔧
 
             Desktop session sheet for **Assetto Corsa Competizione**.
             Open the app, drive — sessions, laps, sectors, fuel, and validity are captured automatically.
 
-            ### What's new in 1.5.1
+            ### What's new in 1.5.2
 
-            #### Car Presence 📍
-            - Status now distinguishes garage, pit lane, and the race grid
-
-            #### Outlaps ⏱️
-            - Outlap is recorded as a regular lap
-            - Outlap time and sectors are shown live while driving
-
-            #### Race Fixes 🏎️
-            - Laps after crossing the finish line in a race are no longer counted
-
-            #### Interface ✨
-            - Brand icons for cars
-            - Fixed track map in the Live card
-
-            #### Maintenance 🔧
-            - Code cleanup, removed one-off scripts
+            #### Export Fix 💾
+            - Fixed Tauri ACL so JSON and `.runsheet` export works again (`save_file`)
 
             ### Download (Windows x64) — pick one
             | File | What it is |
@@ -75,7 +61,7 @@ jobs:
 
             > Live ACC Shared Memory requires Windows. See the [README](https://github.com/indraine/Runsheet#readme) for details.
 
-            **Full Changelog**: https://github.com/indraine/Runsheet/compare/v1.5.0...v1.5.1
+            **Full Changelog**: https://github.com/indraine/Runsheet/compare/v1.5.1...v1.5.2
           tauriScript: npm run tauri
           assetNamePattern: 'Runsheet-[version]-windows-[arch]-installer[ext]'
 

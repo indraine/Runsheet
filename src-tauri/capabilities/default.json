@@ -8,6 +8,6 @@
     "opener:default",
     "allow-listen-laps",
     "allow-acc-launch",
-    "allow-save-text-file"
+    "allow-save-file"
   ]
 }
