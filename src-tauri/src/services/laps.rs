@@ -19,6 +19,11 @@ const OUTLAP_SPEED_KMH: f32 = 5.0;
 
 const INLAP_KEEP_MS: u64 = 15_000;
 
+/// Сколько клетчатый флаг может запаздывать за пересечением линии.
+/// Лидер гонки видит флаг не в том же кадре, где пересёк финиш, поэтому круг за финишем
+/// успевает открыться. Если флаг пришёл в пределах этого окна, такой круг удаляется.
+const FLAG_LAG_MS: u64 = 1_500;
+
 const CHANNEL_COUNT: usize = 19;
 
 const HEADER_LEN: usize = 92;
@@ -63,6 +68,7 @@ pub(crate) struct Sample {
     pub brake_bias: f32,
     pub race: bool,
     pub green: bool,
+    pub checkered: bool,
     pub in_pit_lane: bool,
     pub in_pit_box: bool,
 }
@@ -155,12 +161,17 @@ impl Collector {
         if self.crossing.is_some() {
             return self.settle(sample);
         }
+        if self.opened_past_finish(sample) {
+            return Some(self.retire_open());
+        }
         let closed = self.take_closed(sample);
         if self.crossing.is_some() {
             return None;
         }
         if self.open.is_none() {
-            let start = closed.is_some() || self.watch.ready(sample) || outlap_due(sample);
+            // Под клетчатым флагом гонщик уже финишировал: дальше только заезд в боксы.
+            let start = !sample.checkered
+                && (closed.is_some() || self.watch.ready(sample) || outlap_due(sample));
             if !start {
                 self.watch.observe(sample);
                 return closed;
@@ -169,6 +180,19 @@ impl Collector {
         }
         self.observe(sample);
         closed
+    }
+
+    /// Круг открылся на финишной линии, а клетчатый флаг пришёл чуть позже.
+    /// Только для гонки: в практике и квалификации флаг поднимается заранее, по истечении
+    /// времени, и круг, начатый за секунду до этого, ещё засчитывается.
+    fn opened_past_finish(&self, sample: &Sample) -> bool {
+        sample.race
+            && sample.checkered
+            && self.open.as_ref().is_some_and(|open| {
+                !open.from_pit_exit
+                    && open.s1_ms.is_none()
+                    && sample.mono_ms.saturating_sub(open.origin_mono) < FLAG_LAG_MS
+            })
     }
 
     fn hold_in_pits(&mut self, sample: &Sample) -> Option<Vec<u8>> {
@@ -281,6 +305,15 @@ impl Collector {
         }
         let crossing = self.crossing.take()?;
         let closed = self.close(sample);
+        // Линия под клетчатым флагом — финиш: закрываем последний круг, новый не открываем.
+        let finished = crossing
+            .samples
+            .iter()
+            .chain(Some(sample))
+            .any(|held| held.checkered);
+        if finished {
+            return Some(closed);
+        }
         for (index, held) in crossing.samples.iter().chain(Some(sample)).enumerate() {
             if index == 0 {
                 self.open_next(held, false);
@@ -888,6 +921,7 @@ mod tests {
             brake_bias: 0.6,
             race: false,
             green: true,
+            checkered: false,
             in_pit_lane: false,
             in_pit_box: false,
         }
@@ -968,6 +1002,97 @@ mod tests {
         let packed = closed.expect("lap closes after the wait");
         assert_eq!(packed_time_ms(&packed), 112_230);
         assert_eq!(collector.open_number(), Some(3));
+    }
+
+    fn flagged(mut sample: Sample) -> Sample {
+        sample.checkered = true;
+        sample
+    }
+
+    #[test]
+    fn finish_line_under_checkered_does_not_open_another_lap() {
+        let mut collector = waiting_collector();
+
+        assert!(collector.push(&flagged(at(2_000, 1, 10, 115_330))).is_none());
+        let closed = collector.push(&flagged(at(2_016, 2, 26, 112_235)));
+
+        let packed = closed.expect("final lap is stored");
+        assert_eq!(packed_time_ms(&packed), 112_235);
+        assert_eq!(collector.open_number(), None);
+
+        let _ = collector.push(&flagged(rolling(2, 3_000, 0.05)));
+        let _ = collector.push(&flagged(rolling(2, 20_000, 0.3)));
+        assert_eq!(collector.open_number(), None);
+    }
+
+    #[test]
+    fn finish_with_instant_lap_count_does_not_open_another_lap() {
+        let mut collector = waiting_collector();
+
+        let closed = collector.push(&flagged(at(2_000, 2, 10, 112_235)));
+
+        assert!(closed.is_some());
+        assert_eq!(collector.open_number(), None);
+    }
+
+    fn racing(mut sample: Sample) -> Sample {
+        sample.race = true;
+        sample
+    }
+
+    fn crossed_into_lap_three() -> Collector {
+        let mut collector = waiting_collector();
+        let _ = collector.push(&racing(at(2_000, 1, 10, 115_330)));
+        let closed = collector.push(&racing(at(2_016, 2, 26, 112_235)));
+        assert!(closed.is_some());
+        assert_eq!(collector.open_number(), Some(3));
+        collector
+    }
+
+    #[test]
+    fn late_flag_after_the_finish_retires_the_extra_lap() {
+        let mut collector = crossed_into_lap_three();
+
+        let retired = collector
+            .push(&flagged(racing(at(2_800, 2, 800, 112_235))))
+            .expect("extra lap is removed from the sheet");
+
+        assert_eq!(retired[65], 1);
+        assert_eq!(collector.open_number(), None);
+        let _ = collector.push(&flagged(racing(rolling(2, 10_000, 0.2))));
+        assert_eq!(collector.open_number(), None);
+    }
+
+    #[test]
+    fn flag_long_after_the_line_keeps_the_lap() {
+        let mut collector = crossed_into_lap_three();
+
+        let mut later = flagged(racing(at(5_000, 2, 3_000, 112_235)));
+        later.progress = 0.1;
+        let _ = collector.push(&later);
+
+        assert_eq!(collector.open_number(), Some(3));
+    }
+
+    #[test]
+    fn late_flag_outside_a_race_keeps_the_lap() {
+        let mut collector = waiting_collector();
+        let _ = collector.push(&at(2_000, 1, 10, 115_330));
+        let _ = collector.push(&at(2_016, 2, 26, 112_235));
+
+        let _ = collector.push(&flagged(at(2_800, 2, 800, 112_235)));
+
+        assert_eq!(collector.open_number(), Some(3));
+    }
+
+    #[test]
+    fn lap_started_before_the_flag_keeps_recording() {
+        let mut collector = Collector::default();
+        let _ = collector.push(&rolling(0, 1_000, 0.2));
+        assert_eq!(collector.open_number(), Some(1));
+
+        let _ = collector.push(&flagged(rolling(0, 2_000, 0.3)));
+        assert_eq!(collector.open_number(), Some(1));
     }
 
     fn rolling(completed: i32, mono_ms: u64, progress: f32) -> Sample {
