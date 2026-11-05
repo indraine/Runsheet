@@ -2,7 +2,7 @@
 
 use crate::domain::{
     CarState, Frame, GameStatus, GraphicsFrame, LapTime, OutingEvent, OutingId, PlaceView,
-    RacePhase, RaceSample, Session, SessionId, SessionKind, SessionPlace, note_race_phase,
+    RaceFlag, RacePhase, RaceSample, Session, SessionId, SessionKind, SessionPlace, note_race_phase,
     session_place,
 };
 use crate::ingress::CleanTick;
@@ -416,6 +416,7 @@ fn sample_from(tick: &CleanTick, mono_ms: u64, session_id: SessionId) -> Sample 
         brake_bias: physics.brake_bias,
         race: graphic.kind == SessionKind::Race,
         green: graphic.green,
+        checkered: graphic.flag == RaceFlag::Checkered || graphic.chequered,
         in_pit_lane: graphic.in_pit_lane,
         in_pit_box: graphic.in_pit_box,
     }

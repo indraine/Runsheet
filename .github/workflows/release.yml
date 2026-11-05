@@ -43,43 +43,29 @@ jobs:
           releaseDraft: false
           prerelease: false
           releaseBody: |
-            ## Runsheet v1.5.0 — Export, Polish & Precision ⚡
+            ## Runsheet v1.5.1 — Presence & Outlaps 🏁
 
             Desktop session sheet for **Assetto Corsa Competizione**.
             Open the app, drive — sessions, laps, sectors, fuel, and validity are captured automatically.
 
-            ### What's new in 1.5.0
+            ### What's new in 1.5.1
 
-            #### Lap Time Accuracy ✅
-            - Fixed lap time underestimation by 2–10 ms compared to ACC
-            - Collector now waits for official `completedLap` update up to 300 ms after crossing the line
-            - Testing showed full match with ACC times (10/11 laps exact, 2 ms difference on one lap)
+            #### Car Presence 📍
+            - Status now distinguishes garage, pit lane, and the race grid
 
-            #### Data Export 📦
-            - **New binary `.runsheet` format**: dump compression from 3.45 MB to 0.15 MB (23× smaller)
-            - Export dialog with format selection: JSON / binary / MoTeC (coming soon)
-            - Real file size display for each format
-            - Single session export via row context menu
-            - Backward compatibility: old `.json` dumps still work
+            #### Outlaps ⏱️
+            - Outlap is recorded as a regular lap
+            - Outlap time and sectors are shown live while driving
 
-            #### Live Card Interface 📊
-            - Lap table spans full card height with its own scrolling
-            - Click column header to sort: ascending → descending → reset
-            - Rows without values automatically move to the bottom
+            #### Race Fixes 🏎️
+            - Laps after crossing the finish line in a race are no longer counted
 
-            #### Session Deletion 🗑️
-            - Context menu row action: "Delete"
-            - Confirmation with "Don't ask again" checkbox
-            - Reference laps (benchmarks) are protected from deletion
+            #### Interface ✨
+            - Brand icons for cars
+            - Fixed track map in the Live card
 
-            #### Interface Improvements ✨
-            - Steering angle label under wheel: 0° straight, − left, + right
-            - Empty "races" hidden from list (when ACC opens race session but car stays in pits)
-            - Updated row context menu: Compare / Export / Delete
-
-            #### CI and Releases 🔧
-            - Auto-generated Release Notes via GitHub instead of static text
-            - Fixed issue with publishing previous version's notes
+            #### Maintenance 🔧
+            - Code cleanup, removed one-off scripts
 
             ### Download (Windows x64) — pick one
             | File | What it is |
@@ -89,7 +75,7 @@ jobs:
 
             > Live ACC Shared Memory requires Windows. See the [README](https://github.com/indraine/Runsheet#readme) for details.
 
-            **Full Changelog**: https://github.com/indraine/Runsheet/compare/v1.4.0...v1.5.0
+            **Full Changelog**: https://github.com/indraine/Runsheet/compare/v1.5.0...v1.5.1
           tauriScript: npm run tauri
           assetNamePattern: 'Runsheet-[version]-windows-[arch]-installer[ext]'
 

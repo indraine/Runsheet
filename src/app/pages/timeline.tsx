@@ -12,6 +12,7 @@ import {
     untrack,
 } from "solid-js"
 import { AdaptiveTabs } from "~/app/adaptive-tabs"
+import { CarName } from "~/app/car-name"
 import { homeLayout, showRightPane } from "~/app/home-layout"
 import { isGameOff, LaunchAccButton } from "~/app/launch-acc"
 import {
@@ -45,7 +46,7 @@ import {
     type SessionFilter,
     type SessionType,
 } from "~/domain"
-import { carName, fmt, t, trackName } from "~/i18n"
+import { fmt, t, trackName } from "~/i18n"
 import { cn } from "~/ui"
 import { DayNav, activeDayStart } from "~/app/pages/day-nav"
 import {
@@ -564,7 +565,7 @@ function ClosedCell(props: {
         case "car":
             return (
                 <td class="max-w-44 truncate px-4 py-2.5 text-sm text-secondary select-text">
-                    {carName(props.session.car)}
+                    <CarName code={props.session.car} />
                 </td>
             )
         case "best":

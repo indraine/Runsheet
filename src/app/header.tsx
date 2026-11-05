@@ -1,5 +1,6 @@
 import { A, useMatch } from "@solidjs/router"
 import { createEffect, onCleanup, onMount, Show, untrack } from "solid-js"
+import { CarName } from "~/app/car-name"
 import { GithubLink } from "~/app/github-link"
 import { LaunchAccButton } from "~/app/launch-acc"
 import { SettingsMenu } from "~/app/settings-menu"
@@ -35,7 +36,12 @@ export function Header() {
                         {analysisHeading().track ?? t("app.empty")}
                     </span>
                     <span class="min-w-0 truncate text-lg text-secondary">
-                        {analysisHeading().car ?? t("app.empty")}
+                        <Show
+                            when={analysisHeading().car}
+                            fallback={t("app.empty")}
+                        >
+                            {car => <CarName code={car()} />}
+                        </Show>
                     </span>
                 </Show>
             </div>

@@ -22,6 +22,7 @@ export type AccLink = {
 
 export type AnalysisHeading = {
     track: string | null
+    /** ACC model code, e.g. `porsche_992_gt3_r`. */
     car: string | null
 }
 
