@@ -21,6 +21,7 @@ import {
     ChevronRight,
     X,
 } from "lucide-solid"
+import { CarName } from "~/app/car-name"
 import { DayNav } from "~/app/pages/day-nav"
 import {
     screenMenuListClass,
@@ -264,7 +265,7 @@ export const TelemetryPage = () => {
         }
         setAnalysisHeading({
             track: trackName(choice.session.track),
-            car: carName(choice.session.car),
+            car: choice.session.car,
         })
     })
 
@@ -1216,7 +1217,7 @@ const LapChecklist = (props: {
                 {group => (
                     <li class="mb-1 last:mb-0">
                         <p class="px-2 pt-2 pb-1 text-sm tracking-wide text-muted">
-                            {groupLabel(group.session)}
+                            <GroupLabel session={group.session} />
                         </p>
                         <ul class="flex flex-col gap-0.5">
                             <For each={group.laps}>
@@ -1328,10 +1329,10 @@ const SelectedLaps = (props: {
                                     lapTone(index()).text
                                 )}
                             >
-                                {driverLabel(
-                                    choice.session.driver,
-                                    choice.session
-                                )}{" "}
+                                <DriverLabel
+                                    driver={choice.session.driver}
+                                    session={choice.session}
+                                />{" "}
                                 · L{choice.lap.number} ·{" "}
                                 {formatLapTime(choice.lap.timeMs)}
                             </span>
@@ -1534,10 +1535,10 @@ const LapPicker = (props: {
                                         chosen()?.session
                                     )}
                                 >
-                                    {driverLabel(
-                                        driver() ?? "",
-                                        chosen()?.session
-                                    )}
+                                    <DriverLabel
+                                        driver={driver() ?? ""}
+                                        session={chosen()?.session}
+                                    />
                                 </span>
                                 <span class="flex items-baseline gap-2 leading-5 whitespace-nowrap">
                                     <span class="text-sm font-semibold">
@@ -1569,7 +1570,9 @@ const LapPicker = (props: {
                                 {group => (
                                     <Select.ItemGroup class="mb-1.5 last:mb-0">
                                         <Select.ItemGroupLabel class="px-2 py-1.5 text-sm tracking-wide text-muted uppercase">
-                                            {groupLabel(group.session)}
+                                            <GroupLabel
+                                                session={group.session}
+                                            />
                                         </Select.ItemGroupLabel>
                                         <For each={group.choices}>
                                             {choice => (
@@ -1636,16 +1639,39 @@ const groupChoices = (
     return order.map(id => map.get(id)!)
 }
 
+/** Car code of a reference lap shown in place of a missing driver name. */
+const referenceCar = (driver: string, session?: Session): string | undefined =>
+    driver.trim() === "" && session && isReference(session)
+        ? session.car
+        : undefined
+
 const driverLabel = (driver: string, session?: Session): string => {
     if (driver.trim() !== "") return driver
-    if (session && isReference(session)) {
-        return `${t("app.telemetryReference")} · ${carName(session.car)}`
-    }
+    const car = referenceCar(driver, session)
+    if (car) return `${t("app.telemetryReference")} · ${carName(car)}`
     return t("app.telemetryPickDriverUnknown")
 }
 
-const groupLabel = (session: Session): string =>
-    `${driverLabel(session.driver, session)} · ${fmt.clock(session.startedAt)} · ${sessionTypeLabel(session.type)} · ${carName(session.car)}`
+const DriverLabel = (props: { driver: string; session?: Session }) => (
+    <Show
+        when={referenceCar(props.driver, props.session)}
+        fallback={driverLabel(props.driver, props.session)}
+    >
+        {car => (
+            <>
+                {t("app.telemetryReference")} · <CarName code={car()} />
+            </>
+        )}
+    </Show>
+)
+
+const GroupLabel = (props: { session: Session }) => (
+    <>
+        <DriverLabel driver={props.session.driver} session={props.session} />
+        {` · ${fmt.clock(props.session.startedAt)} · ${sessionTypeLabel(props.session.type)} · `}
+        <CarName code={props.session.car} />
+    </>
+)
 
 const choiceLabel = (
     lap: Lap,

@@ -62,6 +62,8 @@ const ru: typeof en = en
 
 const carDict: Record<Locale, typeof en> = { en, ru }
 
+export const CAR_CODES: readonly string[] = Object.keys(en)
+
 export function carName(code: string): string {
     const names: Record<string, string> = carDict[locale()]
     return names[code] ?? code

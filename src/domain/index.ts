@@ -1,3 +1,4 @@
+export { CAR_BRANDS, carBrand, type CarBrand } from "~/domain/car-brand"
 export {
     groupByDay,
     groupDay,

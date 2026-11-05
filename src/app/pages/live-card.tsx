@@ -22,6 +22,7 @@ import {
     type LiveSort,
     type LiveSortKey,
 } from "~/app/live-sort"
+import { CarName } from "~/app/car-name"
 import { liveClock } from "~/app/status"
 import { hasAsphalt } from "~/app/track-catalog"
 import { TrackView } from "~/app/track-view"
@@ -32,7 +33,7 @@ import {
     type SectorClock,
 } from "~/domain"
 import type { LiveClock } from "~/ipc/status"
-import { carName, fmt, t, trackCodes, trackName } from "~/i18n"
+import { fmt, t, trackCodes, trackName } from "~/i18n"
 import { locale } from "~/i18n/locale"
 import { cn } from "~/ui"
 
@@ -149,7 +150,7 @@ export const LiveCard = (props: { card: LiveCardModel | undefined }) => {
                             ·{" "}
                         </span>
                     </Show>
-                    {carName(card().session.car)}
+                    <CarName code={card().session.car} />
                 </p>
                 <div class="flex items-center gap-3">
                     <p class="text-[12px] text-secondary">

@@ -1,9 +1,12 @@
 import { flatten, resolveTemplate, translator } from "@solid-primitives/i18n"
-import { createMemo } from "solid-js"
+import { createMemo, createRoot } from "solid-js"
 import { appDict } from "~/i18n/app"
 import { locale } from "~/i18n/locale"
 
-const dict = createMemo(() => flatten({ app: appDict[locale()] }))
+// App-lifetime singleton: owned by a detached root so Solid doesn't warn about an ownerless memo.
+const dict = createRoot(() =>
+    createMemo(() => flatten({ app: appDict[locale()] }))
+)
 
 export const t = translator(dict, resolveTemplate)
 
